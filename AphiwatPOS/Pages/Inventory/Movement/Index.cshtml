@@ -1,0 +1,65 @@
+@page
+@model AphiwatPOS.Pages.Inventory.Movement.IndexModel
+@using AphiwatPOS.Pages.Inventory
+@{
+    ViewData["Title"] = "Stock Movement";
+    ViewData["Subtitle"] = "Track every stock change from sales, returns, purchases, adjustments, transfers, and stock counts.";
+    var movements = Model.Movements.Movements.ToArray();
+    var totalPages = InventoryUi.TotalPages(Model.Movements.TotalCount, Model.Movements.PageSize);
+    var movementTypes = new[] { "StockIn", "StockOut", "Sale", "Return", "PurchaseReceive", "AdjustmentIn", "AdjustmentOut", "TransferIn", "TransferOut", "StockCountCorrection" };
+}
+
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+<div class="page-header"><h1>Stock Movement</h1><p>Track every stock change from sales, returns, purchases, adjustments, transfers, and stock counts.</p></div>
+
+<div class="summary-grid">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-arrow-left-right"></i></span><div><div class="metric-label">Total movements</div><div class="metric-value">@Model.Movements.TotalCount</div><div class="metric-helper">Audit movement rows</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-arrow-down-circle"></i></span><div><div class="metric-label">Stock in quantity</div><div class="metric-value">@Model.StockInQty.ToString("N2")</div><div class="metric-helper">Inbound movements shown</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-arrow-up-circle"></i></span><div><div class="metric-label">Stock out quantity</div><div class="metric-value">@Model.StockOutQty.ToString("N2")</div><div class="metric-helper">Outbound movements shown</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-graph-up"></i></span><div><div class="metric-label">Net movement</div><div class="metric-value">@((Model.StockInQty - Model.StockOutQty).ToString("N2"))</div><div class="metric-helper">Inbound minus outbound</div></div></div>
+</div>
+
+<form method="get" class="filter-card mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-lg-3"><label class="form-label">Search</label><input asp-for="SearchText" class="form-control" placeholder="Product or reference number" /></div>
+        <div class="col-lg-2"><label class="form-label">Product</label><select asp-for="ProductId" class="form-select"><option value="">All</option>@foreach (var item in Model.Products) { <option value="@item.ProductId">@item.ProductName</option> }</select></div>
+        <div class="col-lg-2"><label class="form-label">Location</label><select asp-for="LocationId" class="form-select"><option value="">All</option>@foreach (var item in Model.Locations) { <option value="@item.LocationId">@item.LocationName</option> }</select></div>
+        <div class="col-lg-2"><label class="form-label">Movement type</label><select asp-for="MovementType" class="form-select"><option value="">All</option>@foreach (var type in movementTypes) { <option>@type</option> }</select></div>
+        <div class="col-lg-1"><label class="form-label">Date from</label><input asp-for="FromDate" type="date" class="form-control" /></div>
+        <div class="col-lg-1"><label class="form-label">Date to</label><input asp-for="ToDate" type="date" class="form-control" /></div>
+        <div class="col-lg-1 d-flex gap-2"><button class="btn btn-primary w-100" type="submit"><i class="bi bi-search"></i></button><a class="btn btn-outline-secondary" asp-page="./Index"><i class="bi bi-x-lg"></i></a></div>
+    </div>
+</form>
+
+<section class="data-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>Movement Date</th><th>Product</th><th>Location</th><th>Movement Type</th><th>Quantity</th><th>Reference No</th><th>Created By</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            @if (!movements.Any()) { <tr><td colspan="8"><div class="empty-state"><i class="bi bi-arrow-left-right"></i><div class="fw-semibold">No stock movements found</div><div>Movements appear after sales, adjustments, counts, transfers, or receives.</div></div></td></tr> }
+            @foreach (var movement in movements)
+            {
+                var outMovement = InventoryUi.IsOutMovement(movement.MovementType, movement.QuantitySigned);
+                <tr>
+                    <td>@movement.CreatedDate.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td><span class="fw-semibold d-block">@movement.ProductName</span><span class="text-muted small">@movement.ProductCode</span></td>
+                    <td>@movement.LocationName</td>
+                    <td><span class="badge status-badge @InventoryUi.StatusBadge(movement.MovementType)">@movement.MovementType</span></td>
+                    <td class="@(outMovement ? "text-danger" : "text-success") fw-bold">@movement.QuantitySigned.ToString("+0.##;-0.##;0")</td>
+                    <td>@(string.IsNullOrWhiteSpace(movement.ReferenceNo) ? "-" : movement.ReferenceNo)</td>
+                    <td>@(movement.CreatedByUserId?.ToString() ?? "-")</td>
+                    <td class="text-end"><button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#movementDetail-@movement.InventoryMovementId" type="button"><i class="bi bi-eye me-1"></i>View</button></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-3"><span class="text-muted">Total movements: @Model.Movements.TotalCount</span><div class="btn-group btn-group-sm"><a class="btn btn-outline-secondary @(Model.PageNumber <= 1 ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-ProductId="@Model.ProductId" asp-route-LocationId="@Model.LocationId" asp-route-MovementType="@Model.MovementType" asp-route-FromDate="@Model.FromDate" asp-route-ToDate="@Model.ToDate" asp-route-PageNumber="@(Model.PageNumber - 1)">Previous</a><span class="btn btn-outline-secondary disabled">@Model.PageNumber / @totalPages</span><a class="btn btn-outline-secondary @(Model.PageNumber >= totalPages ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-ProductId="@Model.ProductId" asp-route-LocationId="@Model.LocationId" asp-route-MovementType="@Model.MovementType" asp-route-FromDate="@Model.FromDate" asp-route-ToDate="@Model.ToDate" asp-route-PageNumber="@(Model.PageNumber + 1)">Next</a></div></div>
+</section>
+
+@foreach (var movement in movements)
+{
+    <div class="modal fade app-modal" id="movementDetail-@movement.InventoryMovementId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content"><div class="modal-header"><div><h2 class="modal-title h5">Movement Detail</h2><p class="modal-subtitle">Movement ID @movement.InventoryMovementId</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><dl class="row detail-list mb-0"><dt class="col-md-3">Movement ID</dt><dd class="col-md-3">@movement.InventoryMovementId</dd><dt class="col-md-3">Product</dt><dd class="col-md-3">@movement.ProductName</dd><dt class="col-md-3">Location</dt><dd class="col-md-3">@movement.LocationName</dd><dt class="col-md-3">Movement type</dt><dd class="col-md-3">@movement.MovementType</dd><dt class="col-md-3">Quantity</dt><dd class="col-md-3">@movement.QuantitySigned.ToString("N2")</dd><dt class="col-md-3">Reference type</dt><dd class="col-md-3">@movement.ReferenceType</dd><dt class="col-md-3">Reference ID</dt><dd class="col-md-3">@(movement.ReferenceId?.ToString() ?? "-")</dd><dt class="col-md-3">Reference No</dt><dd class="col-md-3">@movement.ReferenceNo</dd><dt class="col-md-3">Reason</dt><dd class="col-md-9">@movement.Reason</dd><dt class="col-md-3">Created by</dt><dd class="col-md-3">@(movement.CreatedByUserId?.ToString() ?? "-")</dd><dt class="col-md-3">Created date</dt><dd class="col-md-3">@movement.CreatedDate.ToString("yyyy-MM-dd HH:mm")</dd></dl></div></div></div>
+    </div>
+}

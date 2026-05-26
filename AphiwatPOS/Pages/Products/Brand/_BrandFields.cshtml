@@ -1,0 +1,13 @@
+@model ProductEngine.Models.ProductBrandModel?
+@{
+    var brandCode = Model?.BrandCode ?? ViewData["NextBrandCode"] as string ?? string.Empty;
+}
+<input type="hidden" name="Input.BrandId" value="@(Model?.BrandId ?? 0)" />
+<input type="hidden" name="Input.ExistingLogoUrl" value="@Model?.LogoUrl" />
+<div class="modal-form-grid">
+    <div><label class="form-label">Brand Code</label><input class="form-control" name="Input.BrandCode" value="@brandCode" readonly required /><div class="text-muted small mt-1">Generated automatically.</div></div>
+    <div><label class="form-label">Brand Name</label><input class="form-control" name="Input.BrandName" value="@Model?.BrandName" required /></div>
+    <div class="span-2"><label class="form-label">Description</label><textarea class="form-control" name="Input.Description" rows="3">@Model?.Description</textarea></div>
+    <div class="span-2"><label class="form-label">Logo upload</label><div class="d-flex gap-3 align-items-center"><div class="image-preview-box" data-image-preview="brand-@(Model?.BrandId ?? 0)">@if (!string.IsNullOrWhiteSpace(Model?.LogoUrl)) { <img src="@Model.LogoUrl" alt="@Model.BrandName" /> } else { <i class="bi bi-image"></i> }</div><input class="form-control" name="Input.LogoFile" type="file" accept=".jpg,.jpeg,.png,.webp" data-image-input="brand-@(Model?.BrandId ?? 0)" /></div></div>
+    <div class="span-2"><label class="form-check form-switch"><input class="form-check-input" name="Input.IsActive" type="checkbox" value="true" checked="@(Model?.IsActive ?? true)" /><input type="hidden" name="Input.IsActive" value="false" /><span class="form-check-label">Active</span></label></div>
+</div>

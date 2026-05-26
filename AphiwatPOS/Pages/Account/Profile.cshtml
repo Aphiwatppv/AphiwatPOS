@@ -1,0 +1,151 @@
+@page
+@model AphiwatPOS.Pages.Account.ProfileModel
+@{
+    ViewData["Title"] = "My Profile";
+    var roleNames = Model.Profile.Roles.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    var accountStatus = Model.Profile.IsLocked ? "Locked" : Model.Profile.IsActive ? "Active" : "Inactive";
+    var statusBadge = Model.Profile.IsLocked ? "badge-danger" : Model.Profile.IsActive ? "badge-success" : "badge-muted";
+}
+
+<div class="page-header">
+    <h1>My Profile</h1>
+    <p>Manage your POS identity, contact details, avatar, and password.</p>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <div class="alert alert-success">@Model.StatusMessage</div>
+}
+
+<div class="profile-layout">
+    <section class="profile-card profile-summary-card">
+        <div class="profile-hero">
+            <div class="profile-avatar-xl">
+                @if (!string.IsNullOrWhiteSpace(Model.Profile.ProfileImageUrl))
+                {
+                    <img src="@Model.Profile.ProfileImageUrl" alt="@Model.Profile.DisplayName" />
+                }
+                else
+                {
+                    <span>@Model.Profile.DisplayName.Take(1).FirstOrDefault()</span>
+                }
+            </div>
+            <div>
+                <h2>@Model.Profile.DisplayName</h2>
+                <p>@Model.Profile.Username</p>
+                <div class="role-badge-list">
+                    @foreach (var role in roleNames.DefaultIfEmpty("Staff"))
+                    {
+                        <span class="badge status-badge badge-success"><i class="bi bi-person-badge"></i>@role</span>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-mini-grid">
+            <div class="profile-mini-card">
+                <span class="metric-icon"><i class="bi bi-shield-check"></i></span>
+                <div>
+                    <div class="metric-label">Account Status</div>
+                    <span class="badge status-badge @statusBadge">@accountStatus</span>
+                </div>
+            </div>
+            <div class="profile-mini-card">
+                <span class="metric-icon"><i class="bi bi-clock-history"></i></span>
+                <div>
+                    <div class="metric-label">Last Login</div>
+                    <div class="fw-semibold">@(Model.Profile.LastLoginAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "Not recorded")</div>
+                </div>
+            </div>
+            <div class="profile-mini-card">
+                <span class="metric-icon"><i class="bi bi-calendar-check"></i></span>
+                <div>
+                    <div class="metric-label">Created</div>
+                    <div class="fw-semibold">@Model.Profile.CreatedAtUtc.ToString("yyyy-MM-dd")</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <form method="post" enctype="multipart/form-data" asp-page-handler="Profile" class="form-card profile-form-card">
+            <div class="card-heading">
+                <div>
+                    <h2>Profile Information</h2>
+                    <p>Update your display name, email, and profile image.</p>
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1"></i>Save Profile</button>
+            </div>
+
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2" role="alert"></div>
+            <input asp-for="Profile.ProfileImageUrl" type="hidden" />
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Username</label>
+                    <input value="@Model.Profile.Username" class="form-control" readonly />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Assigned Roles</label>
+                    <input value="@Model.Profile.Roles" class="form-control" readonly />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Profile.DisplayName" class="form-label fw-semibold"></label>
+                    <input asp-for="Profile.DisplayName" class="form-control" />
+                    <span asp-validation-for="Profile.DisplayName" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Profile.Email" class="form-label fw-semibold"></label>
+                    <input asp-for="Profile.Email" class="form-control" />
+                    <span asp-validation-for="Profile.Email" class="text-danger small"></span>
+                </div>
+                <div class="col-12">
+                    <label asp-for="Profile.ProfileImage" class="form-label fw-semibold"></label>
+                    <div class="upload-control">
+                        <i class="bi bi-cloud-arrow-up"></i>
+                        <input asp-for="Profile.ProfileImage" class="form-control" type="file" accept=".jpg,.jpeg,.png,.webp" />
+                    </div>
+                    <span asp-validation-for="Profile.ProfileImage" class="text-danger small"></span>
+                    <div class="text-muted small mt-1">JPG, PNG, or WebP. Maximum 2 MB.</div>
+                </div>
+            </div>
+        </form>
+
+        <form method="post" asp-page-handler="Password" class="form-card password-card" id="change-password">
+            <div class="card-heading">
+                <div>
+                    <h2>Change Password</h2>
+                    <p>Use a strong password for POS security.</p>
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-key me-1"></i>Change Password</button>
+            </div>
+
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2" role="alert"></div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label asp-for="Password.CurrentPassword" class="form-label fw-semibold"></label>
+                    <input asp-for="Password.CurrentPassword" class="form-control" />
+                    <span asp-validation-for="Password.CurrentPassword" class="text-danger small"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Password.NewPassword" class="form-label fw-semibold"></label>
+                    <input asp-for="Password.NewPassword" class="form-control" data-password-strength-input />
+                    <span asp-validation-for="Password.NewPassword" class="text-danger small"></span>
+                    <div class="password-strength mt-2" aria-hidden="true">
+                        <span data-password-strength-bar></span>
+                    </div>
+                    <div class="text-muted small mt-1" data-password-strength-text>Enter at least 8 characters.</div>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Password.ConfirmPassword" class="form-label fw-semibold"></label>
+                    <input asp-for="Password.ConfirmPassword" class="form-control" />
+                    <span asp-validation-for="Password.ConfirmPassword" class="text-danger small"></span>
+                </div>
+            </div>
+        </form>
+    </section>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

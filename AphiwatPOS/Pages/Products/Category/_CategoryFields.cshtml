@@ -1,0 +1,13 @@
+@model ProductEngine.Models.ProductCategoryModel?
+@{
+    var categoryCode = Model?.CategoryCode ?? ViewData["NextCategoryCode"] as string ?? string.Empty;
+}
+<input type="hidden" name="Input.CategoryId" value="@(Model?.CategoryId ?? 0)" />
+<div class="modal-form-grid">
+    <div><label class="form-label">Category Code</label><input class="form-control" name="Input.CategoryCode" value="@categoryCode" readonly required /><div class="text-muted small mt-1">Generated automatically.</div></div>
+    <div><label class="form-label">Category Name</label><input class="form-control" name="Input.CategoryName" value="@Model?.CategoryName" required /></div>
+    <div><label class="form-label">Display Order</label><input class="form-control" name="Input.DisplayOrder" type="number" value="@(Model?.DisplayOrder ?? 0)" /></div>
+    <div class="d-flex align-items-end"><label class="form-check form-switch"><input class="form-check-input" name="Input.IsActive" type="checkbox" value="true" checked="@(Model?.IsActive ?? true)" /><input type="hidden" name="Input.IsActive" value="false" /><span class="form-check-label">Active</span></label></div>
+    <div class="span-2"><label class="form-label">Description</label><textarea class="form-control" name="Input.Description" rows="3">@Model?.Description</textarea></div>
+</div>
+<div class="alert alert-danger py-2 mt-3 d-none" data-validation-area>Duplicate category code or name will be shown here.</div>

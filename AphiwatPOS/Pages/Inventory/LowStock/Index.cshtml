@@ -1,0 +1,54 @@
+@page
+@model AphiwatPOS.Pages.Inventory.LowStock.IndexModel
+@using AphiwatPOS.Pages.Inventory
+@{
+    ViewData["Title"] = "Low Stock Products";
+    ViewData["Subtitle"] = "Review products that need restocking or stock attention.";
+    var rows = Model.StockRows.ToArray();
+    var totalPages = InventoryUi.TotalPages(Model.Stocks.TotalCount, Model.Stocks.PageSize);
+}
+
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="page-header"><h1>Low Stock Products</h1><p>Review products that need restocking or stock attention.</p></div>
+
+<div class="summary-grid">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-exclamation-triangle"></i></span><div><div class="metric-label">Low stock products</div><div class="metric-value">@rows.Count(r => r.StockStatus == "Low Stock")</div><div class="metric-helper">At or below minimum</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-x-octagon"></i></span><div><div class="metric-label">Out of stock products</div><div class="metric-value">@rows.Count(r => r.StockStatus == "Out of Stock")</div><div class="metric-helper">Zero or negative stock</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-geo-alt"></i></span><div><div class="metric-label">Affected locations</div><div class="metric-value">@rows.Select(r => r.LocationId).Distinct().Count()</div><div class="metric-helper">Locations needing attention</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-cash-stack"></i></span><div><div class="metric-label">Estimated reorder value</div><div class="metric-value">@Model.EstimatedReorderValue.ToString("N2")</div><div class="metric-helper">Shortage quantity by cost</div></div></div>
+</div>
+
+<form method="get" class="filter-card mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-lg-3"><label class="form-label">Search product</label><input asp-for="SearchText" class="form-control" placeholder="Code, barcode, SKU, or name" /></div>
+        <div class="col-lg-2"><label class="form-label">Location</label><select asp-for="LocationId" class="form-select"><option value="">All</option>@foreach (var item in Model.Locations) { <option value="@item.LocationId">@item.LocationName</option> }</select></div>
+        <div class="col-lg-2"><label class="form-label">Category</label><select asp-for="CategoryId" class="form-select"><option value="">All</option>@foreach (var item in Model.Categories) { <option value="@item.CategoryId">@item.CategoryName</option> }</select></div>
+        <div class="col-lg-2"><label class="form-label">Brand</label><select asp-for="BrandId" class="form-select"><option value="">All</option>@foreach (var item in Model.Brands) { <option value="@item.BrandId">@item.BrandName</option> }</select></div>
+        <div class="col-lg-2"><label class="form-label">Stock status</label><select asp-for="StockStatus" class="form-select"><option>Low Stock</option><option>Out of Stock</option></select></div>
+        <div class="col-lg-1 d-flex gap-2"><button class="btn btn-primary w-100" type="submit"><i class="bi bi-search"></i></button><a class="btn btn-outline-secondary" asp-page="./Index"><i class="bi bi-x-lg"></i></a></div>
+    </div>
+</form>
+
+<section class="data-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>Product</th><th>Location</th><th>Current Qty</th><th>Minimum Stock</th><th>Shortage Qty</th><th>Unit</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            @if (!rows.Any())
+            {
+                <tr><td colspan="8"><div class="empty-state"><i class="bi bi-check-circle"></i><div class="fw-semibold">No low stock products</div><div>All tracked products are above their minimum stock level.</div></div></td></tr>
+            }
+            @foreach (var row in rows)
+            {
+                <tr class="@(row.StockStatus == "Out of Stock" ? "inventory-row-danger" : "inventory-row-warning")">
+                    <td><div class="d-flex align-items-center gap-2"><span class="product-thumb">@if (!string.IsNullOrWhiteSpace(row.ProductImageUrl)) { <img src="@row.ProductImageUrl" alt="@row.ProductName" /> } else { <i class="bi bi-box-seam"></i> }</span><span><span class="fw-semibold d-block">@row.ProductName</span><span class="text-muted small">@row.ProductCode</span></span></div></td>
+                    <td>@row.LocationName</td><td class="fw-bold">@row.CurrentStock.ToString("N2")</td><td>@row.MinimumStockLevel.ToString("N2")</td><td><span class="badge status-badge @(row.StockStatus == "Out of Stock" ? "badge-danger" : "badge-warning")">@row.ShortageQty.ToString("N2")</span></td><td>@row.UnitName</td><td><span class="badge status-badge @InventoryUi.StatusBadge(row.StockStatus)">@row.StockStatus</span></td>
+                    <td class="text-end"><div class="dropdown"><button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" type="button">Action</button><div class="dropdown-menu dropdown-menu-end action-menu"><a class="dropdown-item" asp-page="/Products/Product/Index" asp-route-SearchText="@row.ProductCode"><i class="bi bi-box-seam"></i>View Product</a><a class="dropdown-item" asp-page="/Inventory/Movement/Index" asp-route-ProductId="@row.ProductId" asp-route-LocationId="@row.LocationId"><i class="bi bi-arrow-left-right"></i>View Movement</a><a class="dropdown-item @(Model.CanAdjust ? "" : "disabled")" asp-page="/Inventory/Adjustment/Index" asp-route-LocationId="@row.LocationId"><i class="bi bi-sliders"></i>Create Adjustment</a><button class="dropdown-item disabled" type="button"><i class="bi bi-bag-plus"></i>Create Purchase Request later</button></div></div></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-3"><span class="text-muted">Total rows: @Model.Stocks.TotalCount</span><div class="btn-group btn-group-sm"><a class="btn btn-outline-secondary @(Model.PageNumber <= 1 ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-LocationId="@Model.LocationId" asp-route-CategoryId="@Model.CategoryId" asp-route-BrandId="@Model.BrandId" asp-route-StockStatus="@Model.StockStatus" asp-route-PageNumber="@(Model.PageNumber - 1)">Previous</a><span class="btn btn-outline-secondary disabled">@Model.PageNumber / @totalPages</span><a class="btn btn-outline-secondary @(Model.PageNumber >= totalPages ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-LocationId="@Model.LocationId" asp-route-CategoryId="@Model.CategoryId" asp-route-BrandId="@Model.BrandId" asp-route-StockStatus="@Model.StockStatus" asp-route-PageNumber="@(Model.PageNumber + 1)">Next</a></div></div>
+</section>

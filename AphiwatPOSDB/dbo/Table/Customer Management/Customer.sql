@@ -1,0 +1,25 @@
+﻿CREATE TABLE [dbo].[Customer]
+(
+    CustomerId INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Customer PRIMARY KEY,
+    CustomerCode NVARCHAR(50) NOT NULL,
+    CustomerName NVARCHAR(255) NOT NULL,
+    PhoneNumber NVARCHAR(50) NOT NULL,
+    Email NVARCHAR(255) NULL,
+    MemberLevelId INT NULL,
+    DateOfBirth DATE NULL,
+    Gender NVARCHAR(20) NULL,
+    Address NVARCHAR(1000) NULL,
+    TotalSpending DECIMAL(18,2) NOT NULL CONSTRAINT DF_Customer_TotalSpending DEFAULT(0),
+    TotalPurchaseCount INT NOT NULL CONSTRAINT DF_Customer_TotalPurchaseCount DEFAULT(0),
+    LastPurchaseDate DATETIME2 NULL,
+    IsActive BIT NOT NULL CONSTRAINT DF_Customer_IsActive DEFAULT(1),
+    CreatedDate DATETIME2 NOT NULL CONSTRAINT DF_Customer_CreatedDate DEFAULT(SYSDATETIME()),
+    CreatedByUserId INT NOT NULL,
+    UpdatedDate DATETIME2 NULL,
+    UpdatedByUserId INT NULL,
+    CONSTRAINT UQ_Customer_CustomerCode UNIQUE(CustomerCode),
+    CONSTRAINT UQ_Customer_PhoneNumber UNIQUE(PhoneNumber),
+    CONSTRAINT FK_Customer_MemberLevel FOREIGN KEY(MemberLevelId) REFERENCES dbo.MemberLevel(MemberLevelId),
+    CONSTRAINT CK_Customer_TotalValues CHECK (TotalSpending >= 0 AND TotalPurchaseCount >= 0),
+    CONSTRAINT CK_Customer_Gender CHECK (Gender IS NULL OR Gender IN (N'Male',N'Female',N'Other',N'Unspecified'))
+);

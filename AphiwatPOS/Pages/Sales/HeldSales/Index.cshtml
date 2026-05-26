@@ -1,0 +1,51 @@
+@page
+@model AphiwatPOS.Pages.Sales.HeldSales.IndexModel
+@using AphiwatPOS.Pages.Sales
+@{
+    ViewData["Title"] = "Held Sales";
+    ViewData["Subtitle"] = "Manage saved carts that are waiting to be resumed or completed.";
+    var rows = Model.HeldSales.HeldSales.ToArray();
+    var totalPages = SalesPageHelpers.TotalPages(Model.HeldSales.TotalCount, Model.HeldSales.PageSize);
+}
+
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div><h1>Held Sales</h1><p>Manage saved carts that are waiting to be resumed or completed.</p></div>
+    <a class="btn btn-primary" asp-page="/Sales/POSCheckout/Index"><i class="bi bi-cart-check me-1"></i>POS Checkout</a>
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-pause-circle"></i></span><div><div class="metric-label">Held sales</div><div class="metric-value">@rows.Count(x => x.Status == "Held")</div><div class="metric-helper">Waiting carts</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-play-circle"></i></span><div><div class="metric-label">Resumed sales</div><div class="metric-value">@rows.Count(x => x.Status == "Resumed")</div><div class="metric-helper">Opened again</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-x-circle"></i></span><div><div class="metric-label">Cancelled sales</div><div class="metric-value">@rows.Count(x => x.Status == "Cancelled")</div><div class="metric-helper">No stock changes</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-hourglass-split"></i></span><div><div class="metric-label">Expired sales</div><div class="metric-value">@rows.Count(x => x.Status == "Expired")</div><div class="metric-helper">Past hold policy</div></div></div>
+</div>
+
+<form method="get" class="filter-card mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-lg-4"><label class="form-label">Search</label><input asp-for="SearchText" class="form-control" placeholder="Held sale no, customer, or note" /></div>
+        <div class="col-lg-2"><label class="form-label">Date from</label><input asp-for="FromDate" class="form-control" type="date" /></div>
+        <div class="col-lg-2"><label class="form-label">Date to</label><input asp-for="ToDate" class="form-control" type="date" /></div>
+        <div class="col-lg-1"><label class="form-label">Cashier</label><input asp-for="CashierUserId" class="form-control" type="number" /></div>
+        <div class="col-lg-2"><label class="form-label">Status</label><select asp-for="Status" class="form-select"><option value="">All</option><option>Held</option><option>Resumed</option><option>Cancelled</option><option>Expired</option><option>Completed</option></select></div>
+        <div class="col-lg-1 d-flex gap-2"><button class="btn btn-primary w-100" type="submit"><i class="bi bi-search"></i></button><a class="btn btn-outline-secondary" asp-page="./Index"><i class="bi bi-x-lg"></i></a></div>
+    </div>
+</form>
+
+<section class="data-card">
+    <div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Held Sale No</th><th>Held Date</th><th>Cashier</th><th>Customer / Note</th><th>Item Count</th><th>Estimated Total</th><th>Status</th><th class="text-end">Action</th></tr></thead><tbody>
+    @if (!rows.Any()) { <tr><td colspan="8"><div class="empty-state"><i class="bi bi-pause-circle"></i><div class="fw-semibold">No held sales found</div><div>Held carts will appear here without reducing stock.</div></div></td></tr> }
+    @foreach (var row in rows)
+    {
+        <tr><td><span class="code-badge mono">@row.HeldSaleNo</span></td><td>@row.HeldDate.ToString("yyyy-MM-dd HH:mm")</td><td>@row.CashierName</td><td><div>@(row.CustomerName ?? "Walk-in")</div><div class="text-muted small">@row.Note</div></td><td><span class="text-muted">View detail</span></td><td><strong>@row.EstimatedNetAmount.ToString("N2")</strong></td><td><span class="badge status-badge @SalesPageHelpers.StatusBadge(row.Status)">@row.Status</span></td><td class="text-end"><div class="dropdown"><button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" type="button">Action</button><div class="dropdown-menu dropdown-menu-end action-menu"><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#heldDetail-@row.HeldSaleHeaderId" type="button"><i class="bi bi-eye"></i>View Detail</button><form method="post" asp-page-handler="ResumeHeldSale"><input type="hidden" asp-for="ActionInput.HeldSaleHeaderId" value="@row.HeldSaleHeaderId" /><button class="dropdown-item @(row.Status is "Held" or "Resumed" ? "" : "disabled")" type="submit"><i class="bi bi-play-circle"></i>Resume</button></form><button class="dropdown-item text-danger @(row.Status is "Held" or "Resumed" ? "" : "disabled")" data-bs-toggle="modal" data-bs-target="#cancelHeld-@row.HeldSaleHeaderId" type="button"><i class="bi bi-x-circle"></i>Cancel</button><a class="dropdown-item @(row.Status is "Held" or "Resumed" ? "" : "disabled")" asp-page="/Sales/POSCheckout/Index" asp-route-HeldSaleHeaderId="@row.HeldSaleHeaderId"><i class="bi bi-check-circle"></i>Complete</a></div></div></td></tr>
+    }
+    </tbody></table></div>
+    <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-3"><span class="text-muted">Total rows: @Model.HeldSales.TotalCount</span><div class="btn-group btn-group-sm"><a class="btn btn-outline-secondary @(Model.PageNumber <= 1 ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-FromDate="@Model.FromDate" asp-route-ToDate="@Model.ToDate" asp-route-CashierUserId="@Model.CashierUserId" asp-route-Status="@Model.Status" asp-route-PageNumber="@(Model.PageNumber - 1)">Previous</a><span class="btn btn-outline-secondary disabled">@Model.PageNumber / @totalPages</span><a class="btn btn-outline-secondary @(Model.PageNumber >= totalPages ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-FromDate="@Model.FromDate" asp-route-ToDate="@Model.ToDate" asp-route-CashierUserId="@Model.CashierUserId" asp-route-Status="@Model.Status" asp-route-PageNumber="@(Model.PageNumber + 1)">Next</a></div></div>
+</section>
+
+@foreach (var row in rows)
+{
+    <div class="modal fade app-modal" id="heldDetail-@row.HeldSaleHeaderId" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content"><div class="modal-header"><div><h2 class="modal-title h5">Held Sale Detail</h2><p class="modal-subtitle">@row.HeldSaleNo</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><dl class="row detail-list"><dt class="col-md-3">Held date</dt><dd class="col-md-3">@row.HeldDate.ToString("yyyy-MM-dd HH:mm")</dd><dt class="col-md-3">Cashier</dt><dd class="col-md-3">@row.CashierName</dd><dt class="col-md-3">Customer</dt><dd class="col-md-3">@(row.CustomerName ?? "Walk-in")</dd><dt class="col-md-3">Status</dt><dd class="col-md-3"><span class="badge status-badge @SalesPageHelpers.StatusBadge(row.Status)">@row.Status</span></dd><dt class="col-md-3">Estimated subtotal</dt><dd class="col-md-3">@row.EstimatedSubtotalAmount.ToString("N2")</dd><dt class="col-md-3">Estimated discount</dt><dd class="col-md-3">@row.EstimatedDiscountAmount.ToString("N2")</dd><dt class="col-md-3">Estimated tax</dt><dd class="col-md-3">@row.EstimatedTaxAmount.ToString("N2")</dd><dt class="col-md-3">Estimated net</dt><dd class="col-md-3">@row.EstimatedNetAmount.ToString("N2")</dd><dt class="col-md-3">Note</dt><dd class="col-md-9">@row.Note</dd></dl><div class="alert alert-warning mb-0"><i class="bi bi-info-circle me-1"></i>Held sales do not reduce stock until completed through POS checkout.</div></div><div class="modal-footer"><a class="btn btn-primary @(row.Status is "Held" or "Resumed" ? "" : "disabled")" asp-page="/Sales/POSCheckout/Index" asp-route-HeldSaleHeaderId="@row.HeldSaleHeaderId">Resume Sale</a><button class="btn btn-outline-danger @(row.Status is "Held" or "Resumed" ? "" : "disabled")" data-bs-toggle="modal" data-bs-target="#cancelHeld-@row.HeldSaleHeaderId" type="button">Cancel Held Sale</button><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Close</button></div></div></div></div>
+    <div class="modal fade app-modal" id="cancelHeld-@row.HeldSaleHeaderId" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="CancelHeldSale" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Cancel Held Sale</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input type="hidden" asp-for="ActionInput.HeldSaleHeaderId" value="@row.HeldSaleHeaderId" /><label class="form-label required">Cancel reason</label><textarea asp-for="ActionInput.Reason" class="form-control" rows="3" required></textarea></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-outline-danger" type="submit">Confirm Cancel</button></div></form></div></div>
+}

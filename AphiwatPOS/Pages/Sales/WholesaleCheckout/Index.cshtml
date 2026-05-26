@@ -1,0 +1,1342 @@
+@page
+@model AphiwatPOS.Pages.Sales.WholesaleCheckout.IndexModel
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Wholesale Checkout";
+    ViewData["Subtitle"] = "Scan products, sell wholesale quantities, accept payment, and complete sales.";
+    var products = Model.Products.ToArray();
+    var paymentMethods = Model.PaymentMethods.ToArray();
+    var wholesaleCustomers = Model.WholesaleCustomers.ToArray();
+    var creditMethod = Model.CreditPaymentMethod;
+    var promptPayQrUrl = Url.Page("./Index", "PromptPayQr");
+    var customerSearchUrl = Url.Page("./Index", "SearchCustomers");
+    var customerValidateUrl = Url.Page("./Index", "ValidateCustomer");
+    var customerDisplayUrl = Url.Page("/Sales/CustomerDisplay/Index");
+    var heldItems = Model.HeldSale?.Items.Select(item => new { item.ProductId, LocationId = Model.LocationId, item.Quantity, item.UnitPrice, item.ItemDiscountAmount, item.TaxAmount, ProductName = item.ProductNameSnapshot, ProductCode = item.ProductCodeSnapshot, UnitSymbol = item.UnitSymbolSnapshot, CurrentStock = 999999m, ProductImageUrl = string.Empty, WholesaleMinQty = 1m }).ToArray() ?? Array.Empty<object>();
+    var lastSaleNo = TempData["LastSaleNo"] as string;
+    var cashierName = User.FindFirst("DisplayName")?.Value ?? User.Identity?.Name ?? "Cashier";
+    var serverErrorMessage = Model.ErrorMessage;
+}
+
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div><h1>Wholesale Checkout</h1><p>Verify customer/member first, then scan products and complete wholesale sale.</p></div>
+    <a class="btn btn-outline-secondary" asp-page="/Sales/HeldSales/Index"><i class="bi bi-pause-circle me-1"></i>Held Sales</a>
+</div>
+
+<section class="wholesale-verify-panel" data-wholesale-gate>
+    <div class="verify-main">
+        <span class="verify-step">Step 1</span>
+        <h2>Select customer/member</h2>
+        <p>Ask for phone number, member code, customer name, tax ID, or company/shop name before starting the wholesale cart.</p>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-person-search"></i></span>
+            <input class="form-control" data-gate-customer-search placeholder="Phone, member code, customer name, tax ID, or company/shop name" autocomplete="off" />
+            <button class="btn btn-outline-primary" type="button" data-gate-search>Search</button>
+        </div>
+        <div class="verify-results" data-gate-results>
+            @foreach (var customer in wholesaleCustomers.Take(8))
+            {
+                <button class="verify-result-card" type="button"
+                        data-gate-customer="@customer.CustomerId"
+                        data-name="@customer.CustomerName"
+                        data-phone="@customer.PhoneNumber"
+                        data-code="@customer.MemberCode"
+                        data-level="@customer.MemberLevel"
+                        data-type="@customer.CustomerType"
+                        data-wholesale-allowed="@customer.IsWholesaleAllowed.ToString().ToLowerInvariant()"
+                        data-credit-limit="@customer.CreditLimit"
+                        data-available-credit="@customer.AvailableCredit"
+                        data-outstanding="@customer.OutstandingBalance"
+                        data-payment-terms="@customer.PaymentTerms"
+                        data-discount-condition="@customer.DiscountCondition"
+                        data-tax-id="@customer.TaxId"
+                        data-address="@customer.Address"
+                        data-credit-status="@customer.CreditStatus">
+                    <span><strong>@customer.CustomerName</strong><small>@customer.PhoneNumber | @customer.MemberCode</small></span>
+                    <span class="status-badge @(customer.IsWholesaleAllowed ? "badge-success" : "badge-warning")">@customer.CustomerType</span>
+                </button>
+            }
+        </div>
+        <div class="verify-not-found d-none" data-gate-not-found>
+            <strong>No customer found</strong>
+            <div class="verify-actions mt-2">
+                <a class="btn btn-primary" asp-page="/Customer/CustomerList/Index" asp-route-mode="create"><i class="bi bi-person-plus me-1"></i>Register New Wholesale Customer</a>
+                @if (Model.AllowWalkInWholesale)
+                {
+                    <button class="btn btn-outline-warning" type="button" data-gate-walkin><i class="bi bi-shop me-1"></i>Continue as Walk-in Wholesale Customer</button>
+                }
+                <a class="btn btn-outline-secondary" asp-page="/Index">Cancel</a>
+            </div>
+        </div>
+    </div>
+    <aside class="verify-detail" data-gate-detail>
+        <span class="verify-step">Selected customer</span>
+        <h3 data-gate-detail-name>No customer selected</h3>
+        <div class="verify-detail-grid">
+            <div><span>Phone</span><strong data-gate-detail-phone>-</strong></div>
+            <div><span>Member level</span><strong data-gate-detail-level>-</strong></div>
+            <div><span>Customer type</span><strong data-gate-detail-type>-</strong></div>
+            <div><span>Wholesale permission</span><strong data-gate-detail-permission>-</strong></div>
+            <div><span>Available credit</span><strong data-gate-detail-credit>0.00</strong></div>
+            <div><span>Outstanding balance</span><strong data-gate-detail-outstanding>0.00</strong></div>
+            <div><span>Payment terms</span><strong data-gate-detail-terms>-</strong></div>
+            <div><span>Discount</span><strong data-gate-detail-discount>-</strong></div>
+            <div><span>Tax ID</span><strong data-gate-detail-tax>-</strong></div>
+            <div><span>Address</span><strong data-gate-detail-address>-</strong></div>
+        </div>
+        <div class="alert alert-warning d-none mt-3 mb-0" data-gate-warning></div>
+        <button class="btn btn-primary w-100 mt-3" type="button" data-gate-continue disabled><i class="bi bi-arrow-right-circle me-1"></i>Continue to Wholesale Sale</button>
+    </aside>
+</section>
+
+<div class="pos-shell wholesale-pos-locked" data-pos-root>
+    <section class="pos-products">
+        <div class="filter-card pos-scan-card">
+            <div class="row g-3 align-items-end">
+                <div class="col-lg-6">
+                    <label class="form-label">Barcode scan</label>
+                    <div class="input-group"><span class="input-group-text"><i class="bi bi-upc-scan"></i></span><input class="form-control" data-barcode-input autofocus placeholder="Scan barcode and press Enter" /></div>
+                </div>
+                <div class="col-lg-6">
+                    <label class="form-label">Product search</label>
+                    <input class="form-control" value="@Model.SearchText" data-product-search placeholder="Search name, code, or barcode" />
+                </div>
+                <input value="@Model.LocationId" data-location-id type="hidden" />
+            </div>
+            <div class="chip-row mt-3">
+                <button class="filter-chip active" type="button" data-stock-filter="all">All</button>
+                <button class="filter-chip" type="button" data-stock-filter="in">In stock</button>
+                <button class="filter-chip" type="button" data-stock-filter="low">Low stock</button>
+                <button class="filter-chip" type="button" data-stock-filter="out">Out of stock</button>
+            </div>
+        </div>
+
+        <div class="product-grid mt-3" data-product-grid>
+            @if (!products.Any())
+            {
+                <div class="data-card empty-state pos-empty"><i class="bi bi-search"></i><div class="fw-semibold">No products found</div><div>Try a different scan or search term.</div></div>
+            }
+            @foreach (var product in products)
+            {
+                var stockStatus = !product.IsStockTracked ? "service" : product.CurrentStock <= 0 ? "out" : product.CurrentStock <= 5 ? "low" : "in";
+                <button class="product-card @(stockStatus == "out" ? "disabled" : "")" type="button"
+                        data-product-card data-stock-status="@stockStatus"
+                        data-product-id="@product.ProductId" data-location-id="@Model.LocationId" data-name="@product.ProductName"
+                        data-code="@product.ProductCode" data-barcode="@product.Barcode" data-price="@product.SellingPrice" data-wholesale-min="@product.WholesaleMinQty"
+                        data-tax-rate="@product.TaxRate" data-unit="@product.UnitSymbol" data-stock="@product.CurrentStock" data-image="@product.ProductImageUrl"
+                        data-active="@product.IsActive.ToString().ToLowerInvariant()" data-stock-tracked="@product.IsStockTracked.ToString().ToLowerInvariant()" data-status="@product.Status"
+                        @(stockStatus == "out" ? "disabled" : "")>
+                    <span class="product-art">
+                        @if (!string.IsNullOrWhiteSpace(product.ProductImageUrl))
+                        {
+                            <img src="@product.ProductImageUrl" alt="@product.ProductName" />
+                        }
+                        else
+                        {
+                            <i class="bi bi-box-seam"></i>
+                        }
+                    </span>
+                    <span class="product-name">@product.ProductName</span>
+                    <span class="product-code">@product.ProductCode</span>
+                    <span class="product-meta"><strong>@product.SellingPrice.ToString("N2")</strong><span>@product.UnitSymbol · Min @product.WholesaleMinQty.ToString("N0")</span></span>
+                    @if (stockStatus == "out") { <span class="badge status-badge badge-danger">Out of stock</span> }
+                    else if (stockStatus == "low") { <span class="badge status-badge badge-warning">Low @product.CurrentStock.ToString("N0")</span> }
+                    else { <span class="badge status-badge badge-success">Stock @product.CurrentStock.ToString("N0")</span> }
+                </button>
+            }
+        </div>
+    </section>
+
+    <aside class="cart-panel" data-cart-panel>
+        <div class="cart-hero">
+            <div class="cart-icon-wrap">
+                <i class="bi bi-cart-check-fill"></i>
+                <span class="cart-count-badge" data-cart-count>0</span>
+            </div>
+            <div class="min-w-0">
+                <h2>Current Cart</h2>
+                <p>Review items before payment</p>
+            </div>
+            <div class="cart-total" data-net-total>0.00</div>
+        </div>
+
+        <div class="cart-section">
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                <label class="form-label mb-0">Member customer?</label>
+                <div class="btn-group btn-group-sm" role="group" aria-label="Member customer">
+                    <input class="btn-check" id="memberNo" name="memberChoice" type="radio" checked data-member-no>
+                    <label class="btn btn-outline-secondary" for="memberNo">No</label>
+                    <input class="btn-check" id="memberYes" name="memberChoice" type="radio" data-member-yes>
+                    <label class="btn btn-outline-secondary" for="memberYes">Yes</label>
+                </div>
+            </div>
+            <div class="member-lookup d-none" data-member-lookup>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="bi bi-person-search"></i></span>
+                    <input class="form-control" data-customer-search placeholder="Enter member phone number or name" autocomplete="off" />
+                </div>
+                <div class="small text-muted mt-1" data-customer-match>Ask for phone number or name, then select the member.</div>
+            </div>
+            <select class="form-select d-none mt-2" data-customer-id>
+                <option value="">Walk-in customer</option>
+                @foreach (var customer in wholesaleCustomers)
+                {
+                    var canUseCredit = customer.CreditLimit > 0 && customer.AvailableCredit > 0 && !customer.CreditStatus.Equals("Blocked", StringComparison.OrdinalIgnoreCase);
+                    <option value="@customer.CustomerId"
+                            data-name="@customer.CustomerName"
+                            data-phone="@customer.PhoneNumber"
+                            data-code="@customer.MemberCode"
+                            data-level="@customer.MemberLevel"
+                            data-type="@customer.CustomerType"
+                            data-wholesale-allowed="@customer.IsWholesaleAllowed.ToString().ToLowerInvariant()"
+                            data-allow-credit="@canUseCredit.ToString().ToLowerInvariant()"
+                            data-credit-limit="@customer.CreditLimit"
+                            data-used-credit="@customer.OutstandingBalance"
+                            data-available-credit="@customer.AvailableCredit"
+                            data-credit-status="@customer.CreditStatus"
+                            data-payment-terms="@customer.PaymentTerms"
+                            data-discount-condition="@customer.DiscountCondition"
+                            data-tax-id="@customer.TaxId"
+                            data-address="@customer.Address"
+                            data-require-approval="false">
+                        @customer.CustomerName - @customer.PhoneNumber (@customer.MemberCode)
+                    </option>
+                }
+            </select>
+            <div class="selected-member-card d-none mt-2" data-selected-member>
+                <span class="selected-member-icon"><i class="bi bi-person-check-fill"></i></span>
+                <div class="min-w-0">
+                    <strong data-selected-customer-name>Member selected</strong>
+                    <div class="small text-muted" data-selected-customer-meta></div>
+                </div>
+            </div>
+            <div class="customer-credit-panel d-none mt-2" data-credit-panel>
+                <div class="summary-line"><span>Member level</span><strong data-credit-level>-</strong></div>
+                <div class="summary-line"><span>Credit limit</span><strong data-credit-limit>0.00</strong></div>
+                <div class="summary-line"><span>Used credit</span><strong data-credit-used>0.00</strong></div>
+                <div class="summary-line"><span>Credit status</span><strong data-credit-status>Good</strong></div>
+                <div class="summary-line"><span>Available credit</span><strong data-credit-available>0.00</strong></div>
+                <div class="credit-progress" aria-label="Customer credit usage">
+                    <span data-credit-progress></span>
+                </div>
+                <div class="credit-fit-message small mt-2" data-credit-fit-message>Choose a member to review credit for this sale.</div>
+                <button class="btn btn-warning w-100 mt-2" type="button" data-use-credit disabled><i class="bi bi-credit-card me-1"></i>Use Credit</button>
+                <div class="alert alert-warning py-2 mt-2 mb-0 d-none" data-credit-note>
+                    <i class="bi bi-exclamation-triangle me-1"></i><span data-credit-note-text>This sale will increase used credit. Customer must repay this amount later.</span>
+                </div>
+                <div class="text-warning small d-none" data-credit-warning><i class="bi bi-exclamation-triangle me-1"></i>Manager approval may be required for this customer.</div>
+            </div>
+            @if (!Model.Customers.Any())
+            {
+                <div class="text-muted small mt-2">No active members found. Continue as walk-in customer.</div>
+            }
+        </div>
+
+        <div class="cart-items" data-cart-items>
+            <div class="empty-state empty-cart">
+                <i class="bi bi-cart-x"></i>
+                <div class="fw-semibold">Your cart is empty</div>
+                <div>Scan barcode or select products to start a wholesale sale.</div>
+            </div>
+        </div>
+
+        <div class="cart-section payment-summary-card">
+            <div class="payment-summary-head">
+                <div>
+                    <div class="summary-kicker">Payment Summary</div>
+                    <strong>Review totals</strong>
+                </div>
+                <span class="payment-status-pill due" data-cart-payment-badge>Balance Due</span>
+            </div>
+            <div class="summary-line"><span>Subtotal</span><strong data-subtotal>0.00</strong></div>
+            <div class="summary-line"><span>Item discount</span><strong data-item-discount>0.00</strong></div>
+            <div class="summary-line align-items-center"><span>Order discount</span><input class="form-control form-control-sm text-end" data-order-discount type="number" min="0" step="0.01" value="0" @(Model.CanDiscount ? "" : "disabled") /></div>
+            <div class="summary-line"><span>Product VAT</span><strong data-line-tax>0.00</strong></div>
+            <div class="summary-line align-items-center"><span>Additional tax</span><input class="form-control form-control-sm text-end" data-tax-amount type="number" min="0" step="0.01" value="0" /></div>
+            <div class="summary-divider"></div>
+            <div class="summary-line total summary-net-row"><span>Net amount</span><strong data-net>0.00</strong></div>
+            <div class="summary-divider"></div>
+            <div class="summary-line credit-summary-row"><span><i class="bi bi-credit-card me-1"></i>Customer credit used</span><strong data-credit-used-sale>0.00</strong></div>
+            <div class="summary-line"><span>Other payment amount</span><strong data-other-paid>0.00</strong></div>
+            <div class="summary-line remaining-row" data-remaining-row><span>Remaining balance</span><strong data-remaining>0.00</strong></div>
+            <div class="summary-line"><span>Paid amount</span><strong data-paid>0.00</strong></div>
+            <div class="summary-line change-row" data-change-row><span>Change</span><strong data-change>0.00</strong></div>
+        </div>
+
+        <div class="cart-section">
+            <label class="form-label">Payment method</label>
+            @if (!paymentMethods.Any())
+            {
+                <div class="empty-state py-3"><i class="bi bi-credit-card"></i><div>No payment methods found</div></div>
+            }
+            <div class="payment-method-grid">
+                @foreach (var method in paymentMethods)
+                {
+                    var isCredit = creditMethod?.PaymentMethodId == method.PaymentMethodId;
+                    var isPromptPay = method.PaymentMethodCode.Equals("QR", StringComparison.OrdinalIgnoreCase) || method.PaymentMethodName.Contains("QR", StringComparison.OrdinalIgnoreCase);
+                    <button class="payment-method-card @(method.IsCash ? "active" : "") @(isCredit ? "d-none" : "")" type="button" data-payment-method="@method.PaymentMethodId" data-require-ref="@method.RequireReferenceNo.ToString().ToLowerInvariant()" data-is-cash="@method.IsCash.ToString().ToLowerInvariant()" data-is-credit="@isCredit.ToString().ToLowerInvariant()" data-is-promptpay="@isPromptPay.ToString().ToLowerInvariant()">
+                        <i class="bi @(method.IsCash ? "bi-cash-stack" : isCredit ? "bi-person-vcard" : isPromptPay ? "bi-qr-code" : "bi-credit-card")"></i><span>@(isCredit ? "Use Credit" : method.PaymentMethodName)</span>
+                    </button>
+                }
+            </div>
+            <div class="row g-2 mt-2">
+                <div class="col-7"><input class="form-control" data-payment-amount type="number" min="0" step="0.01" placeholder="Payment amount" /></div>
+                <div class="col-5"><input class="form-control" data-payment-ref placeholder="Reference no" /></div>
+                <div class="col-12"><button class="btn btn-outline-secondary w-100" type="button" data-add-payment><i class="bi bi-plus-lg me-1"></i>Add Payment</button></div>
+            </div>
+            <div class="promptpay-panel d-none mt-3" data-promptpay-panel data-promptpay-url="@promptPayQrUrl">
+                <div class="d-flex align-items-center justify-content-between gap-2">
+                    <div>
+                        <strong><i class="bi bi-qr-code me-1"></i>PromptPay QR</strong>
+                        <div class="small text-muted">Generate QR for the remaining balance.</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-secondary" type="button" data-open-customer-display>
+                            Display
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" type="button" data-generate-promptpay>
+                            Generate
+                        </button>
+                    </div>
+                </div>
+                <div class="promptpay-preview d-none" data-promptpay-preview>
+                    <div class="promptpay-qr-box" data-promptpay-svg></div>
+                    <img class="d-none" alt="PromptPay QR Code" data-promptpay-image />
+                    <div class="promptpay-meta">
+                        <strong data-promptpay-amount>0.00</strong>
+                        <span data-promptpay-name>PromptPay</span>
+                    </div>
+                </div>
+                <div class="alert alert-danger d-none py-2 mt-2 mb-0" data-promptpay-error></div>
+            </div>
+            <div class="payment-list mt-2" data-payment-list></div>
+        </div>
+
+        <div class="cart-actions">
+            <button class="btn btn-primary btn-lg w-100" type="button" data-bs-toggle="modal" data-bs-target="#paymentConfirmModal"><i class="bi bi-bag-check me-1"></i>Pay Now</button>
+            <button class="btn btn-warning w-100" type="button" data-bs-toggle="modal" data-bs-target="#holdSaleModal"><i class="bi bi-pause-circle me-1"></i>Hold Sale</button>
+            <button class="btn btn-outline-danger w-100" type="button" data-bs-toggle="modal" data-bs-target="#clearCartModal"><i class="bi bi-trash me-1"></i>Clear Cart</button>
+        </div>
+    </aside>
+</div>
+
+<button class="floating-cart-btn" type="button" data-mobile-cart><i class="bi bi-cart4"></i><span data-cart-count-mobile>0</span></button>
+
+<form method="post" asp-page-handler="CompleteSale" data-complete-form>
+    <input type="hidden" asp-for="Input.CustomerId" data-post-customer />
+    <input type="hidden" asp-for="Input.HeldSaleHeaderId" value="@Model.HeldSaleHeaderId" />
+    <input type="hidden" asp-for="Input.OrderDiscountAmount" data-post-discount />
+    <input type="hidden" asp-for="Input.TaxAmount" data-post-tax />
+    <input type="hidden" asp-for="Input.ItemsJson" data-post-items />
+    <input type="hidden" asp-for="Input.PaymentsJson" data-post-payments />
+</form>
+<form method="post" asp-page-handler="HoldSale" data-hold-form>
+    <input type="hidden" asp-for="Input.CustomerId" data-hold-customer />
+    <input type="hidden" asp-for="Input.TaxAmount" data-hold-tax />
+    <input type="hidden" asp-for="Input.ItemsJson" data-hold-items />
+    <input type="hidden" asp-for="Input.HoldNote" data-hold-note />
+</form>
+
+<div class="modal fade app-modal" id="paymentConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered payment-review-dialog">
+        <div class="modal-content payment-review-modal">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title h5">Confirm Payment</h2>
+                    <p class="modal-subtitle">Review payment details before completing this sale.</p>
+                </div>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <section class="payment-review-hero">
+                    <div>
+                        <span class="review-label">Net Amount</span>
+                        <strong data-modal-net-large>฿0.00</strong>
+                        <div class="review-helper" data-modal-status-text>Waiting for payment</div>
+                    </div>
+                    <span class="review-status-badge due" data-payment-status-badge>Balance Due</span>
+                </section>
+                <div class="review-meta-grid">
+                    <div><span>Customer</span><strong data-modal-customer>Walk-in</strong></div>
+                    <div><span>Items</span><strong data-modal-items>0 items</strong></div>
+                </div>
+                <h3 class="review-section-title">Payment Breakdown</h3>
+                <div class="payment-breakdown">
+                    <div class="breakdown-row net"><span>Net Amount</span><strong data-modal-net>0.00</strong></div>
+                    <div class="breakdown-row credit"><span><i class="bi bi-credit-card me-1"></i>Customer Credit Used</span><strong data-modal-credit>0.00</strong></div>
+                    <div class="breakdown-row"><span>Other Payments</span><strong data-modal-other-paid>0.00</strong></div>
+                    <div class="breakdown-row remaining" data-modal-remaining-row><span>Remaining Balance</span><strong data-modal-remaining>0.00</strong></div>
+                    <div class="breakdown-row paid"><span>Paid Amount</span><strong data-modal-paid>0.00</strong></div>
+                    <div class="breakdown-row change" data-modal-change-row><span>Change Amount</span><strong data-modal-change>0.00</strong></div>
+                </div>
+                <div class="review-info success d-none" data-credit-paid-info>
+                    <i class="bi bi-credit-card"></i>
+                    <span>This sale is fully paid using customer credit. No cash payment is required.</span>
+                </div>
+                <div class="review-info warning d-none" data-credit-debt-warning>
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <span>Customer credit used in this sale will become customer debt and must be repaid later.</span>
+                </div>
+                <div class="review-info danger d-none" data-payment-incomplete-warning>
+                    <i class="bi bi-x-circle"></i>
+                    <span>Payment is incomplete. Remaining balance must be paid before completing sale.</span>
+                </div>
+                <div class="review-info neutral">
+                    <i class="bi bi-receipt"></i>
+                    <span>Invoice/receipt will be available after payment confirmation.</span>
+                </div>
+                <div class="alert alert-danger d-none mt-3" data-payment-error></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button>
+                <button class="btn btn-primary" data-confirm-pay type="button"><i class="bi bi-check-circle me-1"></i>Confirm Payment</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade app-modal" id="holdSaleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Hold Sale</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><label class="form-label">Hold note</label><textarea class="form-control" data-hold-note-input rows="3" placeholder="Customer name, reason, or pickup note"></textarea><div class="summary-line total mt-3"><span>Estimated total</span><strong data-hold-total>0.00</strong></div></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-warning" data-confirm-hold type="button">Confirm Hold</button></div></div></div>
+</div>
+<div class="modal fade app-modal" id="clearCartModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Clear Cart</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><p class="mb-0">Clear all items, discounts, and payments from the current cart?</p></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-outline-danger" data-clear-cart type="button">Clear Cart</button></div></div></div>
+</div>
+<div class="modal fade app-modal" id="saleResultModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content payment-result-modal" data-sale-result-modal>
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title h5" data-sale-result-title>Payment Result</h2>
+                    <p class="modal-subtitle" data-sale-result-subtitle>Review the sale status.</p>
+                </div>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <div class="payment-result-icon" data-sale-result-icon><i class="bi bi-info-circle"></i></div>
+                <div class="review-meta-grid mt-3">
+                    <div><span>Sale / Invoice No</span><strong data-result-sale-no>-</strong></div>
+                    <div><span>Sale Date & Time</span><strong data-result-sale-date>-</strong></div>
+                    <div><span>Customer</span><strong data-result-customer>Walk-in Customer</strong></div>
+                    <div><span>Cashier</span><strong data-result-cashier>-</strong></div>
+                    <div><span>Payment Method</span><strong data-result-payment-method>-</strong></div>
+                    <div><span>Total Items</span><strong data-result-items>0</strong></div>
+                </div>
+                <div class="payment-breakdown mt-3">
+                    <div class="breakdown-row"><span>Subtotal</span><strong data-result-subtotal>0.00</strong></div>
+                    <div class="breakdown-row"><span>Discount</span><strong data-result-discount>0.00</strong></div>
+                    <div class="breakdown-row"><span>Tax / VAT</span><strong data-result-tax>0.00</strong></div>
+                    <div class="breakdown-row net"><span>Grand Total</span><strong data-result-net>0.00</strong></div>
+                    <div class="breakdown-row paid"><span>Paid Amount</span><strong data-result-paid>0.00</strong></div>
+                    <div class="breakdown-row remaining" data-result-remaining-row><span>Remaining Balance</span><strong data-result-remaining>0.00</strong></div>
+                    <div class="breakdown-row change" data-result-change-row><span>Change Amount</span><strong data-result-change>0.00</strong></div>
+                    <div class="breakdown-row credit"><span>Customer Credit Used</span><strong data-result-credit-used>0.00</strong></div>
+                    <div class="breakdown-row credit"><span>Remaining Customer Credit</span><strong data-result-credit-remaining>0.00</strong></div>
+                </div>
+                <div class="alert mt-3 mb-0" data-sale-result-message></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" data-result-print-invoice type="button"><i class="bi bi-printer me-1"></i>Print Invoice</button>
+                <a class="btn btn-primary" data-result-new-sale asp-page="./Index"><i class="bi bi-plus-circle me-1"></i>New Sale</a>
+                <a class="btn btn-outline-secondary" data-result-view-detail asp-page="/Sales/SalesHistory/Index"><i class="bi bi-eye me-1"></i>View Sale Detail</a>
+                <button class="btn btn-outline-secondary" data-result-close data-bs-dismiss="modal" type="button">Close</button>
+                <button class="btn btn-warning d-none" data-result-try-again data-bs-dismiss="modal" type="button">Try Again</button>
+                <button class="btn btn-outline-primary d-none" data-result-edit-payment data-bs-dismiss="modal" type="button">Edit Payment</button>
+                <button class="btn btn-outline-warning d-none" data-result-hold-sale data-bs-target="#holdSaleModal" data-bs-toggle="modal" type="button">Hold Sale</button>
+                <button class="btn btn-outline-danger d-none" data-result-cancel data-bs-dismiss="modal" type="button">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade app-modal" id="insufficientStockModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Insufficient Stock</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><p><strong data-stock-product></strong> cannot be added in that quantity.</p><dl class="row mb-0"><dt class="col-6">Current stock</dt><dd class="col-6" data-stock-current></dd><dt class="col-6">Requested quantity</dt><dd class="col-6" data-stock-requested></dd></dl></div></div></div>
+</div>
+<div class="modal fade app-modal" id="insufficientCreditModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Insufficient Credit</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><p><strong data-credit-modal-customer></strong> does not have enough available credit to cover the full sale.</p><div class="summary-line"><span>Available credit</span><strong data-credit-modal-available>0.00</strong></div><div class="summary-line"><span>Net amount</span><strong data-credit-modal-net>0.00</strong></div><div class="summary-line total"><span>Remaining balance</span><strong data-credit-modal-remaining>0.00</strong></div></div><div class="modal-footer"><button class="btn btn-warning" type="button" data-use-partial-credit>Use Partial Credit</button><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Select Another Payment</button><button class="btn btn-outline-danger" data-bs-dismiss="modal" type="button">Cancel</button></div></div></div>
+</div>
+<div class="modal fade app-modal" id="receiptPreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content print-area">
+            <div class="modal-header no-print">
+                <div>
+                    <h2 class="modal-title h5">Receipt / Invoice Preview</h2>
+                    <p class="modal-subtitle">Print the sale document after successful payment.</p>
+                </div>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body receipt-preview-body" data-receipt-body></div>
+            <div class="modal-footer no-print">
+                <button class="btn btn-outline-secondary" data-print-receipt type="button"><i class="bi bi-printer me-1"></i>Print Receipt</button>
+                <button class="btn btn-outline-secondary" data-print-invoice type="button"><i class="bi bi-file-earmark-text me-1"></i>Print Invoice</button>
+                <a class="btn btn-primary" asp-page="./Index"><i class="bi bi-plus-circle me-1"></i>New Sale</a>
+                <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.wholesale-verify-panel{background:#fff;border:1px solid var(--pos-border);box-shadow:var(--pos-shadow);display:grid;gap:18px;grid-template-columns:minmax(0,1.15fr)minmax(320px,.85fr);margin-bottom:18px;padding:18px}.verify-step{color:var(--pos-primary);font-size:.78rem;font-weight:900;text-transform:uppercase}.verify-main h2,.verify-detail h3{font-size:1.25rem;font-weight:900;margin:.2rem 0}.verify-main p{color:var(--pos-muted);margin-bottom:14px}.verify-results{display:grid;gap:8px;margin-top:12px;max-height:260px;overflow:auto}.verify-result-card{align-items:center;background:#fff;border:1px solid var(--pos-border);display:flex;gap:10px;justify-content:space-between;padding:10px;text-align:left}.verify-result-card.active,.verify-result-card:hover{background:var(--pos-primary-soft);border-color:var(--pos-primary)}.verify-result-card small{color:var(--pos-muted);display:block}.verify-detail{background:#f8fafc;border:1px solid var(--pos-border);padding:14px}.verify-detail-grid{display:grid;gap:8px;grid-template-columns:1fr 1fr}.verify-detail-grid div{background:#fff;border:1px solid var(--pos-border);padding:8px}.verify-detail-grid span{color:var(--pos-muted);display:block;font-size:.74rem;font-weight:800}.verify-detail-grid strong{display:block;overflow-wrap:anywhere}.verify-actions{display:flex;flex-wrap:wrap;gap:8px}.wholesale-pos-locked{filter:grayscale(.15);opacity:.45;pointer-events:none}.pos-shell{display:grid;grid-template-columns:minmax(0,1fr)390px;gap:18px}.pos-products{min-width:0}.pos-scan-card{position:sticky;top:82px;z-index:5}.chip-row{display:flex;flex-wrap:wrap;gap:8px}.filter-chip{background:#fff;border:1px solid var(--pos-border);color:var(--pos-muted);font-weight:800;padding:7px 11px}.filter-chip.active,.filter-chip:hover{background:var(--pos-primary-soft);border-color:#a7f3d0;color:var(--pos-primary-hover)}.product-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}.product-card{background:#fff;border:1px solid var(--pos-border);box-shadow:var(--pos-shadow);color:var(--pos-text);display:grid;gap:6px;min-height:172px;padding:12px;text-align:left;transition:.16s}.product-card:hover{border-color:var(--pos-primary);box-shadow:var(--pos-shadow-hover);transform:translateY(-2px)}.product-card.disabled{opacity:.58;pointer-events:none}.product-art{align-items:center;background:var(--pos-primary-soft);border:1px solid #a7f3d0;color:var(--pos-primary);display:flex;height:54px;justify-content:center;overflow:hidden;width:54px}.product-art img,.cart-item-thumb img{display:block;height:100%;object-fit:cover;object-position:center;width:100%}.product-name{font-weight:800;line-height:1.2}.product-code,.product-meta span{color:var(--pos-muted);font-size:.82rem}.product-meta{align-items:center;display:flex;justify-content:space-between}.product-meta strong{color:var(--pos-primary-hover);font-size:1.05rem}.cart-panel{align-self:start;background:#fff;border:1px solid var(--pos-border);box-shadow:var(--pos-shadow-hover);padding:16px;position:sticky;top:82px}.cart-hero{align-items:center;border-bottom:1px solid var(--pos-border);display:grid;gap:12px;grid-template-columns:64px minmax(0,1fr)auto;padding-bottom:14px}.cart-hero:hover .cart-icon-wrap{transform:translateY(-1px)}.cart-icon-wrap{align-items:center;background:linear-gradient(135deg,#059669,#10b981);box-shadow:0 14px 28px rgba(5,150,105,.25);color:#fff;display:flex;font-size:1.65rem;height:60px;justify-content:center;position:relative;transition:.16s;width:60px;border-radius:999px!important}.cart-count-badge,.floating-cart-btn span{animation:pulseCart 1.5s infinite;background:#dc2626;color:#fff;font-size:.74rem;font-weight:900;min-width:22px;padding:2px 6px;position:absolute;right:-4px;top:-5px;text-align:center;border-radius:999px!important}.cart-hero h2{font-size:1.05rem;font-weight:900;margin:0}.cart-hero p{color:var(--pos-muted);margin:2px 0 0}.cart-total{color:var(--pos-primary-hover);font-size:1.3rem;font-weight:900}.cart-section{border-bottom:1px solid var(--pos-border);padding:13px 0}.customer-credit-panel{background:var(--pos-primary-soft);border:1px solid #a7f3d0;padding:10px}.selected-member-card{align-items:center;background:#f8fafc;border:1px solid var(--pos-border);display:flex;gap:10px;padding:10px}.selected-member-icon{align-items:center;background:var(--pos-primary-soft);color:var(--pos-primary);display:flex;height:34px;justify-content:center;width:34px;border-radius:999px!important}.cart-items{max-height:310px;overflow:auto}.cart-item{border:1px solid var(--pos-border);display:grid;gap:8px;margin-bottom:8px;padding:10px}.cart-item.flash{background:var(--pos-primary-soft)}.cart-item-title{display:grid;gap:8px;grid-template-columns:38px minmax(0,1fr)auto}.cart-item-thumb{align-items:center;background:var(--pos-primary-soft);border:1px solid #a7f3d0;color:var(--pos-primary);display:flex;height:38px;justify-content:center;overflow:hidden;width:38px}.qty-control{display:flex;gap:4px}.qty-control input{max-width:70px;text-align:center}.summary-line{display:flex;gap:10px;justify-content:space-between;margin:8px 0}.summary-line input{max-width:126px}.summary-line.total{border-top:0;font-size:1.08rem;font-weight:900;padding-top:0}.payment-method-grid{display:grid;gap:8px;grid-template-columns:repeat(2,minmax(0,1fr))}.payment-method-card{align-items:center;background:#fff;border:1px solid var(--pos-border);display:flex;gap:8px;min-height:42px;padding:9px;position:relative}.payment-method-card.active,.payment-method-card:hover{background:var(--pos-primary-soft);border-color:var(--pos-primary);color:var(--pos-primary-hover)}.payment-method-card.active:after{align-items:center;background:var(--pos-primary);color:#fff;content:"\F26E";display:flex;font-family:"bootstrap-icons";font-size:.7rem;height:18px;justify-content:center;position:absolute;right:6px;top:6px;width:18px;border-radius:999px}.payment-method-card[data-is-credit=true]{background:#fffbeb;border-color:#fde68a;color:#92400e}.payment-method-card[data-is-credit=true].active{border-color:var(--pos-warning);box-shadow:0 10px 24px rgba(245,158,11,.16)}.payment-row{align-items:center;background:#f8fafc;border:1px solid var(--pos-border);display:flex;gap:8px;justify-content:space-between;margin-top:6px;padding:8px}.payment-row.credit-chip{background:#fffbeb;border-color:#f59e0b;color:#92400e}.cart-actions{display:grid;gap:8px;padding-top:14px}.floating-cart-btn{display:none}.pos-empty{grid-column:1/-1}.payment-summary-card{background:#fff;border:1px solid var(--pos-border);box-shadow:0 12px 28px rgba(15,23,42,.06);margin-top:12px;padding:12px}.payment-summary-head{align-items:center;display:flex;justify-content:space-between;margin-bottom:8px}.summary-kicker{color:var(--pos-muted);font-size:.72rem;font-weight:900;letter-spacing:.02em;text-transform:uppercase}.payment-status-pill,.review-status-badge{border:1px solid transparent;font-size:.75rem;font-weight:900;padding:5px 9px;border-radius:999px}.payment-status-pill.paid,.review-status-badge.paid{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.payment-status-pill.due,.review-status-badge.due{background:#fef2f2;border-color:#fecaca;color:#dc2626}.payment-status-pill.credit,.review-status-badge.credit{background:#fffbeb;border-color:#fde68a;color:#92400e}.summary-divider{border-top:1px dashed var(--pos-border);margin:10px 0}.summary-net-row strong{color:var(--pos-primary-hover);font-size:1.28rem}.credit-summary-row{background:#fffbeb;border:1px solid #fde68a;color:#92400e;margin-inline:-4px;padding:7px}.remaining-row{font-size:1.03rem;font-weight:900}.remaining-row.paid strong{color:#047857}.remaining-row.due strong{color:#dc2626}.change-row.has-change{background:#ecfdf5;border:1px solid #a7f3d0;margin-inline:-4px;padding:7px}.credit-progress{background:#d1fae5;height:8px;overflow:hidden;border-radius:999px}.credit-progress span{background:linear-gradient(90deg,#f59e0b,#dc2626);display:block;height:100%;width:0}.credit-fit-message.enough{color:#047857}.credit-fit-message.not-enough{color:#b45309}.payment-review-dialog{max-width:740px}.payment-review-modal{border:0;box-shadow:0 28px 70px rgba(15,23,42,.22)}.payment-review-hero{align-items:start;background:linear-gradient(135deg,#ecfdf5,#fff);border:1px solid #a7f3d0;display:flex;gap:16px;justify-content:space-between;margin-bottom:12px;padding:18px}.review-label{color:var(--pos-muted);display:block;font-size:.78rem;font-weight:900;text-transform:uppercase}.payment-review-hero strong{color:#047857;display:block;font-size:2.35rem;line-height:1.1}.review-helper{color:var(--pos-muted);font-weight:700;margin-top:4px}.review-meta-grid{display:grid;gap:10px;grid-template-columns:1fr 1fr;margin-bottom:16px}.review-meta-grid div{background:#f8fafc;border:1px solid var(--pos-border);padding:10px}.review-meta-grid span{color:var(--pos-muted);display:block;font-size:.78rem;font-weight:800}.review-meta-grid strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.review-section-title{font-size:.84rem;font-weight:900;margin:0 0 8px;text-transform:uppercase}.payment-breakdown{border:1px solid var(--pos-border)}.breakdown-row{align-items:center;display:flex;gap:14px;justify-content:space-between;padding:12px 14px}.breakdown-row+.breakdown-row{border-top:1px solid var(--pos-border)}.breakdown-row span{color:var(--pos-muted);font-weight:800}.breakdown-row strong{font-size:1.12rem}.breakdown-row.net strong,.breakdown-row.paid strong{color:#0f172a;font-size:1.28rem}.breakdown-row.credit{background:#fffbeb}.breakdown-row.credit strong{color:#92400e}.breakdown-row.remaining.paid{background:#ecfdf5}.breakdown-row.remaining.paid strong{color:#047857}.breakdown-row.remaining.due{background:#fef2f2}.breakdown-row.remaining.due strong{color:#dc2626}.breakdown-row.change.has-change{background:#ecfdf5}.review-info{align-items:flex-start;border:1px solid var(--pos-border);display:flex;gap:10px;margin-top:10px;padding:10px}.review-info.success{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.review-info.warning{background:#fffbeb;border-color:#f59e0b;color:#92400e}.review-info.danger{background:#fef2f2;border-color:#fecaca;color:#b91c1c}.review-info.neutral{background:#f8fafc;color:#475569}.receipt-preview-body{background:#f8fafc}.receipt-document{background:#fff;border:1px solid var(--pos-border);box-shadow:0 18px 42px rgba(15,23,42,.08);color:#0f172a;margin:auto;max-width:860px;padding:24px}.receipt-header{align-items:flex-start;border-bottom:2px solid #0f172a;display:flex;justify-content:space-between;margin-bottom:18px;padding-bottom:14px}.receipt-brand{font-size:1.45rem;font-weight:900}.receipt-title{text-align:right;text-transform:uppercase}.receipt-grid{display:grid;gap:14px;grid-template-columns:1fr 1fr;margin-bottom:18px}.receipt-box{border:1px solid #cbd5e1;padding:12px}.receipt-box h4{font-size:.8rem;font-weight:900;margin:0 0 8px;text-transform:uppercase}.receipt-table{font-size:.92rem}.receipt-table th{background:#f8fafc;border-bottom:1px solid #cbd5e1}.receipt-summary{margin-left:auto;max-width:360px}.receipt-summary .summary-line{border-bottom:1px solid #e2e8f0;margin:0;padding:7px 0}.receipt-credit-note{background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-top:14px;padding:10px}.receipt-thanks{text-align:center;font-weight:800;margin-top:18px}@@keyframes pulseCart{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}@@media(max-width:1100px){.wholesale-verify-panel{grid-template-columns:1fr}.pos-shell{grid-template-columns:1fr}.cart-panel{bottom:0;left:0;max-height:84vh;overflow:auto;position:fixed;right:0;top:auto;transform:translateY(calc(100% - 76px));transition:.2s;z-index:2040}.cart-panel.open{transform:translateY(0)}.floating-cart-btn{align-items:center;background:var(--pos-primary);border:0;bottom:22px;box-shadow:0 18px 34px rgba(5,150,105,.28);color:#fff;display:flex;font-size:1.35rem;height:58px;justify-content:center;position:fixed;right:22px;width:58px;z-index:2045;border-radius:999px!important}.floating-cart-btn span{right:-2px;top:-6px}}@@media(max-width:700px){.verify-detail-grid{grid-template-columns:1fr}.product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cart-hero{grid-template-columns:58px minmax(0,1fr)}.cart-total{grid-column:1/-1}.payment-method-grid{grid-template-columns:1fr}.payment-review-dialog{margin:.5rem;max-width:none}.payment-review-hero,.receipt-header{display:block}.review-meta-grid,.receipt-grid{grid-template-columns:1fr}.payment-review-hero strong{font-size:1.85rem}}@@media print{body *{visibility:hidden!important}#receiptPreviewModal,#receiptPreviewModal *{visibility:visible!important}#receiptPreviewModal{display:block!important;inset:0;position:absolute}.modal-backdrop,.no-print,.app-sidebar,.app-topbar,.page-header,.pos-shell,.floating-cart-btn{display:none!important}.modal-dialog,.modal-content,.modal-body{box-shadow:none!important;margin:0!important;max-width:none!important;padding:0!important;width:auto!important}.receipt-preview-body{background:#fff!important}.receipt-document{border:0!important;box-shadow:none!important;color:#000!important;margin:0!important;max-width:none!important;padding:0!important}.receipt-table th{background:#fff!important;color:#000!important}body[data-print-mode=receipt] .receipt-document{font-size:11px;width:80mm}body[data-print-mode=receipt] .receipt-header,body[data-print-mode=receipt] .receipt-grid{display:block}body[data-print-mode=receipt] .receipt-box{border:0;border-bottom:1px dashed #000;padding:6px 0}body[data-print-mode=receipt] .receipt-table{font-size:10px}body[data-print-mode=invoice] .receipt-document{font-size:13px;width:190mm}.receipt-table tr{break-inside:avoid;page-break-inside:avoid}}
+.payment-method-card[data-is-promptpay=true]{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}.payment-method-card[data-is-promptpay=true].active{border-color:#2563eb;box-shadow:0 10px 24px rgba(37,99,235,.14)}.promptpay-panel{background:#f8fafc;border:1px solid #bfdbfe;padding:10px}.promptpay-preview{align-items:center;display:flex;gap:12px;margin-top:10px}.promptpay-preview img,.promptpay-qr-box{background:#fff;border:1px solid var(--pos-border);height:132px;padding:8px;width:132px}.promptpay-qr-box svg{display:block;height:100%;width:100%}.promptpay-meta{display:grid;gap:4px}.promptpay-meta strong{color:#1d4ed8;font-size:1.35rem}.promptpay-meta span{color:var(--pos-muted);font-size:.85rem}.payment-result-modal.success .modal-header{background:#ecfdf5;border-color:#a7f3d0}.payment-result-modal.fail .modal-header{background:#fef2f2;border-color:#fecaca}.payment-result-icon{align-items:center;border-radius:999px!important;display:flex;font-size:2rem;height:62px;justify-content:center;margin:auto;width:62px}.payment-result-modal.success .payment-result-icon{background:#dcfce7;color:#047857}.payment-result-modal.fail .payment-result-icon{background:#fee2e2;color:#dc2626}
+</style>
+
+@section Scripts {
+<script>
+(() => {
+  const root = document.querySelector('[data-pos-root]');
+  if (!root) return;
+  const products = [...document.querySelectorAll('[data-product-card]')];
+  let cart = @Html.Raw(JsonSerializer.Serialize(heldItems, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+  let payments = [];
+  let activeMethod = document.querySelector('[data-payment-method].active') || document.querySelector('[data-payment-method]');
+  const money = v => Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const round4 = v => Math.round((Number(v || 0) + Number.EPSILON) * 10000) / 10000;
+  const by = s => document.querySelector(s);
+  const lastSaleNo = @Html.Raw(JsonSerializer.Serialize(lastSaleNo));
+  const cashierName = @Html.Raw(JsonSerializer.Serialize(cashierName));
+  const initialBarcode = @Html.Raw(JsonSerializer.Serialize(Model.Barcode));
+  const promptPayQrUrl = @Html.Raw(JsonSerializer.Serialize(promptPayQrUrl));
+  const customerSearchUrl = @Html.Raw(JsonSerializer.Serialize(customerSearchUrl));
+  const customerValidateUrl = @Html.Raw(JsonSerializer.Serialize(customerValidateUrl));
+  const customerDisplayUrl = @Html.Raw(JsonSerializer.Serialize(customerDisplayUrl));
+  const customerDisplayChannelName = 'aphiwatpos-customer-display';
+  const customerDisplayStorageKey = 'aphiwatpos:customer-display';
+  const customerDisplayChannel = 'BroadcastChannel' in window ? new BroadcastChannel(customerDisplayChannelName) : null;
+  const terminalStorageKey = 'aphiwatpos:terminal-id';
+  const terminalId = (() => {
+    try {
+      let id = localStorage.getItem(terminalStorageKey);
+      if (!id) {
+        id = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+        localStorage.setItem(terminalStorageKey, id);
+      }
+      return id;
+    } catch {
+      return 'default';
+    }
+  })();
+  let wholesaleCustomerVerified = false;
+  let selectedGateCustomer = null;
+  let displaySocket = null;
+  let displayInvocationId = 0;
+  const cartPanel = by('[data-cart-panel]');
+  const serverErrorMessage = @Html.Raw(JsonSerializer.Serialize(serverErrorMessage));
+  function lineTax(item) {
+    if (item.taxRate === null || item.taxRate === undefined || Number.isNaN(Number(item.taxRate))) return Number(item.taxAmount || 0);
+    const taxable = Math.max(0, (Number(item.quantity || 0) * Number(item.unitPrice || 0)) - Number(item.itemDiscountAmount || 0));
+    return round4(taxable * (Number(item.taxRate || 0) / 100));
+  }
+  function syncLineTaxes() {
+    cart.forEach(item => { item.taxAmount = lineTax(item); });
+  }
+  function text(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
+  function gateCustomerFromElement(el) {
+    return {
+      customerId: Number(el.dataset.gateCustomer || 0),
+      customerName: el.dataset.name || '',
+      phoneNumber: el.dataset.phone || '',
+      memberCode: el.dataset.code || '',
+      memberLevel: el.dataset.level || 'Standard',
+      customerType: el.dataset.type || 'Retail',
+      isWholesaleAllowed: el.dataset.wholesaleAllowed === 'true',
+      creditLimit: Number(el.dataset.creditLimit || 0),
+      availableCredit: Number(el.dataset.availableCredit || 0),
+      outstandingBalance: Number(el.dataset.outstanding || 0),
+      paymentTerms: el.dataset.paymentTerms || 'Pay now',
+      discountCondition: el.dataset.discountCondition || 'Standard wholesale price',
+      taxId: el.dataset.taxId || '',
+      address: el.dataset.address || '',
+      creditStatus: el.dataset.creditStatus || 'Good'
+    };
+  }
+  function renderGateResults(customers) {
+    const results = by('[data-gate-results]');
+    results.innerHTML = customers.map(customer => `<button class="verify-result-card" type="button"
+      data-gate-customer="${customer.customerId}" data-name="${text(customer.customerName)}" data-phone="${text(customer.phoneNumber)}"
+      data-code="${text(customer.memberCode)}" data-level="${text(customer.memberLevel)}" data-type="${text(customer.customerType)}"
+      data-wholesale-allowed="${customer.isWholesaleAllowed ? 'true' : 'false'}" data-credit-limit="${customer.creditLimit || 0}"
+      data-available-credit="${customer.availableCredit || 0}" data-outstanding="${customer.outstandingBalance || 0}"
+      data-payment-terms="${text(customer.paymentTerms)}" data-discount-condition="${text(customer.discountCondition)}"
+      data-tax-id="${text(customer.taxId)}" data-address="${text(customer.address)}" data-credit-status="${text(customer.creditStatus || 'Good')}">
+      <span><strong>${text(customer.customerName)}</strong><small>${text(customer.phoneNumber || '-')} | ${text(customer.memberCode || '-')}</small></span>
+      <span class="status-badge ${customer.isWholesaleAllowed ? 'badge-success' : 'badge-warning'}">${text(customer.customerType || 'Retail')}</span>
+    </button>`).join('');
+    results.querySelectorAll('[data-gate-customer]').forEach(btn => btn.onclick = () => selectGateCustomer(btn));
+    by('[data-gate-not-found]').classList.toggle('d-none', customers.length > 0);
+  }
+  function ensureCustomerOption(customer) {
+    const select = by('[data-customer-id]');
+    let option = [...select.options].find(x => x.value === String(customer.customerId));
+    if (!option) {
+      option = document.createElement('option');
+      option.value = String(customer.customerId);
+      option.textContent = `${customer.customerName} - ${customer.phoneNumber || '-'} (${customer.memberCode || '-'})`;
+      select.appendChild(option);
+    }
+    option.dataset.name = customer.customerName || '';
+    option.dataset.phone = customer.phoneNumber || '';
+    option.dataset.code = customer.memberCode || '';
+    option.dataset.level = customer.memberLevel || 'Standard';
+    option.dataset.type = customer.customerType || 'Retail';
+    option.dataset.wholesaleAllowed = customer.isWholesaleAllowed ? 'true' : 'false';
+    option.dataset.allowCredit = customer.creditLimit > 0 && customer.availableCredit > 0 && customer.creditStatus !== 'Blocked' ? 'true' : 'false';
+    option.dataset.creditLimit = customer.creditLimit || 0;
+    option.dataset.usedCredit = customer.outstandingBalance || 0;
+    option.dataset.availableCredit = customer.availableCredit || 0;
+    option.dataset.creditStatus = customer.creditStatus || 'Good';
+    option.dataset.paymentTerms = customer.paymentTerms || 'Pay now';
+    option.dataset.discountCondition = customer.discountCondition || 'Standard wholesale price';
+    option.dataset.taxId = customer.taxId || '';
+    option.dataset.address = customer.address || '';
+    option.dataset.requireApproval = 'false';
+    select.value = option.value;
+  }
+  async function validateGateCustomer(customerId) {
+    const amount = totals(false).net || 0;
+    const separator = customerValidateUrl.includes('?') ? '&' : '?';
+    const response = await fetch(`${customerValidateUrl}${separator}customerId=${encodeURIComponent(customerId || '')}&saleAmount=${encodeURIComponent(amount)}`, { credentials:'same-origin' });
+    if (!response.ok) return { isValid:false, message:'Customer validation failed.', warningMessages:[] };
+    return await response.json();
+  }
+  async function selectGateCustomer(button) {
+    document.querySelectorAll('[data-gate-customer]').forEach(x => x.classList.remove('active'));
+    button.classList.add('active');
+    const customer = gateCustomerFromElement(button);
+    selectedGateCustomer = customer;
+    by('[data-gate-detail-name]').textContent = customer.customerName;
+    by('[data-gate-detail-phone]').textContent = customer.phoneNumber || '-';
+    by('[data-gate-detail-level]').textContent = customer.memberLevel || 'Standard';
+    by('[data-gate-detail-type]').textContent = customer.customerType || 'Retail';
+    by('[data-gate-detail-permission]').textContent = customer.isWholesaleAllowed ? 'Allowed' : 'Needs review';
+    by('[data-gate-detail-credit]').textContent = money(customer.availableCredit);
+    by('[data-gate-detail-outstanding]').textContent = money(customer.outstandingBalance);
+    by('[data-gate-detail-terms]').textContent = customer.paymentTerms || 'Pay now';
+    by('[data-gate-detail-discount]').textContent = customer.discountCondition || 'Standard wholesale price';
+    by('[data-gate-detail-tax]').textContent = customer.taxId || '-';
+    by('[data-gate-detail-address]').textContent = customer.address || '-';
+    const validation = await validateGateCustomer(customer.customerId);
+    const warning = by('[data-gate-warning]');
+    const warnings = validation.warningMessages || [];
+    warning.textContent = warnings.length ? warnings.join(' ') : validation.message || '';
+    warning.classList.toggle('d-none', warnings.length === 0 && customer.isWholesaleAllowed);
+    by('[data-gate-continue]').disabled = false;
+  }
+  async function searchGateCustomers() {
+    const query = by('[data-gate-customer-search]').value.trim();
+    const separator = customerSearchUrl.includes('?') ? '&' : '?';
+    const response = await fetch(`${customerSearchUrl}${separator}term=${encodeURIComponent(query)}`, { credentials:'same-origin' });
+    if (!response.ok) return;
+    renderGateResults(await response.json());
+  }
+  function continueWithGateCustomer(customer) {
+    wholesaleCustomerVerified = true;
+    by('[data-pos-root]').classList.remove('wholesale-pos-locked');
+    by('[data-wholesale-gate]').classList.add('verified');
+    by('[data-wholesale-gate]').style.display = 'none';
+    by('[data-member-yes]').checked = true;
+    by('[data-member-no]').checked = false;
+    by('[data-member-lookup]').classList.remove('d-none');
+    by('[data-customer-id]').classList.remove('d-none');
+    ensureCustomerOption(customer);
+    syncCustomerCredit();
+    publishLiveDisplay('Customer Verified');
+    by('[data-barcode-input]')?.focus();
+  }
+  function continueAsWalkInWholesale() {
+    wholesaleCustomerVerified = true;
+    selectedGateCustomer = null;
+    by('[data-pos-root]').classList.remove('wholesale-pos-locked');
+    by('[data-wholesale-gate]').style.display = 'none';
+    by('[data-member-no]').checked = true;
+    by('[data-member-yes]').checked = false;
+    by('[data-customer-id]').value = '';
+    by('[data-member-lookup]').classList.add('d-none');
+    by('[data-customer-id]').classList.add('d-none');
+    syncCustomerCredit();
+    publishLiveDisplay('Walk-in Wholesale');
+    by('[data-barcode-input]')?.focus();
+  }
+  document.querySelectorAll('[data-payment-method]').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-payment-method]').forEach(x => x.classList.remove('active'));
+    btn.classList.add('active');
+    activeMethod = btn;
+    by('[data-payment-ref]').toggleAttribute('required', btn.dataset.requireRef === 'true');
+    clearPromptPay();
+    if (btn.dataset.isCredit === 'true') applyCustomerCredit();
+    totals();
+  }));
+  function clearPromptPay() {
+    by('[data-promptpay-preview]')?.classList.add('d-none');
+    by('[data-promptpay-error]')?.classList.add('d-none');
+  }
+  function openCustomerDisplay() {
+    if (!customerDisplayUrl) return;
+    const separator = customerDisplayUrl.includes('?') ? '&' : '?';
+    window.open(`${customerDisplayUrl}${separator}terminalId=${encodeURIComponent(terminalId)}`, 'aphiwatposCustomerDisplay', 'popup=yes,width=1100,height=820');
+  }
+  async function startDisplayHub() {
+    if (!('WebSocket' in window) || displaySocket) return;
+    try {
+      const response = await fetch('/pos-display-hub/negotiate?negotiateVersion=1', { method:'POST', credentials:'same-origin' });
+      const negotiate = await response.json();
+      const token = encodeURIComponent(negotiate.connectionToken || negotiate.connectionId);
+      const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      displaySocket = new WebSocket(`${wsProtocol}//${location.host}/pos-display-hub?id=${token}`);
+      displaySocket.onopen = () => {
+        displaySocket.send('{"protocol":"json","version":1}\u001e');
+        sendDisplayInvocation('JoinDisplay', [terminalId]);
+        publishLiveDisplay(wholesaleCustomerVerified ? 'Scanning Items' : 'Customer Verification');
+      };
+      displaySocket.onclose = () => { displaySocket = null; setTimeout(startDisplayHub, 1500); };
+    } catch {
+      displaySocket = null;
+    }
+  }
+  function sendDisplayInvocation(target, args) {
+    if (!displaySocket || displaySocket.readyState !== WebSocket.OPEN) return;
+    displaySocket.send(JSON.stringify({ type:1, invocationId:String(++displayInvocationId), target, arguments:args }) + '\u001e');
+  }
+  function publishCustomerDisplay(message) {
+    try {
+      if (message) localStorage.setItem(customerDisplayStorageKey, JSON.stringify(message));
+      else localStorage.removeItem(customerDisplayStorageKey);
+    } catch {}
+    customerDisplayChannel?.postMessage(message);
+    if (message) sendDisplayInvocation('SendDisplayUpdate', [terminalId, message]);
+  }
+  function customerDisplaySnapshot(t) {
+    const customer = selectedCustomerOption();
+    const creditInfo = selectedCreditInfo();
+    const creditRemaining = Math.max(0, (creditInfo.availableCredit || 0) - (t.creditUsed || 0));
+    return {
+      itemCount: cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+      customer: customer?.value ? { name: customer.dataset.name || 'Customer', memberLevel: customer.dataset.level || '', availableCredit: creditInfo.availableCredit || 0, creditUsed: t.creditUsed || 0, remainingCredit: creditRemaining } : { name: 'Walk-in Customer' },
+      payment: {
+        method: activeMethod?.innerText.trim() || '-',
+        paidAmount: t.paid,
+        changeAmount: t.change,
+        creditUsed: t.creditUsed,
+        remainingCredit: creditRemaining
+      },
+      totals: {
+        subtotal: t.subtotal,
+        itemDiscount: t.itemDiscount,
+        orderDiscount: t.orderDiscount,
+        lineTax: t.lineTax,
+        manualTax: t.manualTax,
+        tax: t.tax,
+        net: t.net,
+        paid: t.paid,
+        remaining: t.remaining,
+        change: t.change,
+        creditUsed: t.creditUsed,
+        otherPaid: t.otherPaid
+      },
+      items: cart.map(item => ({
+        name: item.productName || 'Item',
+        quantity: Number(item.quantity || 0),
+        unitPrice: Number(item.unitPrice || 0),
+        discount: Number(item.itemDiscountAmount || 0),
+        lineTotal: (Number(item.quantity || 0) * Number(item.unitPrice || 0)) - Number(item.itemDiscountAmount || 0) + Number(item.taxAmount || 0)
+      }))
+    };
+  }
+  function publishLiveDisplay(statusText) {
+    if (!cart.length) {
+      const customer = selectedCustomerOption();
+      const creditInfo = selectedCreditInfo();
+      publishCustomerDisplay({ type:'sale-update', status:statusText || 'Scanning Items', itemCount:0, customer:customer?.value ? { name:customer.dataset.name || 'Customer', memberLevel:customer.dataset.level || '', availableCredit:creditInfo.availableCredit || 0, creditUsed:0, remainingCredit:creditInfo.availableCredit || 0 } : { name:'Walk-in Wholesale Customer', memberLevel:'Wholesale' }, totals:{ subtotal:0, itemDiscount:0, orderDiscount:0, lineTax:0, manualTax:0, tax:0, net:0, paid:0, remaining:0, change:0, creditUsed:0, otherPaid:0 }, payment:{ method:activeMethod?.innerText.trim() || '-', paidAmount:0, changeAmount:0, creditUsed:0, remainingCredit:creditInfo.availableCredit || 0 }, items:[], updatedAt:new Date().toISOString() });
+      return;
+    }
+    const t = totals(false);
+    publishCustomerDisplay({ type:'sale-update', status:statusText || (t.paid > 0 ? 'Waiting for Payment' : 'Scanning Items'), ...customerDisplaySnapshot(t), updatedAt:new Date().toISOString() });
+  }
+  async function generatePromptPayQr() {
+    const t = totals();
+    const amount = Number(by('[data-payment-amount]').value || t.remaining || t.net || 0);
+    const error = by('[data-promptpay-error]');
+    const preview = by('[data-promptpay-preview]');
+    const button = by('[data-generate-promptpay]');
+    error?.classList.add('d-none');
+    preview?.classList.add('d-none');
+    if (!amount || amount <= 0) {
+      if (error) {
+        error.textContent = 'Add items or enter a payment amount first.';
+        error.classList.remove('d-none');
+      }
+      return;
+    }
+    try {
+      if (!promptPayQrUrl) throw new Error('PromptPay QR endpoint is not available.');
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'Generating...';
+      }
+      const separator = promptPayQrUrl.includes('?') ? '&' : '?';
+      const response = await fetch(`${promptPayQrUrl}${separator}amount=${encodeURIComponent(amount.toFixed(2))}`, { credentials: 'same-origin' });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.message || `PromptPay QR generation failed (${response.status}).`);
+      if (!body.svg && !body.svgDataUri) throw new Error('PromptPay QR response did not include an image.');
+      by('[data-promptpay-svg]').innerHTML = body.svg || '';
+      const image = by('[data-promptpay-image]');
+      if (!body.svg && image) {
+        image.src = body.svgDataUri;
+        image.classList.remove('d-none');
+      }
+      by('[data-promptpay-amount]').textContent = `฿${money(body.amount)}`;
+      by('[data-promptpay-name]').textContent = body.payeeDisplayName || 'PromptPay';
+      by('[data-payment-amount]').value = Number(body.amount).toFixed(2);
+      by('[data-payment-ref]').value = 'PromptPay QR';
+      publishCustomerDisplay({
+        type: 'promptpay-qr',
+        svg: body.svg,
+        svgDataUri: body.svgDataUri,
+        amount: body.amount,
+        payeeDisplayName: body.payeeDisplayName,
+        ...customerDisplaySnapshot(t),
+        updatedAt: new Date().toISOString()
+      });
+      preview?.classList.remove('d-none');
+      totals();
+    } catch (err) {
+      if (error) {
+        error.textContent = err.message || 'PromptPay QR generation failed.';
+        error.classList.remove('d-none');
+      }
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Generate';
+      }
+    }
+  }
+  function normalizeProduct(product) {
+    return {
+      productId: Number(product.productId),
+      locationId: Number(product.locationId || by('[data-location-id]').value || 1),
+      quantity: Number(product.quantity || 1),
+      unitPrice: Number(product.unitPrice ?? product.sellingPrice ?? product.price ?? 0),
+      itemDiscountAmount: Number(product.itemDiscountAmount || 0),
+      taxAmount: Number(product.taxAmount || 0),
+      taxRate: product.taxRate === null || product.taxRate === undefined ? null : Number(product.taxRate),
+      productName: product.productName || product.name,
+      productCode: product.productCode || product.code,
+      unitSymbol: product.unitSymbol || product.unit || '',
+      currentStock: Number(product.currentStock ?? product.stock ?? 0),
+      productImageUrl: product.productImageUrl || product.image || '',
+      wholesaleMinQty: Number(product.wholesaleMinQty ?? product.wholesaleMin ?? 1),
+      isActive: product.isActive ?? product.active ?? true,
+      isStockTracked: product.isStockTracked ?? product.stockTracked ?? true,
+      status: product.status || ''
+    };
+  }
+  function pendingPayment() {
+    const amount = Number(by('[data-payment-amount]').value || 0);
+    if (!activeMethod || amount <= 0) return null;
+    return { paymentMethodId:+activeMethod.dataset.paymentMethod, paymentAmount:amount, referenceNo:by('[data-payment-ref]').value.trim(), name:activeMethod.innerText.trim(), pending:true };
+  }
+  function selectedCustomerOption() {
+    const customerSelect = by('[data-customer-id]');
+    return customerSelect?.selectedOptions?.[0] || null;
+  }
+  function customerOptions() {
+    return [...by('[data-customer-id]').options].filter(option => option.value);
+  }
+  function filterCustomers() {
+    const query = by('[data-customer-search]').value.trim().toLowerCase();
+    const options = customerOptions();
+    let visible = 0;
+    let firstMatch = null;
+    options.forEach(option => {
+      const haystack = `${option.dataset.name || ''} ${option.dataset.phone || ''} ${option.dataset.code || ''}`.toLowerCase();
+      const matched = !query || haystack.includes(query);
+      option.hidden = !matched;
+      if (matched) {
+        visible += 1;
+        firstMatch ??= option;
+      }
+    });
+    by('[data-customer-match]').textContent = query ? `${visible} member match${visible === 1 ? '' : 'es'} found.` : 'Ask for phone number or name, then select the member.';
+    const selected = selectedCustomerOption();
+    if (selected?.value && selected.hidden) by('[data-customer-id]').value = '';
+    syncSelectedCustomer();
+    return firstMatch;
+  }
+  function selectFirstCustomerMatch() {
+    const firstMatch = filterCustomers();
+    if (!firstMatch) return false;
+    by('[data-customer-id]').value = firstMatch.value;
+    syncCustomerCredit();
+    return true;
+  }
+  function syncSelectedCustomer() {
+    const option = selectedCustomerOption();
+    const panel = by('[data-selected-member]');
+    const hasCustomer = Boolean(option?.value);
+    panel.classList.toggle('d-none', !hasCustomer);
+    if (!hasCustomer) return;
+    by('[data-selected-customer-name]').textContent = option.dataset.name || option.textContent.trim();
+    by('[data-selected-customer-meta]').textContent = `${option.dataset.phone || 'No phone'} | ${option.dataset.code || 'No code'} | ${option.dataset.level || 'No level'}`;
+  }
+  function selectedCreditInfo() {
+    const option = selectedCustomerOption();
+    if (!option || !option.value) return { hasCustomer:false, allowCredit:false, availableCredit:0, creditStatus:'Walk-in', requireApproval:false };
+    return {
+      hasCustomer:true,
+      allowCredit: option.dataset.allowCredit === 'true',
+      creditLimit: Number(option.dataset.creditLimit || 0),
+      usedCredit: Number(option.dataset.usedCredit || 0),
+      availableCredit: Number(option.dataset.availableCredit || 0),
+      memberLevel: option.dataset.level || 'No level',
+      creditStatus: option.dataset.creditStatus || 'Good',
+      requireApproval: option.dataset.requireApproval === 'true'
+    };
+  }
+  function syncCustomerCredit() {
+    const info = selectedCreditInfo();
+    const panel = by('[data-credit-panel]');
+    const creditButton = document.querySelector('[data-is-credit="true"]');
+    syncSelectedCustomer();
+    panel.classList.toggle('d-none', !info.hasCustomer);
+    by('[data-credit-level]').textContent = info.memberLevel || '-';
+    by('[data-credit-limit]').textContent = money(info.creditLimit);
+    by('[data-credit-used]').textContent = money(info.usedCredit);
+    by('[data-credit-status]').textContent = info.creditStatus;
+    by('[data-credit-available]').textContent = money(info.availableCredit);
+    by('[data-credit-warning]').classList.toggle('d-none', !info.requireApproval);
+    const progress = info.creditLimit > 0 ? Math.min(100, Math.max(0, (info.usedCredit / info.creditLimit) * 100)) : 0;
+    const progressBar = by('[data-credit-progress]');
+    if (progressBar) progressBar.style.width = `${progress}%`;
+    const useCreditButton = by('[data-use-credit]');
+    if (useCreditButton) useCreditButton.disabled = !(info.hasCustomer && info.allowCredit && info.availableCredit > 0 && info.creditStatus !== 'Blocked');
+    if (creditButton) {
+      const enabled = info.hasCustomer && info.allowCredit && info.availableCredit > 0 && info.creditStatus !== 'Blocked';
+      creditButton.classList.toggle('d-none', !info.hasCustomer);
+      creditButton.disabled = !enabled;
+      if (!enabled && creditButton.classList.contains('active')) {
+        creditButton.classList.remove('active');
+        activeMethod = document.querySelector('[data-payment-method]:not([data-is-credit="true"])');
+        activeMethod?.classList.add('active');
+      }
+    }
+    totals();
+  }
+  function committedPayments() {
+    const pending = pendingPayment();
+    return pending ? [...payments, pending] : payments;
+  }
+  function creditMethodButton() {
+    return document.querySelector('[data-is-credit="true"]');
+  }
+  function creditPaymentIndex() {
+    const btn = creditMethodButton();
+    if (!btn) return -1;
+    return payments.findIndex(payment => payment.paymentMethodId === +btn.dataset.paymentMethod);
+  }
+  function applyCustomerCredit(showModal = true) {
+    const info = selectedCreditInfo();
+    const btn = creditMethodButton();
+    if (!btn || !info.hasCustomer || !info.allowCredit || info.availableCredit <= 0 || info.creditStatus === 'Blocked') return;
+    const t = totals();
+    const otherPaid = payments.filter(payment => payment.paymentMethodId !== +btn.dataset.paymentMethod).reduce((sum, payment) => sum + payment.paymentAmount, 0);
+    const remaining = Math.max(0, t.net - otherPaid);
+    const creditAmount = Math.min(remaining || t.net, info.availableCredit);
+    if (creditAmount <= 0) return;
+    if (showModal && info.availableCredit < t.net) showCreditModal(info, t.net, Math.max(0, t.net - info.availableCredit));
+    const existingIndex = creditPaymentIndex();
+    const creditPayment = { paymentMethodId:+btn.dataset.paymentMethod, paymentAmount:creditAmount, referenceNo:'', name:'Customer Credit' };
+    if (existingIndex >= 0) payments[existingIndex] = creditPayment;
+    else payments.push(creditPayment);
+    by('[data-payment-amount]').value = '';
+    by('[data-payment-ref]').value = '';
+    by('[data-credit-note]').classList.remove('d-none');
+    by('[data-credit-note-text]').textContent = creditAmount >= t.net ? 'Customer credit will be used for this sale. This becomes customer debt to repay later.' : 'Available credit is not enough for the full sale. Remaining balance must be paid by another method.';
+    totals();
+  }
+  function showCreditModal(info, net, remaining) {
+    by('[data-credit-modal-customer]').textContent = selectedCustomerOption()?.dataset.name || 'Selected customer';
+    by('[data-credit-modal-available]').textContent = money(info.availableCredit);
+    by('[data-credit-modal-net]').textContent = money(net);
+    by('[data-credit-modal-remaining]').textContent = money(remaining);
+    bootstrap.Modal.getOrCreateInstance(by('#insufficientCreditModal')).show();
+  }
+  function render() {
+    const wrap = by('[data-cart-items]');
+    syncLineTaxes();
+    if (!cart.length) wrap.innerHTML = `<div class="empty-state empty-cart"><i class="bi bi-cart-x"></i><div class="fw-semibold">Your cart is empty</div><div>Scan barcode or select products to start a sale.</div></div>`;
+    else wrap.innerHTML = cart.map((item, index) => `<div class="cart-item" data-cart-row="${index}"><div class="cart-item-title"><span class="cart-item-thumb">${item.productImageUrl ? `<img src="${item.productImageUrl}" alt="">` : `<i class="bi bi-box-seam"></i>`}</span><div><strong>${item.productName}</strong><div class="text-muted small">${item.productCode}</div></div><button class="btn btn-sm btn-outline-danger" data-remove="${index}" type="button"><i class="bi bi-x-lg"></i></button></div><div class="d-flex justify-content-between align-items-center gap-2"><div class="qty-control"><button class="btn btn-sm btn-outline-secondary" data-dec="${index}" type="button">-</button><input class="form-control form-control-sm" data-qty="${index}" type="number" min="1" step="1" value="${item.quantity}"><button class="btn btn-sm btn-outline-secondary" data-inc="${index}" type="button">+</button></div><strong>${money((item.quantity * item.unitPrice) - item.itemDiscountAmount + item.taxAmount)}</strong></div><div class="input-group input-group-sm"><span class="input-group-text">Discount</span><input class="form-control text-end" data-line-discount="${index}" type="number" min="0" step="0.01" value="${item.itemDiscountAmount || 0}"></div></div>`).join('');
+    wrap.querySelectorAll('[data-remove]').forEach(x => x.onclick = () => { cart.splice(+x.dataset.remove, 1); render(); });
+    wrap.querySelectorAll('[data-inc]').forEach(x => x.onclick = () => updateQty(+x.dataset.inc, cart[+x.dataset.inc].quantity + 1));
+    wrap.querySelectorAll('[data-dec]').forEach(x => x.onclick = () => updateQty(+x.dataset.dec, Math.max(1, cart[+x.dataset.dec].quantity - 1)));
+    wrap.querySelectorAll('[data-qty]').forEach(x => x.onchange = () => updateQty(+x.dataset.qty, Number(x.value || 1)));
+    wrap.querySelectorAll('[data-line-discount]').forEach(x => x.onchange = () => { cart[+x.dataset.lineDiscount].itemDiscountAmount = Number(x.value || 0); render(); });
+    totals();
+  }
+  function totals(publishDisplay = true) {
+    syncLineTaxes();
+    const subtotal = cart.reduce((s, x) => s + x.quantity * x.unitPrice, 0);
+    const itemDiscount = cart.reduce((s, x) => s + Number(x.itemDiscountAmount || 0), 0);
+    const orderDiscount = Number(by('[data-order-discount]').value || 0);
+    const manualTax = Number(by('[data-tax-amount]').value || 0);
+    const lineTax = cart.reduce((s, x) => s + Number(x.taxAmount || 0), 0);
+    const tax = manualTax + lineTax;
+    const net = Math.max(0, subtotal - itemDiscount - orderDiscount + tax);
+    const creditBtn = creditMethodButton();
+    const creditIdx = creditPaymentIndex();
+    if (creditBtn && creditIdx >= 0) {
+      const info = selectedCreditInfo();
+      const otherPaid = payments.filter(payment => payment.paymentMethodId !== +creditBtn.dataset.paymentMethod).reduce((sum, payment) => sum + payment.paymentAmount, 0);
+      const creditAmount = Math.min(Math.max(0, net - otherPaid), info.availableCredit || 0);
+      if (creditAmount > 0) payments[creditIdx].paymentAmount = creditAmount;
+      else payments.splice(creditIdx, 1);
+    }
+    const allPayments = committedPayments();
+    const paid = allPayments.reduce((s, x) => s + x.paymentAmount, 0);
+    const creditBtnForTotals = creditMethodButton();
+    const creditUsed = creditBtnForTotals ? allPayments.filter(p => p.paymentMethodId === +creditBtnForTotals.dataset.paymentMethod).reduce((s, x) => s + x.paymentAmount, 0) : 0;
+    const otherPaid = allPayments.reduce((s, x) => s + x.paymentAmount, 0) - creditUsed;
+    const remaining = Math.max(0, net - paid);
+    const change = Math.max(0, paid - net);
+    const count = cart.reduce((s, x) => s + Number(x.quantity || 0), 0);
+    const fullyPaid = remaining <= 0 && net > 0;
+    const creditFullyPaid = fullyPaid && creditUsed > 0 && otherPaid <= 0;
+    const customerName = selectedCustomerOption()?.dataset.name || 'Walk-in';
+    const promptPayPanel = by('[data-promptpay-panel]');
+    if (promptPayPanel) {
+      promptPayPanel.classList.toggle('d-none', activeMethod?.dataset.isPromptpay !== 'true' || net <= 0);
+    }
+    by('[data-cart-count]').textContent = count; by('[data-cart-count-mobile]').textContent = count;
+    by('[data-subtotal]').textContent = money(subtotal); by('[data-item-discount]').textContent = money(itemDiscount); by('[data-line-tax]').textContent = money(lineTax); by('[data-net]').textContent = money(net); by('[data-net-total]').textContent = money(net); by('[data-credit-used-sale]').textContent = money(creditUsed); by('[data-other-paid]').textContent = money(otherPaid); by('[data-remaining]').textContent = money(remaining); by('[data-paid]').textContent = money(paid); by('[data-change]').textContent = money(change);
+    by('[data-modal-net]').textContent = money(net); by('[data-modal-net-large]').textContent = `฿${money(net)}`; by('[data-modal-credit]').textContent = money(creditUsed); by('[data-modal-other-paid]').textContent = money(otherPaid); by('[data-modal-remaining]').textContent = money(remaining); by('[data-modal-paid]').textContent = money(paid); by('[data-modal-change]').textContent = money(change); by('[data-hold-total]').textContent = money(net);
+    by('[data-modal-customer]').textContent = customerName;
+    by('[data-modal-items]').textContent = `${count} item${count === 1 ? '' : 's'}`;
+    by('[data-modal-status-text]').textContent = creditFullyPaid ? 'Fully paid by customer credit' : fullyPaid ? 'Payment covers this sale' : 'Remaining balance must be collected';
+    by('[data-credit-debt-warning]').classList.toggle('d-none', creditUsed <= 0);
+    by('[data-credit-paid-info]').classList.toggle('d-none', !creditFullyPaid);
+    by('[data-payment-incomplete-warning]').classList.toggle('d-none', remaining <= 0);
+    by('[data-confirm-pay]').disabled = remaining > 0;
+    const statusBadge = by('[data-payment-status-badge]');
+    statusBadge.textContent = creditUsed > 0 && fullyPaid ? 'Credit Used' : fullyPaid ? 'Fully Paid' : 'Balance Due';
+    statusBadge.className = `review-status-badge ${fullyPaid ? (creditUsed > 0 ? 'credit' : 'paid') : 'due'}`;
+    const cartBadge = by('[data-cart-payment-badge]');
+    cartBadge.textContent = fullyPaid ? 'Paid' : 'Balance Due';
+    cartBadge.className = `payment-status-pill ${fullyPaid ? 'paid' : 'due'}`;
+    by('[data-remaining-row]').classList.toggle('paid', remaining <= 0);
+    by('[data-remaining-row]').classList.toggle('due', remaining > 0);
+    by('[data-modal-remaining-row]').classList.toggle('paid', remaining <= 0);
+    by('[data-modal-remaining-row]').classList.toggle('due', remaining > 0);
+    by('[data-change-row]').classList.toggle('has-change', change > 0);
+    by('[data-modal-change-row]').classList.toggle('has-change', change > 0);
+    const creditInfo = selectedCreditInfo();
+    const fitMessage = by('[data-credit-fit-message]');
+    if (fitMessage) {
+      fitMessage.classList.remove('enough', 'not-enough');
+      if (!creditInfo.hasCustomer) fitMessage.textContent = 'Choose a member to review credit for this sale.';
+      else if (!creditInfo.allowCredit || creditInfo.availableCredit <= 0) { fitMessage.textContent = 'Credit is not available for this customer.'; fitMessage.classList.add('not-enough'); }
+      else if (creditInfo.availableCredit >= net) { fitMessage.textContent = 'Enough credit for this sale.'; fitMessage.classList.add('enough'); }
+      else { fitMessage.textContent = 'Credit is not enough. Remaining balance must be paid by another method.'; fitMessage.classList.add('not-enough'); }
+    }
+    const useCreditButton = by('[data-use-credit]');
+    if (useCreditButton) {
+      const applied = creditUsed > 0;
+      useCreditButton.classList.toggle('btn-success', applied);
+      useCreditButton.classList.toggle('btn-warning', !applied);
+      useCreditButton.innerHTML = applied ? '<i class="bi bi-check-circle me-1"></i>Credit Applied' : `<i class="bi bi-credit-card me-1"></i>${creditInfo.availableCredit >= net ? 'Use Credit for Full Payment' : 'Use Available Credit'}`;
+    }
+    by('[data-payment-list]').innerHTML = allPayments.map((p, i) => {
+      const isCredit = creditBtnForTotals && p.paymentMethodId === +creditBtnForTotals.dataset.paymentMethod;
+      return `<div class="payment-row ${isCredit ? 'credit-chip' : ''} ${p.pending ? 'border border-success' : ''}"><span>${isCredit ? '<i class="bi bi-credit-card me-1"></i>' : ''}${p.name}${p.pending ? ' <small class="text-muted">(pending)</small>' : ''}</span><strong>${money(p.paymentAmount)}</strong>${p.pending ? '' : `<button class="btn btn-sm btn-outline-danger" data-remove-payment="${i}" type="button" aria-label="Remove payment"><i class="bi bi-x"></i></button>`}</div>`;
+    }).join('');
+    by('[data-payment-list]').querySelectorAll('[data-remove-payment]').forEach(x => x.onclick = () => { payments.splice(+x.dataset.removePayment, 1); totals(); });
+    const result = { subtotal, itemDiscount, orderDiscount, lineTax, manualTax, tax, net, paid, change, remaining, creditUsed, otherPaid, count };
+    if (publishDisplay) {
+      publishCustomerDisplay({ type:'sale-update', status:paid > 0 ? (remaining > 0 ? 'Waiting for Payment' : 'Payment Ready') : 'Scanning Items', ...customerDisplaySnapshot(result), updatedAt:new Date().toISOString() });
+    }
+    return result;
+  }
+  function showSaleResult(status, message, t, saleNo = null) {
+    const modal = by('[data-sale-result-modal]');
+    const success = status === 'success';
+    const customer = selectedCustomerOption();
+    const discount = Number(t?.itemDiscount || 0) + Number(t?.orderDiscount || 0);
+    const creditInfo = selectedCreditInfo();
+    modal.classList.toggle('success', success);
+    modal.classList.toggle('fail', !success);
+    by('[data-sale-result-title]').textContent = success ? 'Payment Successful' : 'Payment Failed';
+    by('[data-sale-result-subtitle]').textContent = success && saleNo ? `Sale ${saleNo} completed.` : 'Please review the payment details.';
+    by('[data-sale-result-icon]').innerHTML = success ? '<i class="bi bi-check-circle"></i>' : '<i class="bi bi-x-circle"></i>';
+    by('[data-result-sale-no]').textContent = saleNo || '-';
+    by('[data-result-sale-date]').textContent = new Date().toLocaleString();
+    by('[data-result-customer]').textContent = customer?.value ? (customer.dataset.name || 'Customer') : 'Walk-in Customer';
+    by('[data-result-cashier]').textContent = cashierName || '-';
+    by('[data-result-payment-method]').textContent = activeMethod?.innerText.trim() || '-';
+    by('[data-result-items]').textContent = String(t?.count || 0);
+    by('[data-result-subtotal]').textContent = money(t?.subtotal || 0);
+    by('[data-result-discount]').textContent = money(discount);
+    by('[data-result-tax]').textContent = money(t?.tax || 0);
+    by('[data-result-net]').textContent = money(t?.net || 0);
+    by('[data-result-paid]').textContent = money(t?.paid || 0);
+    by('[data-result-remaining]').textContent = money(t?.remaining || 0);
+    by('[data-result-change]').textContent = money(t?.change || 0);
+    by('[data-result-credit-used]').textContent = money(t?.creditUsed || 0);
+    by('[data-result-credit-remaining]').textContent = money(Math.max(0, (creditInfo.availableCredit || 0) - Number(t?.creditUsed || 0)));
+    by('[data-result-remaining-row]').classList.toggle('paid', Number(t?.remaining || 0) <= 0);
+    by('[data-result-remaining-row]').classList.toggle('due', Number(t?.remaining || 0) > 0);
+    by('[data-result-change-row]').classList.toggle('has-change', Number(t?.change || 0) > 0);
+    const alert = by('[data-sale-result-message]');
+    alert.className = `alert mt-3 mb-0 ${success ? 'alert-success' : 'alert-danger'}`;
+    alert.textContent = message;
+    by('[data-result-print-invoice]').classList.toggle('d-none', !success);
+    by('[data-result-new-sale]').classList.toggle('d-none', !success);
+    by('[data-result-view-detail]').classList.toggle('d-none', !success);
+    by('[data-result-close]').classList.toggle('d-none', !success);
+    by('[data-result-try-again]').classList.toggle('d-none', success);
+    by('[data-result-edit-payment]').classList.toggle('d-none', success);
+    by('[data-result-hold-sale]').classList.toggle('d-none', success);
+    by('[data-result-cancel]').classList.toggle('d-none', success);
+    if (saleNo) by('[data-result-view-detail]').href = `/Sales/SalesHistory?SearchText=${encodeURIComponent(saleNo)}`;
+    bootstrap.Modal.getOrCreateInstance(by('#saleResultModal')).show();
+  }
+  function publishPaymentResult(status, message, t, saleNo = null) {
+    publishCustomerDisplay({
+      type: 'payment-result',
+      status,
+      saleNo,
+      message,
+      ...customerDisplaySnapshot(t),
+      updatedAt: new Date().toISOString()
+    });
+  }
+  function paymentResultFromSnapshot(status, message, snapshot, saleNo = null) {
+    const totals = snapshot?.totals || {};
+    const payments = snapshot?.payments || [];
+    const items = snapshot?.items || [];
+    return {
+      type:'payment-result',
+      status,
+      saleNo,
+      message,
+      itemCount: items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+      customer: snapshot?.customer ? { name:snapshot.customer.name || 'Customer', memberLevel:snapshot.customer.level || '', availableCredit:0, creditUsed:totals.creditUsed || 0, remainingCredit:snapshot.availableCreditAfter || 0 } : { name:'Walk-in Customer' },
+      payment: { method:payments.map(p => p.name || 'Payment').join(', ') || '-', paidAmount:totals.paid || 0, changeAmount:totals.change || 0, creditUsed:totals.creditUsed || 0, remainingCredit:snapshot?.availableCreditAfter || 0 },
+      totals,
+      items: items.map(item => ({ name:item.productName || 'Item', quantity:Number(item.quantity || 0), unitPrice:Number(item.unitPrice || 0), discount:Number(item.itemDiscountAmount || 0), lineTotal:(Number(item.quantity || 0) * Number(item.unitPrice || 0)) - Number(item.itemDiscountAmount || 0) + Number(item.taxAmount || 0) })),
+      updatedAt:new Date().toISOString()
+    };
+  }
+  function failPayment(message, t) {
+    showSaleResult('fail', message, t);
+    publishPaymentResult('fail', message, t);
+  }
+  function showStock(item, requested) { by('[data-stock-product]').textContent = item.productName; by('[data-stock-current]').textContent = item.currentStock; by('[data-stock-requested]').textContent = requested; bootstrap.Modal.getOrCreateInstance(by('#insufficientStockModal')).show(); }
+  function updateQty(index, qty) { const item = cart[index]; const minQty = Math.max(1, Number(item.wholesaleMinQty || 1)); if (item.isStockTracked !== false && qty > Number(item.currentStock || 0)) return showStock(item, qty); if (qty < minQty) showProductWarning(`Wholesale minimum for ${item.productName} is ${minQty}.`); item.quantity = Math.max(minQty, qty); render(); }
+  function showProductWarning(message) {
+    const toast = document.querySelector('.toast-container');
+    if (toast) toast.insertAdjacentHTML('beforeend', `<div class="toast align-items-center text-bg-warning border-0 show" role="alert"><div class="d-flex"><div class="toast-body">${message}</div><button class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" type="button"></button></div></div>`);
+    else alert(message);
+  }
+  function showProductAdded() {
+    const toast = document.querySelector('.toast-container');
+    if (toast) toast.insertAdjacentHTML('beforeend', '<div class="toast align-items-center text-bg-success border-0 show" role="alert"><div class="d-flex"><div class="toast-body">Product added to cart.</div><button class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" type="button"></button></div></div>');
+  }
+  function showProductNotFound(barcode) {
+    const barcodeTarget = document.querySelector('[data-global-missing-barcode]');
+    const createLink = document.querySelector('[data-global-create-product]');
+    if (barcodeTarget && createLink) {
+      barcodeTarget.textContent = barcode;
+      createLink.href = `/Products/Product/Index?mode=create&barcode=${encodeURIComponent(barcode)}`;
+      bootstrap.Modal.getOrCreateInstance(document.querySelector('#globalProductNotFoundModal')).show();
+    } else {
+      alert('Product not found for this barcode.');
+    }
+  }
+  function addProduct(product, showToast = true) {
+    const item = product.dataset ? normalizeProduct({ productId:product.dataset.productId, locationId:product.dataset.locationId, quantity:product.dataset.wholesaleMin || 1, unitPrice:product.dataset.price, itemDiscountAmount:0, taxAmount:0, taxRate:product.dataset.taxRate, productName:product.dataset.name, productCode:product.dataset.code, unitSymbol:product.dataset.unit, currentStock:product.dataset.stock, productImageUrl:product.dataset.image, wholesaleMinQty:product.dataset.wholesaleMin, isActive:product.dataset.active === 'true', isStockTracked:product.dataset.stockTracked !== 'false', status:product.dataset.status }) : normalizeProduct(product);
+    if (item.isActive === false || String(item.status || '').toLowerCase() === 'inactive') return showProductWarning('Product is inactive.');
+    const existing = cart.find(x => x.productId === item.productId);
+    if (existing) {
+      const addQty = Math.max(1, Number(existing.wholesaleMinQty || 1));
+      if (existing.isStockTracked !== false && existing.quantity + addQty > Number(existing.currentStock || 0)) return showStock(existing, existing.quantity + addQty);
+      existing.quantity += addQty;
+    } else {
+      if (item.isStockTracked !== false && Number(item.currentStock || 0) <= 0) return showStock(item, 1);
+      cart.push(item);
+    }
+    render();
+    if (showToast) showProductAdded();
+  }
+  async function lookupBarcode(value) {
+    const response = await fetch(`?handler=CheckBarcode&barcode=${encodeURIComponent(value)}&locationId=${encodeURIComponent(by('[data-location-id]').value || 1)}`);
+    if (response.ok) return await response.json();
+    if (response.status === 404) return null;
+    const error = await response.json().catch(() => ({ message:'Barcode lookup failed.' }));
+    throw new Error(error.message || 'Barcode lookup failed.');
+  }
+  let barcodeLookupBusy = false;
+  async function scanBarcode(value) {
+    const barcode = (value || '').trim();
+    if (!barcode || barcodeLookupBusy) return;
+    barcodeLookupBusy = true;
+    const input = by('[data-barcode-input]');
+    input.disabled = true;
+    try {
+      const match = products.find(p => (p.dataset.barcode || '').toLowerCase() === barcode.toLowerCase() || p.dataset.code.toLowerCase() === barcode.toLowerCase());
+      if (match) addProduct(match);
+      else {
+        const product = await lookupBarcode(barcode);
+        if (product) addProduct(product);
+        else showProductNotFound(barcode);
+      }
+    } catch (error) {
+      showProductWarning(error.message || 'Barcode lookup failed.');
+    } finally {
+      barcodeLookupBusy = false;
+      input.disabled = false;
+      input.value = '';
+      input.focus();
+    }
+  }
+  function receiptSnapshot(finalPayments, t) {
+    const customer = selectedCustomerOption();
+    return {
+      saleNo: null,
+      receiptNo: null,
+      invoiceNo: null,
+      saleDate: new Date().toLocaleString(),
+      cashierName,
+      customer: customer?.value ? { name: customer.dataset.name || '', phone: customer.dataset.phone || '', code: customer.dataset.code || '', level: customer.dataset.level || '' } : null,
+      items: cart.map(x => ({ ...x })),
+      payments: finalPayments.map(x => ({ ...x })),
+      totals: t,
+      availableCreditAfter: Math.max(0, (selectedCreditInfo().availableCredit || 0) - (t.creditUsed || 0))
+    };
+  }
+  function renderReceiptPreview(snapshot) {
+    if (!snapshot) return;
+    const totals = snapshot.totals || {};
+    const items = snapshot.items || [];
+    const paymentsHtml = (snapshot.payments || []).map(p => `<div class="summary-line"><span>${p.name || 'Payment'}</span><strong>${money(p.paymentAmount)}</strong></div>`).join('') || '<div class="text-muted">No payments recorded.</div>';
+    const itemRows = items.map(item => {
+      const lineTotal = (Number(item.quantity || 0) * Number(item.unitPrice || 0)) - Number(item.itemDiscountAmount || 0) + Number(item.taxAmount || 0);
+      return `<tr><td><strong>${item.productName || ''}</strong><div class="text-muted small">${item.productCode || ''}</div></td><td class="text-end">${money(item.quantity)}</td><td class="text-end">${money(item.unitPrice)}</td><td class="text-end">${money(item.itemDiscountAmount)}</td><td class="text-end">${money(lineTotal)}</td></tr>`;
+    }).join('');
+    const customer = snapshot.customer;
+    by('[data-receipt-body]').innerHTML = `<article class="receipt-document">
+      <header class="receipt-header"><div><div class="receipt-brand">AphiwatPOS</div><div class="text-muted">Point of Sale Receipt / Invoice</div></div><div class="receipt-title"><strong>Receipt / Invoice</strong><div>Receipt No: ${snapshot.receiptNo || snapshot.saleNo || '-'}</div><div>Invoice No: ${snapshot.invoiceNo || snapshot.saleNo || '-'}</div><div>Sale No: ${snapshot.saleNo || '-'}</div></div></header>
+      <section class="receipt-grid"><div class="receipt-box"><h4>Sale Information</h4><div>Date: ${snapshot.saleDate || '-'}</div><div>Cashier: ${snapshot.cashierName || '-'}</div></div><div class="receipt-box"><h4>Customer</h4><div>Name: ${customer?.name || 'Walk-in'}</div><div>Phone: ${customer?.phone || '-'}</div><div>Code / Level: ${customer?.code || '-'} ${customer?.level ? ` / ${customer.level}` : ''}</div></div></section>
+      <div class="table-responsive"><table class="table receipt-table"><thead><tr><th>Product</th><th class="text-end">Qty</th><th class="text-end">Unit Price</th><th class="text-end">Discount</th><th class="text-end">Total</th></tr></thead><tbody>${itemRows}</tbody></table></div>
+      <section class="receipt-summary"><div class="summary-line"><span>Subtotal</span><strong>${money(totals.subtotal)}</strong></div><div class="summary-line"><span>Item Discount</span><strong>${money(totals.itemDiscount)}</strong></div><div class="summary-line"><span>Order Discount</span><strong>${money(totals.orderDiscount)}</strong></div><div class="summary-line"><span>Tax</span><strong>${money(totals.tax)}</strong></div><div class="summary-line total"><span>Net Amount</span><strong>${money(totals.net)}</strong></div><div class="summary-line"><span>Customer Credit Used</span><strong>${money(totals.creditUsed)}</strong></div><div class="summary-line"><span>Other Payment</span><strong>${money(totals.otherPaid)}</strong></div><div class="summary-line"><span>Paid Amount</span><strong>${money(totals.paid)}</strong></div><div class="summary-line"><span>Change</span><strong>${money(totals.change)}</strong></div><div class="summary-line"><span>Remaining Balance</span><strong>${money(totals.remaining)}</strong></div>${paymentsHtml}</section>
+      ${totals.creditUsed > 0 ? `<div class="receipt-credit-note"><strong>Credit Note:</strong> Customer credit used in this sale becomes customer debt and must be repaid later. Remaining available credit after sale: ${money(snapshot.availableCreditAfter)}</div>` : ''}
+      <div class="receipt-thanks">Thank you.</div>
+    </article>`;
+  }
+  function printDocument(mode) {
+    document.body.dataset.printMode = mode;
+    window.print();
+    setTimeout(() => { delete document.body.dataset.printMode; }, 500);
+  }
+  products.forEach(card => card.onclick = () => addProduct(card));
+  by('[data-barcode-input]').addEventListener('keydown', e => { if (e.key !== 'Enter') return; e.preventDefault(); scanBarcode(e.target.value); });
+  by('[data-product-search]').addEventListener('input', e => { const q = e.target.value.toLowerCase(); products.forEach(p => p.hidden = !(p.dataset.name.toLowerCase().includes(q) || p.dataset.code.toLowerCase().includes(q) || (p.dataset.barcode || '').toLowerCase().includes(q))); });
+  document.querySelectorAll('[data-stock-filter]').forEach(btn => btn.onclick = () => { document.querySelectorAll('[data-stock-filter]').forEach(x => x.classList.remove('active')); btn.classList.add('active'); products.forEach(p => p.hidden = btn.dataset.stockFilter !== 'all' && p.dataset.stockStatus !== btn.dataset.stockFilter); });
+  by('[data-order-discount]').oninput = totals; by('[data-tax-amount]').oninput = totals;
+  by('[data-payment-amount]').addEventListener('input', () => { clearPromptPay(); totals(); });
+  by('[data-payment-ref]').addEventListener('input', totals);
+  by('[data-open-customer-display]')?.addEventListener('click', openCustomerDisplay);
+  by('[data-generate-promptpay]')?.addEventListener('click', generatePromptPayQr);
+  by('[data-add-payment]').onclick = () => { const pending = pendingPayment(); if (!pending) return; if (activeMethod.dataset.requireRef === 'true' && !pending.referenceNo) return alert('Reference number is required.'); payments.push(pending); by('[data-payment-amount]').value = ''; by('[data-payment-ref]').value = ''; clearPromptPay(); totals(); };
+  by('[data-use-credit]').onclick = applyCustomerCredit;
+  by('[data-use-partial-credit]').onclick = () => { bootstrap.Modal.getOrCreateInstance(by('#insufficientCreditModal')).hide(); applyCustomerCredit(false); };
+  by('[data-confirm-pay]').onclick = () => {
+    const pending = pendingPayment();
+    const finalPayments = pending ? [...payments, pending] : payments;
+    const t = totals();
+    const err = by('[data-payment-error]');
+    err.classList.add('d-none');
+    const creditInfo = selectedCreditInfo();
+    const creditTotal = finalPayments.filter(p => document.querySelector(`[data-payment-method="${p.paymentMethodId}"]`)?.dataset.isCredit === 'true').reduce((s,p) => s + p.paymentAmount, 0);
+    if (!wholesaleCustomerVerified) { err.textContent = 'Customer/member must be verified before wholesale checkout.'; err.classList.remove('d-none'); failPayment(err.textContent, t); return; }
+    if (!selectedCustomerOption()?.value && by('[data-member-yes]').checked) { err.textContent = 'Select a verified customer or continue as walk-in wholesale customer.'; err.classList.remove('d-none'); failPayment(err.textContent, t); return; }
+    const selectedCustomer = selectedCustomerOption();
+    if (selectedCustomer?.value && selectedCustomer.dataset.wholesaleAllowed !== 'true' && !confirm('Customer is not marked for wholesale pricing. Continue with manager review?')) { err.textContent = 'Wholesale permission warning was not accepted.'; err.classList.remove('d-none'); failPayment(err.textContent, t); return; }
+    if (!cart.length) { err.textContent = 'Cart is empty.'; err.classList.remove('d-none'); failPayment(err.textContent, t); return; }
+    if (pending && activeMethod.dataset.requireRef === 'true' && !pending.referenceNo) { err.textContent = 'Reference number is required.'; err.classList.remove('d-none'); failPayment(err.textContent, t); return; }
+    if (creditTotal > 0 && !creditInfo.hasCustomer) { err.textContent = 'Customer credit payment requires a selected member customer.'; err.classList.remove('d-none'); failPayment(err.textContent, t); return; }
+    if (creditTotal > creditInfo.availableCredit) { err.textContent = 'Customer credit is not enough for this payment.'; err.classList.remove('d-none'); failPayment(err.textContent, t); return; }
+    if (t.paid < t.net) { err.textContent = 'Payment amount must be greater than or equal to net amount.'; err.classList.remove('d-none'); failPayment(err.textContent, t); return; }
+    const snapshot = receiptSnapshot(finalPayments, t);
+    sessionStorage.setItem('aphiwatpos:last-sale-print', JSON.stringify(snapshot));
+    by('[data-post-customer]').value = by('[data-customer-id]').value || '';
+    by('[data-post-discount]').value = t.orderDiscount;
+    by('[data-post-tax]').value = Number(by('[data-tax-amount]').value || 0);
+    by('[data-post-items]').value = JSON.stringify(cart);
+    by('[data-post-payments]').value = JSON.stringify(finalPayments.map(({name, pending, ...p}) => p));
+    publishCustomerDisplay({ type:'sale-update', status:'Payment Processing', ...customerDisplaySnapshot(t), updatedAt:new Date().toISOString() });
+    by('[data-complete-form]').submit();
+  };
+  by('[data-confirm-hold]').onclick = () => { const t = totals(); if (!wholesaleCustomerVerified) return showProductWarning('Customer/member must be verified before holding a wholesale sale.'); if (!cart.length) return; by('[data-hold-customer]').value = by('[data-customer-id]').value || ''; by('[data-hold-tax]').value = Number(by('[data-tax-amount]').value || 0); by('[data-hold-items]').value = JSON.stringify(cart); by('[data-hold-note]').value = by('[data-hold-note-input]').value; by('[data-hold-form]').submit(); };
+  by('[data-clear-cart]').onclick = () => { cart = []; payments = []; clearPromptPay(); bootstrap.Modal.getOrCreateInstance(by('#clearCartModal')).hide(); render(); publishLiveDisplay('Scanning Items'); };
+  by('[data-mobile-cart]').onclick = () => cartPanel.classList.toggle('open');
+  by('[data-customer-search]').addEventListener('input', filterCustomers);
+  by('[data-customer-search]').addEventListener('keydown', e => { if (e.key !== 'Enter') return; e.preventDefault(); selectFirstCustomerMatch(); });
+  by('[data-member-yes]').addEventListener('change', () => { by('[data-member-lookup]').classList.remove('d-none'); by('[data-customer-id]').classList.remove('d-none'); by('[data-customer-search]').focus(); filterCustomers(); syncCustomerCredit(); });
+  by('[data-member-no]').addEventListener('change', () => { by('[data-customer-search]').value = ''; by('[data-customer-id]').value = ''; by('[data-member-lookup]').classList.add('d-none'); by('[data-customer-id]').classList.add('d-none'); filterCustomers(); syncCustomerCredit(); });
+  by('[data-customer-id]').addEventListener('change', () => { syncSelectedCustomer(); syncCustomerCredit(); });
+  document.querySelectorAll('[data-gate-customer]').forEach(btn => btn.onclick = () => selectGateCustomer(btn));
+  by('[data-gate-search]')?.addEventListener('click', searchGateCustomers);
+  by('[data-gate-customer-search]')?.addEventListener('keydown', e => { if (e.key !== 'Enter') return; e.preventDefault(); searchGateCustomers(); });
+  by('[data-gate-customer-search]')?.addEventListener('input', e => { if (!e.target.value.trim()) renderGateResults([...document.querySelectorAll('[data-customer-id] option[value]')].filter(o => o.value).slice(0, 8).map(o => ({ customerId:+o.value, customerName:o.dataset.name, phoneNumber:o.dataset.phone, memberCode:o.dataset.code, memberLevel:o.dataset.level, customerType:o.dataset.type, isWholesaleAllowed:o.dataset.wholesaleAllowed === 'true', creditLimit:+(o.dataset.creditLimit || 0), availableCredit:+(o.dataset.availableCredit || 0), outstandingBalance:+(o.dataset.usedCredit || 0), paymentTerms:o.dataset.paymentTerms, discountCondition:o.dataset.discountCondition, taxId:o.dataset.taxId, address:o.dataset.address, creditStatus:o.dataset.creditStatus }))); });
+  by('[data-gate-continue]')?.addEventListener('click', () => { if (selectedGateCustomer) continueWithGateCustomer(selectedGateCustomer); });
+  by('[data-gate-walkin]')?.addEventListener('click', continueAsWalkInWholesale);
+  by('[data-print-receipt]').addEventListener('click', () => printDocument('receipt'));
+  by('[data-print-invoice]').addEventListener('click', () => printDocument('invoice'));
+  by('[data-result-print-invoice]').addEventListener('click', () => printDocument('invoice'));
+  startDisplayHub();
+  syncCustomerCredit();
+  render();
+  by('[data-gate-customer-search]')?.focus();
+  if (initialBarcode && wholesaleCustomerVerified) scanBarcode(initialBarcode);
+  if (lastSaleNo) {
+    const rawSnapshot = sessionStorage.getItem('aphiwatpos:last-sale-print');
+    if (rawSnapshot) {
+      try {
+        const snapshot = JSON.parse(rawSnapshot);
+        snapshot.saleNo = lastSaleNo;
+        snapshot.receiptNo = lastSaleNo;
+        snapshot.invoiceNo = lastSaleNo;
+        renderReceiptPreview(snapshot);
+        showSaleResult('success', `Sale ${lastSaleNo} completed successfully.`, snapshot.totals, lastSaleNo);
+        by('[data-result-customer]').textContent = snapshot.customer?.name || 'Walk-in Customer';
+        by('[data-result-payment-method]').textContent = (snapshot.payments || []).map(p => p.name || 'Payment').join(', ') || '-';
+        by('[data-result-items]').textContent = String((snapshot.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0));
+        publishCustomerDisplay(paymentResultFromSnapshot('success', `Sale ${lastSaleNo} completed successfully.`, snapshot, lastSaleNo));
+        bootstrap.Modal.getOrCreateInstance(by('#receiptPreviewModal')).show();
+      } finally {
+        sessionStorage.removeItem('aphiwatpos:last-sale-print');
+      }
+    }
+  }
+  if (serverErrorMessage) {
+    const rawSnapshot = sessionStorage.getItem('aphiwatpos:last-sale-print');
+    let totalsSnapshot = totals();
+    let handledSnapshot = false;
+    if (rawSnapshot) {
+      try {
+        const snapshot = JSON.parse(rawSnapshot);
+        totalsSnapshot = snapshot.totals || totalsSnapshot;
+        showSaleResult('fail', serverErrorMessage, totalsSnapshot);
+        by('[data-result-customer]').textContent = snapshot.customer?.name || 'Walk-in Customer';
+        by('[data-result-payment-method]').textContent = (snapshot.payments || []).map(p => p.name || 'Payment').join(', ') || '-';
+        by('[data-result-items]').textContent = String((snapshot.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0));
+        publishCustomerDisplay(paymentResultFromSnapshot('fail', serverErrorMessage, snapshot));
+        handledSnapshot = true;
+      } catch {}
+      sessionStorage.removeItem('aphiwatpos:last-sale-print');
+    }
+    if (!handledSnapshot) failPayment(serverErrorMessage, totalsSnapshot);
+  }
+})();
+</script>
+}

@@ -1,0 +1,12 @@
+@model AphiwatPOS.Pages.Customer.Shared.CustomerPaginationModel
+@{
+    var totalPages = Math.Max(1, (int)Math.Ceiling(Model.TotalCount / (double)Math.Max(1, Model.PageSize)));
+}
+<div class="d-flex justify-content-between align-items-center border-top pt-3 mt-3">
+    <span class="text-muted">Total: @Model.TotalCount</span>
+    <div class="btn-group btn-group-sm">
+        <a class="btn btn-outline-secondary @(Model.PageNumber <= 1 ? "disabled" : "")" href="@Model.PageUrl(Model.PageNumber - 1)">Previous</a>
+        <span class="btn btn-outline-secondary disabled">@Model.PageNumber / @totalPages</span>
+        <a class="btn btn-outline-secondary @(Model.PageNumber >= totalPages ? "disabled" : "")" href="@Model.PageUrl(Model.PageNumber + 1)">Next</a>
+    </div>
+</div>

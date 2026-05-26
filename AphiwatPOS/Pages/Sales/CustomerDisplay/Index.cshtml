@@ -1,0 +1,332 @@
+@page
+@{
+    Layout = null;
+    ViewData["Title"] = "Customer Display";
+}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Customer Display</title>
+    <style>
+        :root{color-scheme:light;--bg:#f3faf7;--panel:#fff;--ink:#123026;--muted:#64748b;--line:#cbd5e1;--success:#047857;--danger:#dc2626;--warning:#f59e0b;--brand:#059669;--brand-soft:#ecfdf5}
+        *{box-sizing:border-box}
+        html,body{height:100%;overflow:hidden;width:100%}
+        body{background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif;margin:0}
+        .display-shell{display:grid;gap:14px;grid-template-rows:auto minmax(0,1fr) auto;height:100vh;max-height:100vh;overflow:hidden;padding:18px;width:100vw}
+        .topbar{align-items:center;background:var(--brand);color:#fff;display:flex;gap:22px;justify-content:space-between;min-height:82px;padding:16px 22px}
+        .brand{font-size:clamp(2rem,3.4vw,3.7rem);font-weight:900;letter-spacing:0;line-height:1}
+        .status{background:#e0f2fe;border:1px solid #7dd3fc;color:#075985;font-size:clamp(1.25rem,2.2vw,2rem);font-weight:900;min-width:320px;padding:14px 18px;text-align:center;text-transform:uppercase}
+        .status.success{background:#dcfce7;border-color:#86efac;color:var(--success)}
+        .status.fail{background:#fee2e2;border-color:#fca5a5;color:var(--danger)}
+        .status.warning{background:#fffbeb;border-color:#fcd34d;color:#92400e}
+        .main-grid{display:grid;gap:14px;grid-template-columns:minmax(0,1fr) minmax(390px,34vw);min-height:0}
+        .panel{background:var(--panel);border:1px solid var(--line);box-shadow:0 14px 36px rgba(15,23,42,.08)}
+        .cart-panel{display:grid;grid-template-rows:auto auto minmax(0,1fr);min-height:0}
+        .panel-head{align-items:center;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;padding:14px 18px}
+        .panel-title{font-size:clamp(1.35rem,2vw,2rem);font-weight:900;line-height:1}
+        .panel-subtitle{color:var(--muted);font-size:clamp(1rem,1.3vw,1.35rem);font-weight:800;margin-top:4px}
+        .items{display:grid;min-height:0;overflow:auto}
+        .item-row,.item-header{display:grid;gap:18px;grid-template-columns:minmax(360px,1fr) 120px 170px 145px 190px;padding:15px 18px}
+        .item-header{background:#f8fafc;border-bottom:1px solid var(--line);color:var(--muted);font-size:clamp(.95rem,1.15vw,1.2rem);font-weight:900;text-transform:uppercase}
+        .item-row{align-items:center;border-bottom:1px solid #e2e8f0;font-size:clamp(1.2rem,1.55vw,1.65rem)}
+        .item-row:last-child{border-bottom:0}
+        .product-cell{align-items:center;display:grid;gap:14px;grid-template-columns:76px minmax(0,1fr)}
+        .product-image{align-items:center;background:var(--brand-soft);border:1px solid #a7f3d0;color:var(--brand);display:flex;font-size:2rem;height:76px;justify-content:center;overflow:hidden;width:76px}
+        .product-image img{display:block;height:100%;object-fit:cover;width:100%}
+        .item-name{font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .item-code{color:var(--muted);font-size:1rem;font-weight:800;margin-top:3px}
+        .num{text-align:right}
+        .muted{color:var(--muted)}
+        .empty{align-content:center;color:var(--muted);display:grid;font-size:clamp(1.8rem,3.6vw,3.4rem);font-weight:900;justify-items:center;min-height:100%;text-align:center}
+        .display-bottom{display:grid;gap:14px;min-height:0}
+        .totals{display:grid}
+        .line{align-items:center;border-bottom:1px solid #e2e8f0;display:flex;gap:16px;justify-content:space-between;padding:12px 16px}
+        .line:last-child{border-bottom:0}
+        .line span{color:var(--muted);font-size:clamp(1rem,1.25vw,1.3rem);font-weight:900}
+        .line strong{font-size:clamp(1.15rem,1.55vw,1.65rem)}
+        .line.total{background:var(--brand-soft)}
+        .line.total span{color:#065f46}
+        .line.total strong{color:var(--brand);font-size:clamp(2.45rem,4vw,4.6rem);line-height:1}
+        .line.paid strong,.line.change strong{color:var(--success)}
+        .line.remaining.due strong{color:var(--danger)}
+        .info-grid{display:grid;gap:10px;padding:14px 16px}
+        .info-row{display:flex;gap:12px;justify-content:space-between}
+        .info-row span{color:var(--muted);font-size:clamp(.98rem,1.15vw,1.2rem);font-weight:900}
+        .info-row strong{font-size:clamp(1.05rem,1.35vw,1.45rem);text-align:right}
+        .payment-panel{display:grid;grid-template-rows:auto auto minmax(260px,1fr);min-height:0}
+        .payment-panel .panel-head{background:var(--brand-soft)}
+        .payment-panel .panel-title{color:#065f46;font-size:clamp(1.8rem,2.8vw,3rem)}
+        .payment-panel .info-grid{gap:14px;padding:18px}
+        .payment-panel .info-row span{font-size:clamp(1.18rem,1.6vw,1.6rem)}
+        .payment-panel .info-row strong{font-size:clamp(1.4rem,2vw,2.2rem)}
+        .qr-box{align-items:center;background:#fff;border:1px solid #a7f3d0;display:flex;justify-content:center;margin:0 18px 18px;min-height:260px;padding:18px}
+        .qr-box svg,.qr-box img{display:block;height:min(34vh,360px);max-width:100%;width:min(34vh,360px)}
+        .result-icon{align-items:center;display:flex;font-size:clamp(2.4rem,5.8vw,6.4rem);font-weight:900;height:100%;justify-content:center;min-height:260px;width:100%}
+        .result-icon.success{background:#dcfce7;color:var(--success)}
+        .result-icon.fail{background:#fee2e2;color:var(--danger)}
+        .result-icon.idle{background:#eff6ff;color:#1d4ed8;font-size:clamp(1.5rem,3vw,3rem);padding:8px;text-align:center}
+        .message-bar{background:#fff;border:1px solid var(--line);font-size:clamp(1.35rem,2.2vw,2.25rem);font-weight:900;line-height:1.15;min-height:70px;padding:14px 20px;text-align:center}
+        .message-bar.success{background:#ecfdf5;border-color:#86efac;color:var(--success)}
+        .message-bar.fail{background:#fef2f2;border-color:#fca5a5;color:var(--danger)}
+        .message-bar.warning{background:#fffbeb;border-color:#fcd34d;color:#92400e}
+        @@media(max-width:1180px){.main-grid{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}.payment-panel{grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr}.payment-panel .panel-head{grid-column:1/-1}.qr-box{margin:14px 16px}.item-row,.item-header{grid-template-columns:minmax(280px,1fr) 90px 135px 115px 145px}}
+        @@media(max-width:800px){.display-shell{gap:10px;padding:10px}.topbar{align-items:stretch;display:grid;min-height:auto}.status{min-width:0}.payment-panel{display:block}.item-header{display:none}.item-row{grid-template-columns:1fr 1fr;gap:8px}.product-cell{grid-column:1/-1}.num{text-align:left}.line.total strong{font-size:2.2rem}}
+    </style>
+</head>
+<body>
+    <main class="display-shell">
+        <header class="topbar">
+            <div class="brand">AphiwatPOS</div>
+            <div class="status" data-display-status>Scanning Items</div>
+        </header>
+
+        <section class="main-grid">
+            <div class="panel cart-panel">
+                <div class="panel-head">
+                    <div>
+                        <div class="panel-title">Current Cart</div>
+                        <div class="panel-subtitle"><span data-item-count>0 items</span> | <span data-updated-at>-</span></div>
+                    </div>
+                    <strong data-sale-no>-</strong>
+                </div>
+                <div class="item-header">
+                    <div>Product</div><div class="num">Qty</div><div class="num">Unit Price</div><div class="num">Discount</div><div class="num">Line Total</div>
+                </div>
+                <div class="items" data-items>
+                    <div class="empty">Waiting for scanned items</div>
+                </div>
+            </div>
+
+            <section class="display-bottom" aria-label="Payment">
+                <div class="panel payment-panel">
+                    <div class="panel-head"><div class="panel-title">Payment</div><strong data-customer-name>Walk-in Customer</strong></div>
+                    <div class="info-grid">
+                        <div class="info-row"><span>Grand Total</span><strong data-total>THB 0.00</strong></div>
+                        <div class="info-row"><span>Method</span><strong data-payment-method>-</strong></div>
+                        <div class="info-row"><span>Paid Amount</span><strong data-paid>THB 0.00</strong></div>
+                        <div class="info-row"><span>Change Amount</span><strong data-change>THB 0.00</strong></div>
+                        <div class="info-row"><span>Remaining</span><strong data-remaining>THB 0.00</strong></div>
+                    </div>
+                    <div class="qr-box" data-visual><div class="result-icon idle">POS</div></div>
+                </div>
+            </section>
+        </section>
+
+        <footer class="message-bar" data-result-message>Welcome. Your purchase details will appear here.</footer>
+    </main>
+
+    <script>
+    (() => {
+      const languageKey = 'aphiwatpos.language';
+      const originalText = new WeakMap();
+      let applying = false;
+      const phrases = {
+        th: {
+          'AphiwatPOS': 'AphiwatPOS',
+          'Change Amount': 'เงินทอน',
+          'Current Cart': 'ตะกร้าปัจจุบัน',
+          'Discount': 'ส่วนลด',
+          'Grand Total': 'ยอดรวมสุทธิ',
+          'Line Total': 'ยอดรวมรายการ',
+          'Method': 'วิธีชำระเงิน',
+          'Paid Amount': 'ยอดที่ชำระ',
+          'Payment': 'การชำระเงิน',
+          'Payment Failed': 'ชำระเงินไม่สำเร็จ',
+          'Payment Successful': 'ชำระเงินสำเร็จ',
+          'POS': 'POS',
+          'Product': 'สินค้า',
+          'Qty': 'จำนวน',
+          'Ready to complete payment.': 'พร้อมรับชำระเงิน',
+          'Remaining': 'คงเหลือ',
+          'Scan the QR code to pay with mobile banking.': 'สแกน QR เพื่อชำระผ่านโมบายแบงก์กิ้ง',
+          'Scanning Items': 'กำลังสแกนสินค้า',
+          'Thank you for your purchase. Payment successful.': 'ขอบคุณสำหรับการซื้อ ชำระเงินสำเร็จ',
+          'Unit Price': 'ราคาต่อหน่วย',
+          'Waiting for Payment': 'รอการชำระเงิน',
+          'Waiting for payment.': 'รอการชำระเงิน',
+          'Waiting for scanned items': 'รอรายการสินค้าที่สแกน',
+          'Walk-in Customer': 'ลูกค้าทั่วไป',
+          'Welcome. Your purchase details will appear here.': 'ยินดีต้อนรับ รายละเอียดการซื้อจะแสดงที่นี่'
+        }
+      };
+      const language = () => localStorage.getItem(languageKey) === 'th' ? 'th' : 'en';
+      const translate = (value) => {
+        const nextLanguage = language();
+        if (nextLanguage === 'en') return value;
+        const source = value.replace(/\s+/g, ' ').trim();
+        if (!source) return value;
+        if (phrases.th[source]) return value.replace(source, phrases.th[source]);
+        const itemMatch = source.match(/^(\d+)\s+items?$/i);
+        if (itemMatch) return value.replace(source, `${itemMatch[1]} รายการ`);
+        const saleMatch = source.match(/^Sale\s+(.+)$/i);
+        if (saleMatch) return value.replace(source, `บิล ${saleMatch[1]}`);
+        return value;
+      };
+      window.applyCustomerDisplayLanguage = () => {
+        if (!document.body) return;
+        applying = true;
+        document.documentElement.lang = language();
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        const nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        nodes.forEach((node) => {
+          if (node.parentElement?.closest('script, style, noscript')) return;
+          if (!originalText.has(node)) originalText.set(node, node.nodeValue);
+          const nextText = translate(originalText.get(node));
+          if (node.nodeValue !== nextText) node.nodeValue = nextText;
+        });
+        setTimeout(() => { applying = false; }, 0);
+      };
+      window.addEventListener('storage', (event) => {
+        if (event.key === languageKey) window.applyCustomerDisplayLanguage();
+      });
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'characterData') originalText.delete(mutation.target);
+        });
+        if (!applying) window.applyCustomerDisplayLanguage();
+      });
+      observer.observe(document.body, { childList: true, characterData: true, subtree: true });
+      window.applyCustomerDisplayLanguage();
+    })();
+    </script>
+
+    <script>
+    (() => {
+      const channelName = 'aphiwatpos-customer-display';
+      const storageKey = 'aphiwatpos:customer-display';
+      const terminalStorageKey = 'aphiwatpos:terminal-id';
+      const terminalId = new URLSearchParams(location.search).get('terminalId') || localStorage.getItem(terminalStorageKey) || 'default';
+      const money = value => Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const thb = value => `THB ${money(value)}`;
+      const by = selector => document.querySelector(selector);
+      const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      let displaySocket = null;
+      let invocationId = 0;
+
+      async function startDisplayHub() {
+        if (!('WebSocket' in window) || displaySocket) return;
+        try {
+          const response = await fetch('/pos-display-hub/negotiate?negotiateVersion=1', { method:'POST', credentials:'same-origin' });
+          const negotiate = await response.json();
+          const token = encodeURIComponent(negotiate.connectionToken || negotiate.connectionId);
+          const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+          displaySocket = new WebSocket(`${wsProtocol}//${location.host}/pos-display-hub?id=${token}`);
+          displaySocket.onopen = () => {
+            displaySocket.send('{"protocol":"json","version":1}\u001e');
+            sendInvocation('JoinDisplay', [terminalId]);
+          };
+          displaySocket.onmessage = event => {
+            String(event.data).split('\u001e').filter(Boolean).forEach(frame => {
+              const payload = JSON.parse(frame);
+              if (payload.type === 1 && payload.target === 'DisplayUpdated') render(payload.arguments?.[0]);
+            });
+          };
+          displaySocket.onclose = () => { displaySocket = null; setTimeout(startDisplayHub, 1500); };
+        } catch {
+          displaySocket = null;
+          setTimeout(startDisplayHub, 2500);
+        }
+      }
+
+      function sendInvocation(target, args) {
+        if (!displaySocket || displaySocket.readyState !== WebSocket.OPEN) return;
+        displaySocket.send(JSON.stringify({ type:1, invocationId:String(++invocationId), target, arguments:args }) + '\u001e');
+      }
+
+      function setStatus(text, state) {
+        const status = by('[data-display-status]');
+        status.textContent = text || 'Scanning Items';
+        status.className = `status ${state || ''}`.trim();
+      }
+
+      function setMessage(text, state) {
+        const message = by('[data-result-message]');
+        message.textContent = text || 'Welcome. Your purchase details will appear here.';
+        message.className = `message-bar ${state || ''}`.trim();
+      }
+
+      function renderVisual(message, totals) {
+        const visual = by('[data-visual]');
+        const isResult = message?.type === 'payment-result';
+        const isSuccess = message?.status === 'success';
+        if (isResult) {
+          visual.innerHTML = `<div class="result-icon ${isSuccess ? 'success' : 'fail'}">${isSuccess ? '&#10003;' : '&#9888;'}</div>`;
+          return;
+        }
+        if (message?.type === 'promptpay-qr' && (message.svg || message.svgDataUri)) {
+          visual.innerHTML = message.svg || `<img alt="PromptPay QR Code" src="${message.svgDataUri}">`;
+          return;
+        }
+        visual.innerHTML = `<div class="result-icon idle">${totals.net > 0 ? thb(totals.net) : 'POS'}</div>`;
+      }
+
+      function render(message) {
+        if (!message || !['sale-update', 'promptpay-qr', 'payment-result'].includes(message.type)) return;
+
+        const totals = message.totals || {};
+        const items = message.items || [];
+        const customer = message.customer || {};
+        const payment = message.payment || {};
+        const isResult = message.type === 'payment-result';
+        const isSuccess = message.status === 'success';
+        const isFail = message.status === 'fail';
+        const isQr = message.type === 'promptpay-qr';
+        const displayStatus = isResult ? (isSuccess ? 'Payment Successful' : 'Payment Failed') : isQr ? 'Waiting for Payment' : (message.status || 'Scanning Items');
+
+        setStatus(displayStatus, isSuccess ? 'success' : isFail ? 'fail' : isQr ? 'warning' : '');
+        by('[data-sale-no]').textContent = message.saleNo ? `Sale ${message.saleNo}` : '-';
+        by('[data-item-count]').textContent = `${message.itemCount || 0} item${message.itemCount === 1 ? '' : 's'}`;
+        by('[data-updated-at]').textContent = message.updatedAt ? new Date(message.updatedAt).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '-';
+
+        by('[data-total]').textContent = thb(totals.net || message.amount);
+
+        by('[data-customer-name]').textContent = customer.name || 'Walk-in Customer';
+
+        by('[data-payment-method]').textContent = payment.method || '-';
+        by('[data-paid]').textContent = thb(payment.paidAmount || totals.paid);
+        by('[data-change]').textContent = thb(payment.changeAmount || totals.change);
+        by('[data-remaining]').textContent = thb(totals.remaining);
+
+        by('[data-items]').innerHTML = items.length
+          ? items.map(item => `<div class="item-row"><div class="product-cell"><div class="product-image">${item.imageUrl ? `<img alt="" src="${esc(item.imageUrl)}">` : 'POS'}</div><div><div class="item-name">${esc(item.name)}</div>${item.code ? `<div class="item-code">${esc(item.code)}</div>` : ''}</div></div><div class="num">${money(item.quantity)}</div><div class="num">${thb(item.unitPrice)}</div><div class="num">${thb(item.discount)}</div><div class="num"><strong>${thb(item.lineTotal)}</strong></div></div>`).join('')
+          : '<div class="empty">Waiting for scanned items</div>';
+
+        renderVisual(message, totals);
+
+        if (isResult) {
+          setMessage(message.message || (isSuccess ? 'Thank you for your purchase. Payment successful.' : 'Payment failed.'), isSuccess ? 'success' : 'fail');
+        } else if (isQr) {
+          setMessage('Scan the QR code to pay with mobile banking.', 'warning');
+        } else if ((totals.remaining || 0) > 0) {
+          setMessage('Waiting for payment.', 'warning');
+        } else if ((totals.net || 0) > 0) {
+          setMessage('Ready to complete payment.', 'success');
+        } else {
+          setMessage('Welcome. Your purchase details will appear here.');
+        }
+        window.applyCustomerDisplayLanguage?.();
+      }
+
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) render(JSON.parse(saved));
+      } catch {}
+
+      if ('BroadcastChannel' in window) {
+        const channel = new BroadcastChannel(channelName);
+        channel.onmessage = event => render(event.data);
+      }
+
+      window.addEventListener('storage', event => {
+        if (event.key !== storageKey) return;
+        try { if (event.newValue) render(JSON.parse(event.newValue)); } catch {}
+      });
+
+      startDisplayHub();
+    })();
+    </script>
+</body>
+</html>

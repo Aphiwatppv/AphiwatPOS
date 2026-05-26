@@ -1,0 +1,1 @@
+﻿CREATE PROCEDURE [dbo].[spProductGetById] @ProductId INT AS BEGIN SET NOCOUNT ON; SELECT p.*, c.CategoryName, b.BrandName, u.UnitName FROM [dbo].[Product] p INNER JOIN [dbo].[ProductCategory] c ON c.CategoryId=p.CategoryId LEFT JOIN [dbo].[ProductBrand] b ON b.BrandId=p.BrandId INNER JOIN [dbo].[ProductUnit] u ON u.UnitId=p.UnitId WHERE p.ProductId=@ProductId; END;

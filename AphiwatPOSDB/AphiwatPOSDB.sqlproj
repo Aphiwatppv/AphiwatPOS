@@ -1,0 +1,330 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <Name>AphiwatPOSDB</Name>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectVersion>4.1</ProjectVersion>
+    <ProjectGuid>{212290bf-dbd7-47aa-8761-e79908626286}</ProjectGuid>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql160DatabaseSchemaProvider</DSP>
+    <OutputType>Database</OutputType>
+    <RootPath></RootPath>
+    <RootNamespace>AphiwatPOSDB</RootNamespace>
+    <AssemblyName>AphiwatPOSDB</AssemblyName>
+    <ModelCollation>1033, CI</ModelCollation>
+    <DefaultFileStructure>BySchemaAndSchemaType</DefaultFileStructure>
+    <DeployToDatabase>True</DeployToDatabase>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <TargetLanguage>CS</TargetLanguage>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <SqlServerVerification>False</SqlServerVerification>
+    <IncludeCompositeObjects>True</IncludeCompositeObjects>
+    <TargetDatabaseSet>True</TargetDatabaseSet>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>bin\Release\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <DefineDebug>false</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>bin\Debug\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <DefineDebug>true</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">11.0</VisualStudioVersion>
+    <!-- Default to the v11.0 targets path if the targets file for the current VS version is not found -->
+    <SSDTExists Condition="Exists('$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets')">True</SSDTExists>
+    <VisualStudioVersion Condition="'$(SSDTExists)' == ''">11.0</VisualStudioVersion>
+  </PropertyGroup>
+  <Import Condition="'$(SQLDBExtensionsRefPath)' != ''" Project="$(SQLDBExtensionsRefPath)\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <Import Condition="'$(SQLDBExtensionsRefPath)' == ''" Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <ItemGroup>
+    <Folder Include="Properties" />
+    <Folder Include="dbo" />
+    <Folder Include="dbo\Table" />
+    <Folder Include="dbo\Table\Authentication &amp; User Management" />
+    <Folder Include="dbo\Stored Procedures" />
+    <Folder Include="dbo\Stored Procedures\Authentication &amp; User Management" />
+    <Folder Include="Seed" />
+    <Folder Include="Seed\Authentication &amp; User Management" />
+    <Folder Include="Seed\Customer Management" />
+    <Folder Include="Script" />
+    <Folder Include="dbo\Table\Product Management" />
+    <Folder Include="dbo\Stored Procedures\Product Management" />
+    <Folder Include="dbo\Table\Inventory Management" />
+    <Folder Include="dbo\Stored Procedures\Inventory Management" />
+    <Folder Include="dbo\Table\Customer Management" />
+    <Folder Include="dbo\Stored Procedures\Customer Management" />
+    <Folder Include="dbo\Table\Sales Management" />
+    <Folder Include="dbo\Stored Procedures\Sales Management" />
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="dbo\Table\Authentication &amp; User Management\AccessUser.sql" />
+    <Build Include="dbo\Table\Authentication &amp; User Management\AccessRole.sql" />
+    <Build Include="dbo\Table\Authentication &amp; User Management\AccessUserRole.sql" />
+    <Build Include="dbo\Table\Authentication &amp; User Management\AccessPermission.sql" />
+    <Build Include="dbo\Table\Authentication &amp; User Management\AccessRolePermission.sql" />
+    <Build Include="dbo\Table\Authentication &amp; User Management\AccessUserPermission.sql" />
+    <Build Include="dbo\Table\Authentication &amp; User Management\AccessLoginHistory.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_GetForSignIn.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_GetCredential.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_RecordLogin.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_List.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_ListPaged.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_Get.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_Create.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_Update.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_UpdateProfile.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_UpdateProfileImage.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_ResetPassword.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_ChangePassword.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_SetActive.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_SetLock.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_UsernameExists.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_EmailExists.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_AssignRoles.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_AssignPermissions.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_User_HasPermission.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_LoginHistory_RecordAttempt.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_LoginHistory_RecordLogout.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_LoginHistory_List.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_Role_List.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_Role_Get.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_Role_Create.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_Role_Update.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_Role_SetActive.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_Role_AssignPermissions.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_Role_PermissionList.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_Role_CodeExists.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_Permission_List.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_Permission_Get.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_Permission_Create.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_Permission_Update.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_Permission_SetActive.sql" />
+    <Build Include="dbo\Stored Procedures\Authentication &amp; User Management\Access_Permission_CodeExists.sql" />
+    <PostDeploy Include="Script.PostDeployment.sql" />
+    <None Include="Seed\Authentication &amp; User Management\AccessSeed.sql" />
+    <None Include="Seed\Customer Management\MemberLevelSeed.sql" />
+    <None Include="Script\ProductManagement.sql" />
+    <None Include="Script\InventoryManagement.sql" />
+    <None Include="Script\CustomerManagement.sql" />
+    <None Include="Script\SalesManagement.sql" />
+    <Build Include="dbo\Table\Product Management\ProductCategory.sql" />
+    <Build Include="dbo\Table\Product Management\ProductBrand.sql" />
+    <Build Include="dbo\Table\Product Management\ProductUnit.sql" />
+    <Build Include="dbo\Table\Product Management\ProductUnitConversion.sql" />
+    <Build Include="dbo\Table\Product Management\Product.sql" />
+    <Build Include="dbo\Table\Product Management\ProductPriceHistory.sql" />
+    <Build Include="dbo\Table\Product Management\ProductIndexes.sql" />
+    <Build Include="dbo\Table\Inventory Management\InventoryLocation.sql" />
+    <Build Include="dbo\Table\Inventory Management\InventoryStock.sql" />
+    <Build Include="dbo\Table\Inventory Management\InventoryMovement.sql" />
+    <Build Include="dbo\Table\Inventory Management\StockAdjustment.sql" />
+    <Build Include="dbo\Table\Inventory Management\StockAdjustmentItem.sql" />
+    <Build Include="dbo\Table\Inventory Management\StockCount.sql" />
+    <Build Include="dbo\Table\Inventory Management\StockCountItem.sql" />
+    <Build Include="dbo\Table\Inventory Management\StockTransfer.sql" />
+    <Build Include="dbo\Table\Inventory Management\StockTransferItem.sql" />
+    <Build Include="dbo\Table\Sales Management\PaymentMethod.sql" />
+    <Build Include="dbo\Table\Sales Management\SalesHeader.sql" />
+    <Build Include="dbo\Table\Sales Management\SalesItem.sql" />
+    <Build Include="dbo\Table\Sales Management\SalesPayment.sql" />
+    <Build Include="dbo\Table\Sales Management\HeldSaleHeader.sql" />
+    <Build Include="dbo\Table\Sales Management\HeldSaleItem.sql" />
+    <Build Include="dbo\Table\Sales Management\SalesReturnHeader.sql" />
+    <Build Include="dbo\Table\Sales Management\SalesReturnItem.sql" />
+    <Build Include="dbo\Table\Sales Management\SalesReturnPayment.sql" />
+    <Build Include="dbo\Table\Sales Management\ReceiptPrintHistory.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spHeldSaleCancel.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spHeldSaleComplete.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spHeldSaleCreate.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spHeldSaleExpireOld.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spHeldSaleGetById.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spHeldSaleGetPaged.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spHeldSaleResume.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spPaymentMethodCheckCodeExists.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spPaymentMethodCreate.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spPaymentMethodGetAll.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spPaymentMethodGetAllActive.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spPaymentMethodGetById.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spPaymentMethodToggleActive.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spPaymentMethodUpdate.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spReceiptPrintHistoryCreate.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spReceiptPrintHistoryGetBySalesHeaderId.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spReceiptPrintHistoryGetBySalesReturnHeaderId.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesCompleteTransaction.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesDailyClosingGet.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesDailyClosingSave.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesDocumentGetBySalesHeaderId.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesDocumentIssue.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesDocumentRecordPrint.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesGetById.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesGetBySaleNo.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesGetDetail.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesGetItemsBySalesHeaderId.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesGetPaged.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesGetPaymentsBySalesHeaderId.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesGetProductByBarcode.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesGetSummaryByDateRange.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesReprintReceipt.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesReturnAddItem.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesReturnApprove.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesReturnCancel.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesReturnComplete.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesReturnCreate.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesReturnGetById.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesReturnGetItemsByReturnId.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesReturnGetPaged.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesReturnGetPaymentsByReturnId.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesReturnReject.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesSearchProducts.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesVoid.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductCategoryGetPaged.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductCategoryGetAllActive.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductCategoryGetById.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductCategoryCreate.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductCategoryUpdate.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductCategoryDeactivate.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductCategoryCheckCodeExists.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductCategoryCheckNameExists.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductBrandGetPaged.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductBrandGetAllActive.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductBrandGetById.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductBrandCreate.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductBrandUpdate.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductBrandDeactivate.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductBrandCheckCodeExists.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductBrandCheckNameExists.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUnitGetPaged.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUnitGetAllActive.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUnitGetById.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUnitCreate.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUnitUpdate.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUnitDeactivate.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUnitCheckCodeExists.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUnitCheckNameExists.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUnitConversionGetByUnitId.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUnitConversionGetById.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUnitConversionCreate.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUnitConversionUpdate.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUnitConversionDeactivate.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUnitConversionCheckDuplicate.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductGetPaged.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductGetAllActive.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductGetById.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductCreate.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUpdate.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductDeactivate.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUpdatePrice.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUpdateImage.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductUpdateBarcode.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductCheckCodeExists.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductCheckBarcodeExists.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductGetLowStock.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductGetByBarcode.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductPriceHistoryGetByProductId.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductPriceHistoryGetPaged.sql" />
+    <Build Include="dbo\Stored Procedures\Product Management\spProductPriceHistoryCreate.sql" />
+    <Build Include="dbo\Stored Procedures\Inventory Management\spInventoryDashboardGetSummary.sql" />
+    <Build Include="dbo\Stored Procedures\Inventory Management\spInventoryDashboardGetStockStatusSummary.sql" />
+    <Build Include="dbo\Stored Procedures\Inventory Management\spInventoryDashboardGetValueByCategory.sql" />
+    <Build Include="dbo\Stored Procedures\Inventory Management\spInventoryDashboardGetValueByLocation.sql" />
+    <Build Include="dbo\Stored Procedures\Inventory Management\spInventoryDashboardGetRecentMovements.sql" />
+    <Build Include="dbo\Stored Procedures\Inventory Management\spInventoryDashboardGetMovementTrend.sql" />
+    <Build Include="dbo\Stored Procedures\Inventory Management\spInventoryDashboardGetLowStockProducts.sql" />
+    <Build Include="dbo\Stored Procedures\Inventory Management\spInventoryDashboardGetTopMovingProducts.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="dbo\Table\Customer Management\Customer.sql" />
+    <Build Include="dbo\Table\Customer Management\CustomerCredit.sql" />
+    <Build Include="dbo\Table\Customer Management\CustomerCreditTransaction.sql" />
+    <Build Include="dbo\Table\Customer Management\CustomerCreditRepayment.sql" />
+    <None Include="dbo\Table\Customer Management\CustomerIndexes.sql" />
+    <Build Include="dbo\Table\Customer Management\CustomerLevelHistory.sql" />
+    <Build Include="dbo\Table\Customer Management\CustomerNote.sql" />
+    <Build Include="dbo\Table\Customer Management\CustomerPointBalance.sql" />
+    <Build Include="dbo\Table\Customer Management\CustomerPointMovement.sql" />
+    <Build Include="dbo\Table\Customer Management\MemberLevel.sql" />
+    <Build Include="dbo\Table\Customer Management\MemberLevelUpgradeRule.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerCheckLevelEligibility.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerCreate.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerCreditAdjust.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerCreditCheckEligibility.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerCreditCreateSale.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerCreditGetByCustomerId.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerCreditGetTransactionsPaged.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerCreditReceivePayment.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerCreditSet.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerCreditUpdateOverdueStatus.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerGetById.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerGetByPhoneNumber.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerGetPaged.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerHistoryGetCreditHistory.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerHistoryGetLevelHistory.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerHistoryGetPaymentHistory.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerHistoryGetPointHistory.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerHistoryGetPurchaseHistory.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerHistoryGetRefundHistory.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerHistoryGetSummary.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerHistoryGetTimeline.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerIsEmailExists.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerIsPhoneNumberExists.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerNoteCreate.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerNoteGetById.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerNoteGetPaged.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerNoteToggleActive.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerNoteUpdate.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerPointAdjust.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerPointEarn.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerPointExpire.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerPointGetBalance.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerPointGetMovementsPaged.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerPointRedeem.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerPointReverseByReference.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerReportCreditSummary.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerReportGetSummary.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerReportInactiveCustomers.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerReportLoyaltyPointSummary.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerReportMemberLevelSummary.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerReportTopCustomersBySpending.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerReportTopCustomersByVisit.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerToggleActive.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerUpdate.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerUpdatePurchaseSummary.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerUpgradeLevel.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spMemberLevelCreate.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spMemberLevelGetAll.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spMemberLevelGetAllActive.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spMemberLevelGetById.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spMemberLevelIsCodeExists.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spMemberLevelToggleActive.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spMemberLevelUpdate.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spMemberLevelUpgradeRuleCreate.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spMemberLevelUpgradeRuleGetAll.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spMemberLevelUpgradeRuleGetByFromLevelId.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spMemberLevelUpgradeRuleGetById.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spMemberLevelUpgradeRuleToggleActive.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spMemberLevelUpgradeRuleUpdate.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="AphiwatPOSDB.publish.xml" />
+  </ItemGroup>
+</Project>
+
+

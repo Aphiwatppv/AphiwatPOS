@@ -1,0 +1,25 @@
+﻿CREATE TABLE [dbo].[CustomerCreditTransaction]
+(
+    CustomerCreditTransactionId BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_CustomerCreditTransaction PRIMARY KEY,
+    CustomerId INT NOT NULL,
+    SaleId BIGINT NULL,
+    TransactionType NVARCHAR(30) NOT NULL,
+    ReferenceType NVARCHAR(30) NULL,
+    ReferenceId BIGINT NULL,
+    Amount DECIMAL(18,2) NOT NULL,
+    BalanceBefore DECIMAL(18,2) NOT NULL CONSTRAINT DF_CustomerCreditTransaction_BalanceBefore DEFAULT(0),
+    BalanceAfter DECIMAL(18,2) NOT NULL CONSTRAINT DF_CustomerCreditTransaction_BalanceAfter DEFAULT(0),
+    DueDate DATE NULL,
+    PaidDate DATETIME2 NULL,
+    ReferenceNo NVARCHAR(100) NULL,
+    Status NVARCHAR(30) NOT NULL,
+    Remark NVARCHAR(1000) NULL,
+    Description NVARCHAR(500) NULL,
+    CreatedDate DATETIME2 NOT NULL CONSTRAINT DF_CustomerCreditTransaction_CreatedDate DEFAULT(SYSDATETIME()),
+    CreatedByUserId INT NOT NULL,
+    CONSTRAINT FK_CustomerCreditTransaction_Customer FOREIGN KEY(CustomerId) REFERENCES dbo.Customer(CustomerId),
+    CONSTRAINT CK_CustomerCreditTransaction_Type CHECK (TransactionType IN (N'CreditSale',N'Payment',N'AdjustmentIn',N'AdjustmentOut',N'Cancel',N'Refund',N'CreditUsed',N'CreditRepaid',N'CreditRefunded',N'CreditAdjusted',N'CreditAdded')),
+    CONSTRAINT CK_CustomerCreditTransaction_ReferenceType CHECK (ReferenceType IS NULL OR ReferenceType IN (N'Sale',N'CreditRepayment',N'SalesReturn',N'ManualAdjustment')),
+    CONSTRAINT CK_CustomerCreditTransaction_Status CHECK (Status IN (N'Unpaid',N'PartiallyPaid',N'Paid',N'Overdue',N'Cancelled')),
+    CONSTRAINT CK_CustomerCreditTransaction_Amount CHECK (Amount > 0)
+);

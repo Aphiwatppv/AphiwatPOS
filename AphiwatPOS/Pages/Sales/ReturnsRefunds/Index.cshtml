@@ -1,0 +1,144 @@
+@page
+@model AphiwatPOS.Pages.Sales.ReturnsRefunds.IndexModel
+@using AphiwatPOS.Pages.Sales
+@{
+    ViewData["Title"] = "Returns / Refunds";
+    ViewData["Subtitle"] = "Process full or partial returns, refund payments, and stock return rules.";
+    var returns = Model.Returns.Returns.ToArray();
+    var totalPages = SalesPageHelpers.TotalPages(Model.Returns.TotalCount, Model.Returns.PageSize);
+    var sale = Model.OriginalSale;
+}
+
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div><h1>Returns / Refunds</h1><p>Process full or partial returns, refund payments, and stock return rules.</p></div>
+    <a class="btn btn-outline-secondary" asp-page="/Sales/SalesHistory/Index"><i class="bi bi-receipt me-1"></i>Sales History</a>
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-arrow-counterclockwise"></i></span><div><div class="metric-label">Refund transactions</div><div class="metric-value">@Model.Returns.TotalCount</div><div class="metric-helper">Matching filters</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-cash-stack"></i></span><div><div class="metric-label">Refund amount</div><div class="metric-value">@returns.Sum(x => x.RefundNetAmount).ToString("N2")</div><div class="metric-helper">Current page total</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-hourglass-split"></i></span><div><div class="metric-label">Pending approvals</div><div class="metric-value">@returns.Count(x => x.Status == "Draft")</div><div class="metric-helper">Need review</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-check-circle"></i></span><div><div class="metric-label">Completed refunds</div><div class="metric-value">@returns.Count(x => x.Status == "Completed")</div><div class="metric-helper">Finalized returns</div></div></div>
+</div>
+
+<form method="get" class="filter-card mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-lg-5"><label class="form-label">Search original sale</label><input asp-for="SearchSaleNo" class="form-control" placeholder="Sale No / Receipt No" /></div>
+        <div class="col-lg-3"><label class="form-label">Search refunds</label><input asp-for="SearchText" class="form-control" placeholder="Return no or original sale no" /></div>
+        <div class="col-lg-2"><label class="form-label">Status</label><select asp-for="Status" class="form-select"><option value="">All</option><option>Draft</option><option>Approved</option><option>Rejected</option><option>Completed</option><option>Cancelled</option></select></div>
+        <div class="col-lg-2 d-flex gap-2"><button class="btn btn-primary w-100" type="submit"><i class="bi bi-search me-1"></i>Search</button><a class="btn btn-outline-secondary" asp-page="./Index">Clear</a></div>
+    </div>
+</form>
+
+@if (sale is not null)
+{
+    <section class="data-card mb-3" data-refund-root>
+        <div class="card-heading">
+            <div><h2>Original sale detail</h2><p>@sale.SaleNo · @sale.SaleDate.ToString("yyyy-MM-dd HH:mm") · @(sale.CustomerName ?? "Walk-in")</p></div>
+            <span class="badge status-badge @SalesPageHelpers.StatusBadge(sale.Status)">@sale.Status</span>
+        </div>
+        <form method="post" asp-page-handler="CreateRefund" data-refund-form>
+            <input type="hidden" asp-for="Input.SalesHeaderId" value="@sale.SalesHeaderId" />
+            <input type="hidden" asp-for="Input.ItemsJson" data-refund-items />
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead><tr><th>Item</th><th>Sold Qty</th><th>Returned</th><th>Remaining</th><th>Return Qty</th><th>Condition</th><th>Return To Stock</th><th>Refund</th></tr></thead>
+                    <tbody>
+                    @foreach (var item in sale.Items)
+                    {
+                        var remaining = item.Quantity - item.ReturnedQty;
+                        <tr data-refund-row data-sales-item-id="@item.SalesItemId" data-unit-price="@item.UnitPrice" data-remaining="@remaining">
+                            <td><strong>@item.ProductNameSnapshot</strong><div class="text-muted small">@item.ProductCodeSnapshot</div></td>
+                            <td>@item.Quantity.ToString("N2")</td>
+                            <td>@item.ReturnedQty.ToString("N2")</td>
+                            <td><span class="badge status-badge @(remaining <= 0 ? "badge-muted" : "badge-success")">@remaining.ToString("N2")</span></td>
+                            <td><input class="form-control form-control-sm" data-return-qty type="number" min="0" max="@remaining" step="0.01" value="0" @(remaining <= 0 ? "disabled" : "") /></td>
+                            <td><select class="form-select form-select-sm" data-return-condition><option>Good</option><option>Damaged</option><option>Expired</option><option>Defective</option></select></td>
+                            <td><div class="form-check"><input class="form-check-input" data-return-stock type="checkbox" checked /><label class="form-check-label">Good stock</label></div><div class="text-warning small d-none" data-condition-warning>Will not return to stock</div></td>
+                            <td><strong data-line-refund>0.00</strong></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <div class="row g-3 mt-2">
+                <div class="col-lg-8"><label class="form-label required">Refund reason</label><textarea asp-for="Input.Reason" class="form-control" rows="3" required></textarea></div>
+                <div class="col-lg-4">
+                    <div class="summary-line total"><span>Refund amount</span><strong data-refund-total>0.00</strong></div>
+                    <button class="btn btn-primary w-100" type="submit"><i class="bi bi-arrow-counterclockwise me-1"></i>Submit Refund</button>
+                </div>
+            </div>
+        </form>
+    </section>
+}
+
+<section class="data-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>Return No</th><th>Original Sale No</th><th>Return Date</th><th>Customer</th><th>Cashier</th><th>Refund Amount</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            @if (!returns.Any())
+            {
+                <tr><td colspan="8"><div class="empty-state"><i class="bi bi-arrow-counterclockwise"></i><div class="fw-semibold">No refunds found</div><div>Search an original sale to start a return.</div></div></td></tr>
+            }
+            @foreach (var item in returns)
+            {
+                <tr>
+                    <td><span class="code-badge mono">@item.ReturnNo</span></td>
+                    <td>@item.SaleNo</td>
+                    <td>@item.ReturnDate.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>@(item.CustomerId?.ToString() ?? "Walk-in")</td>
+                    <td>@item.CashierUserId</td>
+                    <td><strong>@item.RefundNetAmount.ToString("N2")</strong></td>
+                    <td><span class="badge status-badge @SalesPageHelpers.StatusBadge(item.Status)">@item.Status</span></td>
+                    <td class="text-end"><div class="dropdown"><button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" type="button">Action</button><div class="dropdown-menu dropdown-menu-end action-menu"><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#refundDetail-@item.SalesReturnHeaderId" type="button"><i class="bi bi-eye"></i>View Detail</button><button class="dropdown-item @(Model.CanApprove && item.Status == "Draft" ? "" : "disabled")" data-bs-toggle="modal" data-bs-target="#approveRefund-@item.SalesReturnHeaderId" type="button"><i class="bi bi-check-circle"></i>Approve</button><button class="dropdown-item text-danger @(Model.CanApprove && item.Status == "Draft" ? "" : "disabled")" data-bs-toggle="modal" data-bs-target="#rejectRefund-@item.SalesReturnHeaderId" type="button"><i class="bi bi-x-circle"></i>Reject</button><button class="dropdown-item @(item.Status is "Draft" or "Approved" ? "" : "disabled")" data-bs-toggle="modal" data-bs-target="#completeRefund-@item.SalesReturnHeaderId" type="button"><i class="bi bi-cash"></i>Complete</button><button class="dropdown-item text-danger @(item.Status is "Draft" or "Approved" ? "" : "disabled")" data-bs-toggle="modal" data-bs-target="#cancelRefund-@item.SalesReturnHeaderId" type="button"><i class="bi bi-slash-circle"></i>Cancel</button><button class="dropdown-item" type="button"><i class="bi bi-printer"></i>Print Refund Receipt</button></div></div></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-3"><span class="text-muted">Total rows: @Model.Returns.TotalCount</span><div class="btn-group btn-group-sm"><a class="btn btn-outline-secondary @(Model.PageNumber <= 1 ? "disabled" : "")" asp-route-SearchSaleNo="@Model.SearchSaleNo" asp-route-SearchText="@Model.SearchText" asp-route-Status="@Model.Status" asp-route-PageNumber="@(Model.PageNumber - 1)">Previous</a><span class="btn btn-outline-secondary disabled">@Model.PageNumber / @totalPages</span><a class="btn btn-outline-secondary @(Model.PageNumber >= totalPages ? "disabled" : "")" asp-route-SearchSaleNo="@Model.SearchSaleNo" asp-route-SearchText="@Model.SearchText" asp-route-Status="@Model.Status" asp-route-PageNumber="@(Model.PageNumber + 1)">Next</a></div></div>
+</section>
+
+@foreach (var item in returns)
+{
+    <div class="modal fade app-modal" id="refundDetail-@item.SalesReturnHeaderId" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content"><div class="modal-header"><div><h2 class="modal-title h5">Refund Detail</h2><p class="modal-subtitle">@item.ReturnNo</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><dl class="row detail-list"><dt class="col-md-3">Original sale</dt><dd class="col-md-3">@item.SaleNo</dd><dt class="col-md-3">Refund amount</dt><dd class="col-md-3">@item.RefundNetAmount.ToString("N2")</dd><dt class="col-md-3">Status</dt><dd class="col-md-3"><span class="badge status-badge @SalesPageHelpers.StatusBadge(item.Status)">@item.Status</span></dd><dt class="col-md-3">Approved by</dt><dd class="col-md-3">@(item.ApprovedByUserId?.ToString() ?? "-")</dd><dt class="col-md-3">Reason</dt><dd class="col-md-9">@item.Reason</dd></dl><div class="alert alert-success mb-0"><i class="bi bi-check-circle me-1"></i>Items marked Good with Return To Stock create return inventory movements when completed.</div></div></div></div></div>
+    <div class="modal fade app-modal" id="approveRefund-@item.SalesReturnHeaderId" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="ApproveRefund" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Approve Refund</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input type="hidden" asp-for="ActionInput.SalesReturnHeaderId" value="@item.SalesReturnHeaderId" /><p>Approve refund <strong>@item.ReturnNo</strong> for @item.RefundNetAmount.ToString("N2")?</p></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Approve</button></div></form></div></div>
+    <div class="modal fade app-modal" id="rejectRefund-@item.SalesReturnHeaderId" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="RejectRefund" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Reject Refund</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input type="hidden" asp-for="ActionInput.SalesReturnHeaderId" value="@item.SalesReturnHeaderId" /><label class="form-label required">Reject reason</label><textarea asp-for="ActionInput.Reason" class="form-control" rows="3" required></textarea></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-outline-danger" type="submit">Reject</button></div></form></div></div>
+    <div class="modal fade app-modal" id="completeRefund-@item.SalesReturnHeaderId" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="CompleteRefund" class="modal-content" data-complete-refund-form><div class="modal-header"><h2 class="modal-title h5">Complete Refund</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input type="hidden" asp-for="ActionInput.SalesReturnHeaderId" value="@item.SalesReturnHeaderId" /><input type="hidden" asp-for="ActionInput.PaymentsJson" value="[{&quot;paymentMethodId&quot;:@(Model.PaymentMethods.FirstOrDefault()?.PaymentMethodId ?? 0),&quot;refundAmount&quot;:@item.RefundNetAmount,&quot;referenceNo&quot;:&quot;&quot;}]" /><label class="form-label">Refund payment method</label><select class="form-select mb-3">@foreach (var method in Model.PaymentMethods) { <option>@method.PaymentMethodName</option> }</select><div class="summary-line total"><span>Refund amount</span><strong>@item.RefundNetAmount.ToString("N2")</strong></div></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Complete Refund</button></div></form></div></div>
+    <div class="modal fade app-modal" id="cancelRefund-@item.SalesReturnHeaderId" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="CancelRefund" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Cancel Refund</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input type="hidden" asp-for="ActionInput.SalesReturnHeaderId" value="@item.SalesReturnHeaderId" /><label class="form-label required">Cancel reason</label><textarea asp-for="ActionInput.Reason" class="form-control" rows="3" required></textarea></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-outline-danger" type="submit">Confirm Cancel</button></div></form></div></div>
+}
+
+@section Scripts {
+<script>
+(() => {
+  const root = document.querySelector('[data-refund-root]');
+  if (!root) return;
+  const money = v => Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const rows = [...root.querySelectorAll('[data-refund-row]')];
+  function sync() {
+    let total = 0;
+    const items = rows.map(row => {
+      const qty = Math.min(Number(row.querySelector('[data-return-qty]').value || 0), Number(row.dataset.remaining || 0));
+      const unit = Number(row.dataset.unitPrice || 0);
+      const condition = row.querySelector('[data-return-condition]').value;
+      const stock = row.querySelector('[data-return-stock]');
+      if (condition !== 'Good') stock.checked = false;
+      stock.disabled = condition !== 'Good';
+      row.querySelector('[data-condition-warning]').classList.toggle('d-none', condition === 'Good');
+      const line = qty * unit;
+      row.querySelector('[data-line-refund]').textContent = money(line);
+      total += line;
+      return { salesItemId: Number(row.dataset.salesItemId), quantityReturned: qty, refundUnitPrice: unit, returnToStock: stock.checked, returnCondition: condition };
+    }).filter(x => x.quantityReturned > 0);
+    root.querySelector('[data-refund-total]').textContent = money(total);
+    root.querySelector('[data-refund-items]').value = JSON.stringify(items);
+  }
+  rows.forEach(row => row.addEventListener('input', sync));
+  rows.forEach(row => row.addEventListener('change', sync));
+  sync();
+})();
+</script>
+}

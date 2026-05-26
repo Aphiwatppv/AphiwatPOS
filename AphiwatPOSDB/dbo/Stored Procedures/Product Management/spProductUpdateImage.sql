@@ -1,0 +1,1 @@
+﻿CREATE PROCEDURE [dbo].[spProductUpdateImage] @ProductId INT, @ProductImageUrl NVARCHAR(500), @UpdatedByUserId INT AS BEGIN SET NOCOUNT ON; UPDATE [dbo].[Product] SET ProductImageUrl=ISNULL(@ProductImageUrl,N''), UpdatedByUserId=NULLIF(@UpdatedByUserId,0), UpdatedDate=SYSUTCDATETIME() WHERE ProductId=@ProductId; END;

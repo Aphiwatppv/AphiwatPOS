@@ -1,0 +1,26 @@
+CREATE TABLE [dbo].[SalesItem]
+(
+    [SalesItemId] BIGINT IDENTITY(1,1) NOT NULL,
+    [SalesHeaderId] BIGINT NOT NULL,
+    [ProductId] INT NOT NULL,
+    [ProductCodeSnapshot] NVARCHAR(50) NOT NULL,
+    [ProductNameSnapshot] NVARCHAR(200) NOT NULL,
+    [BarcodeSnapshot] NVARCHAR(100) NULL,
+    [UnitId] INT NOT NULL,
+    [UnitSymbolSnapshot] NVARCHAR(30) NOT NULL,
+    [Quantity] DECIMAL(18,4) NOT NULL,
+    [UnitPrice] DECIMAL(18,4) NOT NULL,
+    [CostPriceSnapshot] DECIMAL(18,4) NOT NULL,
+    [ItemDiscountAmount] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_SalesItem_ItemDiscountAmount] DEFAULT (0),
+    [TaxAmount] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_SalesItem_TaxAmount] DEFAULT (0),
+    [LineSubtotal] DECIMAL(18,4) NOT NULL,
+    [LineTotal] DECIMAL(18,4) NOT NULL,
+    [ReturnedQty] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_SalesItem_ReturnedQty] DEFAULT (0),
+    [CreatedDate] DATETIME2(0) NOT NULL CONSTRAINT [DF_SalesItem_CreatedDate] DEFAULT (SYSUTCDATETIME()),
+    CONSTRAINT [PK_SalesItem] PRIMARY KEY CLUSTERED ([SalesItemId]),
+    CONSTRAINT [FK_SalesItem_Header] FOREIGN KEY ([SalesHeaderId]) REFERENCES [dbo].[SalesHeader] ([SalesHeaderId]),
+    CONSTRAINT [FK_SalesItem_Product] FOREIGN KEY ([ProductId]) REFERENCES [dbo].[Product] ([ProductId]),
+    CONSTRAINT [FK_SalesItem_Unit] FOREIGN KEY ([UnitId]) REFERENCES [dbo].[ProductUnit] ([UnitId]),
+    CONSTRAINT [CK_SalesItem_Quantity] CHECK ([Quantity] > 0 AND [ReturnedQty] >= 0 AND [ReturnedQty] <= [Quantity]),
+    CONSTRAINT [CK_SalesItem_Amounts] CHECK ([UnitPrice] >= 0 AND [CostPriceSnapshot] >= 0 AND [ItemDiscountAmount] >= 0 AND [TaxAmount] >= 0 AND [LineSubtotal] >= 0 AND [LineTotal] >= 0 AND [ItemDiscountAmount] <= [LineSubtotal])
+);

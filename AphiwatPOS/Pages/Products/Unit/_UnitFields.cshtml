@@ -1,0 +1,13 @@
+@model ProductEngine.Models.ProductUnitModel?
+@{
+    var unitCode = Model?.UnitCode ?? ViewData["NextUnitCode"] as string ?? string.Empty;
+}
+<input type="hidden" name="Input.UnitId" value="@(Model?.UnitId ?? 0)" />
+<div class="modal-form-grid">
+    <div><label class="form-label">Unit Code</label><input class="form-control" name="Input.UnitCode" value="@unitCode" readonly required /><div class="text-muted small mt-1">Generated automatically.</div></div>
+    <div><label class="form-label">Unit Name</label><input class="form-control" name="Input.UnitName" value="@Model?.UnitName" required /></div>
+    <div><label class="form-label">Unit Symbol</label><input class="form-control" name="Input.UnitSymbol" value="@Model?.UnitSymbol" /></div>
+    <div class="d-flex align-items-end gap-3"><label class="form-check form-switch"><input class="form-check-input" name="Input.AllowDecimal" type="checkbox" value="true" checked="@(Model?.AllowDecimal ?? false)" /><input type="hidden" name="Input.AllowDecimal" value="false" /><span class="form-check-label">Allow Decimal</span></label><label class="form-check form-switch"><input class="form-check-input" name="Input.IsBaseUnit" type="checkbox" value="true" checked="@(Model?.IsBaseUnit ?? false)" /><input type="hidden" name="Input.IsBaseUnit" value="false" /><span class="form-check-label">Base Unit</span></label></div>
+    <div class="span-2"><label class="form-label">Description</label><textarea class="form-control" name="Input.Description" rows="3">@Model?.Description</textarea></div>
+    <div class="span-2"><label class="form-check form-switch"><input class="form-check-input" name="Input.IsActive" type="checkbox" value="true" checked="@(Model?.IsActive ?? true)" /><input type="hidden" name="Input.IsActive" value="false" /><span class="form-check-label">Active</span></label></div>
+</div>

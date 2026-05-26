@@ -1,0 +1,5 @@
+:r ".\Seed\Authentication & User Management\AccessSeed.sql"
+:r ".\Script\InventoryManagement.sql"
+:r ".\Script\CustomerManagement.sql"
+:r ".\Script\SalesManagement.sql"
+:r ".\Seed\Customer Management\MemberLevelSeed.sql"

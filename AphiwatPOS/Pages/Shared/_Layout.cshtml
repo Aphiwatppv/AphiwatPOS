@@ -1,0 +1,325 @@
+@inject AuthenticationEngine.Services.IUserManagementService UserManagementService
+@{
+    var currentPage = ViewContext.RouteData.Values["page"]?.ToString() ?? string.Empty;
+    var displayName = User.FindFirst("DisplayName")?.Value ?? User.Identity?.Name ?? "POS User";
+    var profileImageUrl = User.FindFirst("ProfileImageUrl")?.Value ?? string.Empty;
+    if (User.Identity?.IsAuthenticated == true &&
+        int.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var currentUserId))
+    {
+        var currentUser = await UserManagementService.GetUserAsync(currentUserId);
+        profileImageUrl = currentUser?.ProfileImageUrl ?? profileImageUrl;
+        displayName = currentUser?.DisplayName ?? displayName;
+    }
+    var roles = User.Claims
+        .Where(claim => claim.Type == System.Security.Claims.ClaimTypes.Role)
+        .Select(claim => claim.Value)
+        .ToArray();
+    var roleName = roles.FirstOrDefault() ?? "Staff";
+    var initial = string.IsNullOrWhiteSpace(displayName) ? "A" : displayName[..1].ToUpperInvariant();
+    var isActive = (string page) => currentPage.StartsWith(page, StringComparison.OrdinalIgnoreCase) ? "active" : string.Empty;
+    var productsExpanded = currentPage.StartsWith("/Products", StringComparison.OrdinalIgnoreCase);
+    var salesExpanded = currentPage.StartsWith("/Sales", StringComparison.OrdinalIgnoreCase);
+    var inventoryExpanded = currentPage.StartsWith("/Inventory", StringComparison.OrdinalIgnoreCase);
+    var customerExpanded = currentPage.StartsWith("/Customer", StringComparison.OrdinalIgnoreCase) ||
+        currentPage.StartsWith("/Customers", StringComparison.OrdinalIgnoreCase);
+    var hasSalesAccess = User.IsInRole("Admin") ||
+        User.Claims.Any(claim => claim.Type == "Permission" && claim.Value.StartsWith("SALES_", StringComparison.OrdinalIgnoreCase));
+    var hasInventoryAccess = User.IsInRole("Admin") ||
+        User.Claims.Any(claim => claim.Type == "Permission" && claim.Value.StartsWith("INVENTORY_", StringComparison.OrdinalIgnoreCase));
+    var isPosCheckout = currentPage.StartsWith("/Sales/POSCheckout", StringComparison.OrdinalIgnoreCase);
+    var isWholesaleCheckout = currentPage.StartsWith("/Sales/WholesaleCheckout", StringComparison.OrdinalIgnoreCase);
+    var globalBarcodeCheckUrl = Url.Page("/Sales/POSCheckout/Index", "CheckBarcode");
+    var globalPosCheckoutUrl = Url.Page("/Sales/POSCheckout/Index");
+    var globalProductCreateUrl = Url.Page("/Products/Product/Index");
+}
+<!DOCTYPE html>
+<html lang="en" data-app-language="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - AphiwatPOS</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/AphiwatPOS.styles.css" asp-append-version="true" />
+</head>
+<body>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <div class="app-shell">
+            <aside class="app-sidebar">
+                <div class="sidebar-header">
+                    <a class="app-brand" asp-page="/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="AphiwatPOS">
+                        <span class="brand-mark"><i class="bi bi-shop-window"></i></span>
+                        <span class="sidebar-text">
+                            <span class="d-block">AphiwatPOS</span>
+                            <small class="text-muted fw-normal" data-i18n="layout.brandSubtitle">Retail security console</small>
+                        </span>
+                    </a>
+                    <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Toggle sidebar">
+                        <i class="bi bi-layout-sidebar-inset"></i>
+                    </button>
+                </div>
+
+                <div class="sidebar-user">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="avatar-mark">
+                            @if (!string.IsNullOrWhiteSpace(profileImageUrl))
+                            {
+                                <img src="@profileImageUrl" alt="@displayName" />
+                            }
+                            else
+                            {
+                                @initial
+                            }
+                        </span>
+                        <div class="sidebar-text">
+                            <div class="name">@displayName</div>
+                            <div class="role">@roleName</div>
+                        </div>
+                    </div>
+                </div>
+
+                <nav class="sidebar-nav" aria-label="Main navigation">
+                    <a class="@isActive("/Index")" asp-page="/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Dashboard" data-i18n-title="nav.dashboard"><span class="nav-icon"><i class="bi bi-speedometer2"></i></span><span class="nav-label" data-i18n="nav.dashboard">Dashboard</span></a>
+                    @if (hasSalesAccess)
+                    {
+                        <div class="nav-section">
+                            <button class="nav-section-toggle @(salesExpanded ? "active" : string.Empty)" type="button" data-bs-toggle="collapse" data-bs-target="#salesNav" aria-expanded="@salesExpanded.ToString().ToLowerInvariant()" aria-controls="salesNav" title="Sales" data-i18n-title="nav.sales">
+                                <span class="nav-icon"><i class="bi bi-receipt"></i></span>
+                                <span class="nav-label" data-i18n="nav.sales">Sales</span>
+                                <span class="nav-caret"><i class="bi bi-chevron-down"></i></span>
+                            </button>
+                            <div class="nav-section-items collapse @(salesExpanded ? "show" : string.Empty)" id="salesNav">
+                                <a class="@isActive("/Sales/POSCheckout")" asp-page="/Sales/POSCheckout/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Retail POS Checkout" data-i18n-title="nav.retailPosTitle"><span class="nav-icon"><i class="bi bi-cart-check"></i></span><span class="nav-label" data-i18n="nav.retailPos">Retail POS</span></a>
+                                <a class="@isActive("/Sales/WholesaleCheckout")" asp-page="/Sales/WholesaleCheckout/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Wholesale Checkout" data-i18n-title="nav.wholesalePosTitle"><span class="nav-icon"><i class="bi bi-boxes"></i></span><span class="nav-label" data-i18n="nav.wholesalePos">Wholesale POS</span></a>
+                                <a class="@isActive("/Sales/SalesHistory")" asp-page="/Sales/SalesHistory/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Sales History" data-i18n-title="nav.salesHistory"><span class="nav-icon"><i class="bi bi-receipt"></i></span><span class="nav-label" data-i18n="nav.salesHistory">Sales History</span></a>
+                                <a class="@isActive("/Sales/ReturnsRefunds")" asp-page="/Sales/ReturnsRefunds/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Returns / Refunds" data-i18n-title="nav.returnsRefunds"><span class="nav-icon"><i class="bi bi-arrow-counterclockwise"></i></span><span class="nav-label" data-i18n="nav.returnsRefunds">Returns / Refunds</span></a>
+                                <a class="@isActive("/Sales/HeldSales")" asp-page="/Sales/HeldSales/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Held Sales" data-i18n-title="nav.heldSales"><span class="nav-icon"><i class="bi bi-pause-circle"></i></span><span class="nav-label" data-i18n="nav.heldSales">Held Sales</span></a>
+                                @if (User.IsInRole("Admin") || User.Claims.Any(claim => claim.Type == "Permission" && (claim.Value == "REPORT_VIEW" || claim.Value == "CASH_CLOSING")))
+                                {
+                                    <a class="@isActive("/Sales/DailyClosing")" asp-page="/Sales/DailyClosing/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Daily Closing" data-i18n-title="nav.dailyClosing"><span class="nav-icon"><i class="bi bi-clipboard2-check"></i></span><span class="nav-label" data-i18n="nav.dailyClosing">Daily Closing</span></a>
+                                }
+                            </div>
+                        </div>
+                    }
+                    <div class="nav-section">
+                        <button class="nav-section-toggle @(customerExpanded ? "active" : string.Empty)" type="button" data-bs-toggle="collapse" data-bs-target="#customerNav" aria-expanded="@customerExpanded.ToString().ToLowerInvariant()" aria-controls="customerNav" title="Customer" data-i18n-title="nav.customer">
+                            <span class="nav-icon"><i class="bi bi-people"></i></span>
+                            <span class="nav-label" data-i18n="nav.customer">Customer</span>
+                            <span class="nav-caret"><i class="bi bi-chevron-down"></i></span>
+                        </button>
+                        <div class="nav-section-items collapse @(customerExpanded ? "show" : string.Empty)" id="customerNav">
+                            <a class="@isActive("/Customer/CustomerList")" asp-page="/Customer/CustomerList/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Customer List" data-i18n-title="nav.customerList"><span class="nav-icon"><i class="bi bi-person-lines-fill"></i></span><span class="nav-label" data-i18n="nav.customerList">Customer List</span></a>
+                            <a class="@isActive("/Customer/MemberLevel")" asp-page="/Customer/MemberLevel/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Member Level" data-i18n-title="nav.memberLevel"><span class="nav-icon"><i class="bi bi-gem"></i></span><span class="nav-label" data-i18n="nav.memberLevel">Member Level</span></a>
+                            <a class="@isActive("/Customer/LoyaltyPoints")" asp-page="/Customer/LoyaltyPoints/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Loyalty Points" data-i18n-title="nav.loyaltyPoints"><span class="nav-icon"><i class="bi bi-stars"></i></span><span class="nav-label" data-i18n="nav.loyaltyPoints">Loyalty Points</span></a>
+                            <a class="@isActive("/Customers/Credit")" asp-page="/Customers/Credit/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Customer Credit" data-i18n-title="nav.customerCredit"><span class="nav-icon"><i class="bi bi-credit-card"></i></span><span class="nav-label" data-i18n="nav.customerCredit">Customer Credit</span></a>
+                            <a class="@isActive("/Customers/CreditRepayment")" asp-page="/Customers/CreditRepayment/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Credit Repayment" data-i18n-title="nav.creditRepayment"><span class="nav-icon"><i class="bi bi-cash-coin"></i></span><span class="nav-label" data-i18n="nav.creditRepayment">Credit Repayment</span></a>
+                            <a class="@isActive("/Customer/CustomerHistory")" asp-page="/Customer/CustomerHistory/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Customer History" data-i18n-title="nav.customerHistory"><span class="nav-icon"><i class="bi bi-clock-history"></i></span><span class="nav-label" data-i18n="nav.customerHistory">Customer History</span></a>
+                            <a class="@isActive("/Customer/CustomerReport")" asp-page="/Customer/CustomerReport/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Customer Report" data-i18n-title="nav.customerReport"><span class="nav-icon"><i class="bi bi-bar-chart"></i></span><span class="nav-label" data-i18n="nav.customerReport">Customer Report</span></a>
+                        </div>
+                    </div>
+                    <div class="nav-section">
+                        <button class="nav-section-toggle @(productsExpanded ? "active" : string.Empty)" type="button" data-bs-toggle="collapse" data-bs-target="#productsNav" aria-expanded="@productsExpanded.ToString().ToLowerInvariant()" aria-controls="productsNav" title="Products" data-i18n-title="nav.products">
+                            <span class="nav-icon"><i class="bi bi-box-seam"></i></span>
+                            <span class="nav-label" data-i18n="nav.products">Products</span>
+                            <span class="nav-caret"><i class="bi bi-chevron-down"></i></span>
+                        </button>
+                        <div class="nav-section-items collapse @(productsExpanded ? "show" : string.Empty)" id="productsNav">
+                            <a class="@isActive("/Products/Product")" asp-page="/Products/Product/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Product" data-i18n-title="nav.product"><span class="nav-icon"><i class="bi bi-box-seam"></i></span><span class="nav-label" data-i18n="nav.product">Product</span></a>
+                            <a class="@isActive("/Products/Category")" asp-page="/Products/Category/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Category" data-i18n-title="nav.category"><span class="nav-icon"><i class="bi bi-tags"></i></span><span class="nav-label" data-i18n="nav.category">Category</span></a>
+                            <a class="@isActive("/Products/Brand")" asp-page="/Products/Brand/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Brand" data-i18n-title="nav.brand"><span class="nav-icon"><i class="bi bi-award"></i></span><span class="nav-label" data-i18n="nav.brand">Brand</span></a>
+                            <a class="@isActive("/Products/Unit")" asp-page="/Products/Unit/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Unit" data-i18n-title="nav.unit"><span class="nav-icon"><i class="bi bi-rulers"></i></span><span class="nav-label" data-i18n="nav.unit">Unit</span></a>
+                        </div>
+                    </div>
+                    @if (hasInventoryAccess)
+                    {
+                        <div class="nav-section">
+                            <button class="nav-section-toggle @(inventoryExpanded ? "active" : string.Empty)" type="button" data-bs-toggle="collapse" data-bs-target="#inventoryNav" aria-expanded="@inventoryExpanded.ToString().ToLowerInvariant()" aria-controls="inventoryNav" title="Inventory" data-i18n-title="nav.inventory">
+                                <span class="nav-icon"><i class="bi bi-boxes"></i></span>
+                                <span class="nav-label" data-i18n="nav.inventory">Inventory</span>
+                                <span class="nav-caret"><i class="bi bi-chevron-down"></i></span>
+                            </button>
+                            <div class="nav-section-items collapse @(inventoryExpanded ? "show" : string.Empty)" id="inventoryNav">
+                                <a class="@isActive("/Inventory/Dashboard")" asp-page="/Inventory/Dashboard/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Inventory Dashboard" data-i18n-title="nav.inventoryDashboard"><span class="nav-icon"><i class="bi bi-speedometer2"></i></span><span class="nav-label" data-i18n="nav.dashboard">Dashboard</span></a>
+                                <a class="@isActive("/Inventory/CurrentStock")" asp-page="/Inventory/CurrentStock/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Current Stock" data-i18n-title="nav.currentStock"><span class="nav-icon"><i class="bi bi-boxes"></i></span><span class="nav-label" data-i18n="nav.currentStock">Current Stock</span></a>
+                                <a class="@isActive("/Inventory/Location")" asp-page="/Inventory/Location/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Locations" data-i18n-title="nav.locations"><span class="nav-icon"><i class="bi bi-geo-alt"></i></span><span class="nav-label" data-i18n="nav.locations">Locations</span></a>
+                                <a class="@isActive("/Inventory/LowStock")" asp-page="/Inventory/LowStock/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Low Stock Products" data-i18n-title="nav.lowStockProducts"><span class="nav-icon"><i class="bi bi-exclamation-triangle"></i></span><span class="nav-label" data-i18n="nav.lowStockProducts">Low Stock Products</span></a>
+                                <a class="@isActive("/Inventory/Movement")" asp-page="/Inventory/Movement/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Stock Movement" data-i18n-title="nav.stockMovement"><span class="nav-icon"><i class="bi bi-arrow-left-right"></i></span><span class="nav-label" data-i18n="nav.stockMovement">Stock Movement</span></a>
+                                <a class="@isActive("/Inventory/Adjustment")" asp-page="/Inventory/Adjustment/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Stock Adjustment" data-i18n-title="nav.stockAdjustment"><span class="nav-icon"><i class="bi bi-sliders"></i></span><span class="nav-label" data-i18n="nav.stockAdjustment">Stock Adjustment</span></a>
+                                <a class="@isActive("/Inventory/StockCount")" asp-page="/Inventory/StockCount/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Stock Count" data-i18n-title="nav.stockCount"><span class="nav-icon"><i class="bi bi-clipboard-check"></i></span><span class="nav-label" data-i18n="nav.stockCount">Stock Count</span></a>
+                                <a class="@isActive("/Inventory/Transfer")" asp-page="/Inventory/Transfer/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Stock Transfer" data-i18n-title="nav.stockTransfer"><span class="nav-icon"><i class="bi bi-truck"></i></span><span class="nav-label" data-i18n="nav.stockTransfer">Stock Transfer</span></a>
+                            </div>
+                        </div>
+                    }
+                    <a class="@isActive("/Employees/Employee")" asp-page="/Employees/Employee/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Employees" data-i18n-title="nav.employees"><span class="nav-icon"><i class="bi bi-people"></i></span><span class="nav-label" data-i18n="nav.employees">Employees</span></a>
+                    <a class="@isActive("/Employees/Role")" asp-page="/Employees/Role/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Roles" data-i18n-title="nav.roles"><span class="nav-icon"><i class="bi bi-person-badge"></i></span><span class="nav-label" data-i18n="nav.roles">Roles</span></a>
+                    <a class="@isActive("/Employees/Permission")" asp-page="/Employees/Permission/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Permissions" data-i18n-title="nav.permissions"><span class="nav-icon"><i class="bi bi-shield-lock"></i></span><span class="nav-label" data-i18n="nav.permissions">Permissions</span></a>
+                    <a class="@isActive("/Settings")" asp-page="/Settings/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Settings" data-i18n-title="nav.settings"><span class="nav-icon"><i class="bi bi-gear"></i></span><span class="nav-label" data-i18n="nav.settings">Settings</span></a>
+                </nav>
+            </aside>
+
+            <div class="app-main">
+                <header class="app-topbar">
+                    <div class="topbar-title">
+                        <h1 data-page-title data-i18n="@((ViewData["TitleI18nKey"] as string) ?? string.Empty)">@(ViewData["Title"] ?? "Dashboard")</h1>
+                        <p data-i18n="@((ViewData["SubtitleI18nKey"] as string) ?? "layout.defaultSubtitle")">@(ViewData["Subtitle"] ?? "Secure POS operations and employee access control")</p>
+                    </div>
+
+                    <div class="topbar-actions">
+                        @if (hasSalesAccess)
+                        {
+                            <div class="global-scanner @(isPosCheckout || isWholesaleCheckout ? "d-none" : string.Empty)" data-global-scanner>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+                                    <input class="form-control" data-global-barcode-input placeholder="Scan barcode..." autocomplete="off" />
+                                    <span class="input-group-text d-none" data-global-barcode-loading><span class="spinner-border spinner-border-sm" aria-hidden="true"></span></span>
+                                </div>
+                            </div>
+                        }
+                        <div class="dropdown">
+                            <button class="topbar-profile-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span class="topbar-profile-image">
+                                    @if (!string.IsNullOrWhiteSpace(profileImageUrl))
+                                    {
+                                        <img src="@profileImageUrl" alt="@displayName" />
+                                    }
+                                    else
+                                    {
+                                        @initial
+                                    }
+                                </span>
+                                <span class="user-meta text-start">
+                                    <span class="display-name d-block">@displayName</span>
+                                    <span class="role-name d-block">@roleName</span>
+                                </span>
+                                <span class="profile-caret"><i class="bi bi-chevron-down"></i></span>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end topbar-profile-menu">
+                                <a class="dropdown-item" asp-page="/Account/Profile"><i class="bi bi-person-circle"></i> <span data-i18n="profile.myProfile">My Profile</span></a>
+                                <a class="dropdown-item" asp-page="/Account/Profile" asp-fragment="change-password"><i class="bi bi-key"></i> <span data-i18n="profile.changePassword">Change Password</span></a>
+                                <button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal"><i class="bi bi-box-arrow-right"></i> <span data-i18n="profile.logout">Logout</span></button>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <main class="app-content" role="main">
+                    @RenderBody()
+                </main>
+            </div>
+        </div>
+
+        <div class="modal fade app-modal" id="globalProductNotFoundModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <div>
+                            <h2 class="modal-title h5">Product Not Found</h2>
+                            <p class="modal-subtitle">No product was found for this barcode.</p>
+                        </div>
+                        <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="barcode-not-found-card">
+                            <span class="barcode-not-found-icon"><i class="bi bi-upc-scan"></i></span>
+                            <div>
+                                <div class="text-muted small">Scanned barcode</div>
+                                <strong data-global-missing-barcode>-</strong>
+                            </div>
+                        </div>
+                        <p class="mb-0 mt-3">No product was found for this barcode. You can create a new product and this barcode will be prefilled.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button" data-global-barcode-cancel>Cancel</button>
+                        <a class="btn btn-primary" href="#" data-global-create-product><i class="bi bi-plus-circle me-1"></i>Create Product</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade app-modal" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <form method="post" asp-page="/Account/Logout" class="modal-content">
+                    <div class="modal-header">
+                        <h2 class="modal-title h5" id="logoutConfirmLabel"><i class="bi bi-box-arrow-right me-2 text-success"></i><span data-i18n="logout.confirmTitle">Confirm Logout</span></h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-0" data-i18n="logout.confirmBody">Are you sure you want to log out of AphiwatPOS?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="common.cancel">Cancel</button>
+                        <button type="submit" class="btn btn-primary" data-i18n="profile.logout">Logout</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    }
+    else
+    {
+        @RenderBody()
+    }
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @if (User.Identity?.IsAuthenticated == true && hasSalesAccess)
+    {
+        <script>
+        (() => {
+            const scanner = document.querySelector('[data-global-scanner]');
+            const input = document.querySelector('[data-global-barcode-input]');
+            const loading = document.querySelector('[data-global-barcode-loading]');
+            const missingBarcode = document.querySelector('[data-global-missing-barcode]');
+            const createProduct = document.querySelector('[data-global-create-product]');
+            const cancelButton = document.querySelector('[data-global-barcode-cancel]');
+            if (!scanner || !input) return;
+            const checkUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(globalBarcodeCheckUrl));
+            const posUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(globalPosCheckoutUrl));
+            const productCreateUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(globalProductCreateUrl));
+            let busy = false;
+            const setLoading = value => {
+                busy = value;
+                input.disabled = value;
+                loading?.classList.toggle('d-none', !value);
+            };
+            const refocus = () => {
+                input.value = '';
+                setTimeout(() => input.focus(), 120);
+            };
+            const showNotFound = barcode => {
+                if (missingBarcode) missingBarcode.textContent = barcode;
+                if (createProduct) createProduct.href = `${productCreateUrl}?mode=create&barcode=${encodeURIComponent(barcode)}`;
+                bootstrap.Modal.getOrCreateInstance(document.querySelector('#globalProductNotFoundModal')).show();
+            };
+            async function handleScan(value) {
+                const barcode = (value || '').trim();
+                if (!barcode || busy) return;
+                setLoading(true);
+                try {
+                    const response = await fetch(`${checkUrl}&barcode=${encodeURIComponent(barcode)}&locationId=1`, { headers: { 'Accept': 'application/json' } });
+                    if (response.ok) {
+                        window.location.href = `${posUrl}?barcode=${encodeURIComponent(barcode)}`;
+                        return;
+                    }
+                    if (response.status === 404) showNotFound(barcode);
+                    else showNotFound(barcode);
+                } finally {
+                    setLoading(false);
+                    refocus();
+                }
+            }
+            input.addEventListener('keydown', event => {
+                if (event.key !== 'Enter') return;
+                event.preventDefault();
+                handleScan(input.value);
+            });
+            cancelButton?.addEventListener('click', refocus);
+            if (!scanner.classList.contains('d-none')) input.focus();
+        })();
+        </script>
+    }
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

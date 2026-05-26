@@ -1,0 +1,6 @@
+@model string
+@{
+    var type = string.IsNullOrWhiteSpace(Model) ? "-" : Model;
+    var css = type switch { "Earn" => "badge-success", "Redeem" => "badge-primary", "AdjustIn" => "badge-info", "AdjustOut" => "badge-warning", "Expire" => "badge-muted", "Reverse" => "badge-danger", _ => "badge-muted" };
+}
+<span class="badge status-badge @css">@type</span>

@@ -1,0 +1,1 @@
+﻿CREATE PROCEDURE [dbo].[spMemberLevelUpgradeRuleToggleActive] @MemberLevelUpgradeRuleId INT,@IsActive BIT,@UpdatedByUserId INT AS BEGIN UPDATE dbo.MemberLevelUpgradeRule SET IsActive=@IsActive,UpdatedDate=SYSDATETIME(),UpdatedByUserId=@UpdatedByUserId WHERE MemberLevelUpgradeRuleId=@MemberLevelUpgradeRuleId; END

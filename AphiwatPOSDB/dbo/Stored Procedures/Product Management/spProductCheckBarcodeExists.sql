@@ -1,0 +1,1 @@
+﻿CREATE PROCEDURE [dbo].[spProductCheckBarcodeExists] @Barcode NVARCHAR(100), @ExcludeProductId INT = NULL AS BEGIN SET NOCOUNT ON; SELECT CAST(CASE WHEN @Barcode IS NOT NULL AND EXISTS(SELECT 1 FROM [dbo].[Product] WHERE Barcode=@Barcode AND (@ExcludeProductId IS NULL OR ProductId<>@ExcludeProductId)) THEN 1 ELSE 0 END AS BIT); END;

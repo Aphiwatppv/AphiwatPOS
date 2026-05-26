@@ -1,0 +1,27 @@
+CREATE TABLE [dbo].[SalesReturnItem]
+(
+    [SalesReturnItemId] BIGINT IDENTITY(1,1) NOT NULL,
+    [SalesReturnHeaderId] BIGINT NOT NULL,
+    [SalesItemId] BIGINT NOT NULL,
+    [ProductId] INT NOT NULL,
+    [ProductCodeSnapshot] NVARCHAR(50) NOT NULL,
+    [ProductNameSnapshot] NVARCHAR(200) NOT NULL,
+    [BarcodeSnapshot] NVARCHAR(100) NULL,
+    [UnitId] INT NOT NULL,
+    [UnitSymbolSnapshot] NVARCHAR(30) NOT NULL,
+    [QuantityReturned] DECIMAL(18,4) NOT NULL,
+    [RefundUnitPrice] DECIMAL(18,4) NOT NULL,
+    [RefundAmount] DECIMAL(18,4) NOT NULL,
+    [ReturnToStock] BIT NOT NULL CONSTRAINT [DF_SalesReturnItem_ReturnToStock] DEFAULT (0),
+    [ReturnCondition] NVARCHAR(30) NOT NULL,
+    [Reason] NVARCHAR(500) NOT NULL,
+    [CreatedDate] DATETIME2(0) NOT NULL CONSTRAINT [DF_SalesReturnItem_CreatedDate] DEFAULT (SYSUTCDATETIME()),
+    CONSTRAINT [PK_SalesReturnItem] PRIMARY KEY CLUSTERED ([SalesReturnItemId]),
+    CONSTRAINT [FK_SalesReturnItem_Header] FOREIGN KEY ([SalesReturnHeaderId]) REFERENCES [dbo].[SalesReturnHeader] ([SalesReturnHeaderId]),
+    CONSTRAINT [FK_SalesReturnItem_SalesItem] FOREIGN KEY ([SalesItemId]) REFERENCES [dbo].[SalesItem] ([SalesItemId]),
+    CONSTRAINT [FK_SalesReturnItem_Product] FOREIGN KEY ([ProductId]) REFERENCES [dbo].[Product] ([ProductId]),
+    CONSTRAINT [FK_SalesReturnItem_Unit] FOREIGN KEY ([UnitId]) REFERENCES [dbo].[ProductUnit] ([UnitId]),
+    CONSTRAINT [CK_SalesReturnItem_Condition] CHECK ([ReturnCondition] IN (N'Good',N'Damaged',N'Expired',N'Defective')),
+    CONSTRAINT [CK_SalesReturnItem_ReturnToStock] CHECK ([ReturnToStock] = 0 OR [ReturnCondition] = N'Good'),
+    CONSTRAINT [CK_SalesReturnItem_Amounts] CHECK ([QuantityReturned] > 0 AND [RefundUnitPrice] >= 0 AND [RefundAmount] >= 0)
+);

@@ -1,0 +1,232 @@
+@page
+@model AphiwatPOS.Pages.Employees.Permission.IndexModel
+@{
+    ViewData["Title"] = "Permission Management";
+    var permissionList = Model.Permissions.ToArray();
+    var activePermissions = permissionList.Count(permission => permission.IsActive);
+    var inactivePermissions = permissionList.Count(permission => !permission.IsActive);
+}
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div>
+        <h1>Permission Management</h1>
+        <p>Manage permission master data for protected POS actions.</p>
+    </div>
+    <button class="btn btn-primary @(Model.CanCreatePermission ? "" : "access-disabled")" type="button" data-bs-toggle="modal" data-bs-target="#addPermissionModal"><i class="bi bi-shield-plus me-1"></i>Add Permission</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <div class="alert alert-success">@Model.StatusMessage</div>
+}
+
+<div class="summary-grid">
+    <div class="summary-card">
+        <span class="metric-icon"><i class="bi bi-shield-lock"></i></span>
+        <div class="metric-copy"><div class="metric-label">Total permissions</div><div class="metric-value">@permissionList.Length</div><div class="metric-helper">All secured actions</div></div>
+    </div>
+    <div class="summary-card">
+        <span class="metric-icon"><i class="bi bi-check2-circle"></i></span>
+        <div class="metric-copy"><div class="metric-label">Active permissions</div><div class="metric-value">@activePermissions</div><div class="metric-helper">Available to roles/users</div></div>
+    </div>
+    <div class="summary-card">
+        <span class="metric-icon"><i class="bi bi-slash-circle"></i></span>
+        <div class="metric-copy"><div class="metric-label">Inactive permissions</div><div class="metric-value">@inactivePermissions</div><div class="metric-helper">Retired controls</div></div>
+    </div>
+    <div class="summary-card">
+        <span class="metric-icon"><i class="bi bi-grid"></i></span>
+        <div class="metric-copy"><div class="metric-label">Permission modules</div><div class="metric-value">@Model.Modules.Count</div><div class="metric-helper">Business groupings</div></div>
+    </div>
+</div>
+
+<form method="get" class="filter-card mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-6">
+            <label asp-for="SearchText" class="form-label">Search permission</label>
+            <input asp-for="SearchText" class="form-control" placeholder="Search permission..." />
+        </div>
+        <div class="col-md-4">
+            <label asp-for="ModuleFilter" class="form-label">Module Filter</label>
+            <select asp-for="ModuleFilter" class="form-select">
+                <option value="">All modules</option>
+                @foreach (var module in Model.Modules)
+                {
+                    <option value="@module">@module</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-primary" type="submit">Search</button>
+        </div>
+    </div>
+</form>
+
+<section class="data-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Module</th>
+                    <th>Permission Code</th>
+                    <th>Permission Name</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!permissionList.Any())
+                {
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <i class="bi bi-shield-lock"></i>
+                                <div class="fw-semibold">No permissions found</div>
+                                <div>Create permissions to protect POS functions.</div>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @foreach (var permission in permissionList)
+                {
+                    var moduleName = string.IsNullOrWhiteSpace(permission.ModuleName) ? "General" : permission.ModuleName;
+                    <tr>
+                        <td>@moduleName</td>
+                        <td><span class="code-badge mono">@permission.PermissionCode</span></td>
+                        <td>@permission.PermissionName</td>
+                        <td>@permission.Description</td>
+                        <td><span class="badge status-badge @(permission.IsActive ? "badge-success" : "badge-muted")">@(permission.IsActive ? "Active" : "Inactive")</span></td>
+                        <td class="text-end">
+                            <div class="action-group">
+                                <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#viewPermissionModal-@permission.PermissionId">View</button>
+                                <button class="btn btn-outline-secondary btn-sm @(Model.CanUpdatePermission ? "" : "access-disabled")" type="button" data-bs-toggle="modal" data-bs-target="#editPermissionModal-@permission.PermissionId">Edit</button>
+                                <button class="btn btn-outline-danger btn-sm @(Model.CanDeactivatePermission ? "" : "access-disabled")" type="button" data-bs-toggle="modal" data-bs-target="#deactivatePermissionModal-@permission.PermissionId">Deactivate</button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<div class="modal fade app-modal" id="addPermissionModal" tabindex="-1" aria-labelledby="addPermissionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" asp-page-handler="Create" class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="addPermissionLabel">Permission Information</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label asp-for="CreateInput.ModuleName" class="form-label"></label>
+                    <input asp-for="CreateInput.ModuleName" class="form-control" placeholder="Sales" />
+                    <div class="text-muted small mt-1">Leave empty to use General.</div>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="CreateInput.PermissionCode" class="form-label"></label>
+                    <input asp-for="CreateInput.PermissionCode" class="form-control" placeholder="POS_SALE_CREATE" />
+                    <span asp-validation-for="CreateInput.PermissionCode" class="text-danger small"></span>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="CreateInput.PermissionName" class="form-label"></label>
+                    <input asp-for="CreateInput.PermissionName" class="form-control" placeholder="Create Sale" />
+                    <span asp-validation-for="CreateInput.PermissionName" class="text-danger small"></span>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="CreateInput.Description" class="form-label"></label>
+                    <textarea asp-for="CreateInput.Description" class="form-control" placeholder="Allow user to create POS sales"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1"></i>Save Permission</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@foreach (var permission in permissionList)
+{
+    var modalModuleName = string.IsNullOrWhiteSpace(permission.ModuleName) ? "General" : permission.ModuleName;
+    <div class="modal fade app-modal" id="viewPermissionModal-@permission.PermissionId" tabindex="-1" aria-labelledby="viewPermissionLabel-@permission.PermissionId" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="viewPermissionLabel-@permission.PermissionId">Permission Detail</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <dl class="row mb-0 detail-list">
+                        <dt class="col-4">Module</dt><dd class="col-8">@modalModuleName</dd>
+                        <dt class="col-4">Code</dt><dd class="col-8"><span class="code-badge mono">@permission.PermissionCode</span></dd>
+                        <dt class="col-4">Name</dt><dd class="col-8">@permission.PermissionName</dd>
+                        <dt class="col-4">Description</dt><dd class="col-8">@permission.Description</dd>
+                        <dt class="col-4">Status</dt><dd class="col-8">@(permission.IsActive ? "Active" : "Inactive")</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade app-modal" id="editPermissionModal-@permission.PermissionId" tabindex="-1" aria-labelledby="editPermissionLabel-@permission.PermissionId" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="post" asp-page-handler="Update" class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="editPermissionLabel-@permission.PermissionId">Permission Information</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="EditInput.PermissionId" value="@permission.PermissionId" />
+                    <div class="mb-3">
+                        <label class="form-label">Permission Code</label>
+                        <input class="form-control" value="@permission.PermissionCode" readonly />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Permission Name</label>
+                        <input class="form-control" name="EditInput.PermissionName" value="@permission.PermissionName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Module Name</label>
+                        <input class="form-control" name="EditInput.ModuleName" value="@permission.ModuleName" placeholder="General" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="EditInput.Description">@permission.Description</textarea>
+                    </div>
+                    <label class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="EditInput.IsActive" value="true" checked="@permission.IsActive" />
+                        <input type="hidden" name="EditInput.IsActive" value="false" />
+                        <span class="form-check-label">Active</span>
+                    </label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1"></i>Save Permission</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade app-modal" id="deactivatePermissionModal-@permission.PermissionId" tabindex="-1" aria-labelledby="deactivatePermissionLabel-@permission.PermissionId" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="post" asp-page-handler="Deactivate" asp-route-permissionId="@permission.PermissionId" class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="deactivatePermissionLabel-@permission.PermissionId">Deactivate Permission</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">Deactivate <strong>@permission.PermissionCode</strong>? Users and roles will no longer receive this access.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-outline-danger">Deactivate</button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

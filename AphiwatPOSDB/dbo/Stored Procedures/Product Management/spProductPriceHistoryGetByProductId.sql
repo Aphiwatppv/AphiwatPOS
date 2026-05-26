@@ -1,0 +1,1 @@
+﻿CREATE PROCEDURE [dbo].[spProductPriceHistoryGetByProductId] @ProductId INT AS BEGIN SET NOCOUNT ON; SELECT h.*, p.ProductCode, p.ProductName FROM [dbo].[ProductPriceHistory] h INNER JOIN [dbo].[Product] p ON p.ProductId=h.ProductId WHERE h.ProductId=@ProductId ORDER BY h.ChangedDate DESC, h.ProductPriceHistoryId DESC; END;

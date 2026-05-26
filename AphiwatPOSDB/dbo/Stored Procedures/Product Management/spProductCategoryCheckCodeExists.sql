@@ -1,0 +1,1 @@
+﻿CREATE PROCEDURE [dbo].[spProductCategoryCheckCodeExists] @CategoryCode NVARCHAR(50), @ExcludeCategoryId INT = NULL AS BEGIN SET NOCOUNT ON; SELECT CAST(CASE WHEN EXISTS(SELECT 1 FROM [dbo].[ProductCategory] WHERE CategoryCode=@CategoryCode AND (@ExcludeCategoryId IS NULL OR CategoryId<>@ExcludeCategoryId)) THEN 1 ELSE 0 END AS BIT); END;

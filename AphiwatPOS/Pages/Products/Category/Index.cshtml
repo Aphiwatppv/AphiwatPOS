@@ -1,0 +1,122 @@
+﻿@page
+@model AphiwatPOS.Pages.Products.Category.IndexModel
+@{
+    ViewData["Title"] = "Category Management";
+    ViewData["Subtitle"] = "Manage product categories used for grouping products in POS.";
+    ViewData["NextCategoryCode"] = Model.NextCategoryCode;
+    var categories = Model.Categories.Categories.ToArray();
+    var totalPages = Math.Max(1, (int)Math.Ceiling(Model.Categories.TotalCount / (double)Math.Max(1, Model.Categories.PageSize)));
+    var activeCount = categories.Count(x => x.IsActive);
+    var inactiveCount = categories.Count(x => !x.IsActive);
+}
+
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div>
+        <h1>Category Management</h1>
+        <p>Manage product categories used for grouping products in POS.</p>
+    </div>
+    <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#categoryAddModal"><i class="bi bi-plus-lg me-1"></i>Add Category</button>
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-tags"></i></span><div><div class="metric-label">Total categories</div><div class="metric-value">@Model.Categories.TotalCount</div><div class="metric-helper">All category records</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-check-circle"></i></span><div><div class="metric-label">Active categories</div><div class="metric-value">@activeCount</div><div class="metric-helper">Available for products</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-slash-circle"></i></span><div><div class="metric-label">Inactive categories</div><div class="metric-value">@inactiveCount</div><div class="metric-helper">Hidden from selection</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-box-seam"></i></span><div><div class="metric-label">Products linked</div><div class="metric-value">@Model.Products.Count</div><div class="metric-helper">Active products with categories</div></div></div>
+</div>
+
+<form method="get" class="filter-card mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-7">
+            <label class="form-label">Search category</label>
+            <input asp-for="SearchText" class="form-control" placeholder="Search by category code or name" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Active status</label>
+            <select asp-for="IsActive" class="form-select">
+                <option value="">All</option>
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+            <button class="btn btn-primary flex-fill" type="submit"><i class="bi bi-search me-1"></i>Search</button>
+            <a class="btn btn-outline-secondary" asp-page="./Index">Clear</a>
+        </div>
+    </div>
+</form>
+
+<section class="data-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>Category Code</th><th>Category Name</th><th>Description</th><th>Display Order</th><th>Product Count</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            @if (!categories.Any())
+            {
+                <tr><td colspan="7"><div class="empty-state"><i class="bi bi-tags"></i><div class="fw-semibold">No categories found</div><div>Try changing filters or add a new category.</div></div></td></tr>
+            }
+            @foreach (var category in categories)
+            {
+                var productCount = Model.Products.Count(product => product.CategoryId == category.CategoryId);
+                <tr>
+                    <td><span class="code-badge mono">@category.CategoryCode</span></td>
+                    <td class="fw-semibold">@category.CategoryName</td>
+                    <td class="text-muted">@category.Description</td>
+                    <td>@category.DisplayOrder</td>
+                    <td><span class="count-link"><i class="bi bi-box-seam"></i>@productCount</span></td>
+                    <td><span class="badge status-badge @(category.IsActive ? "badge-success" : "badge-muted")">@(category.IsActive ? "Active" : "Inactive")</span></td>
+                    <td class="text-end">
+                        <div class="action-group">
+                            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#categoryView-@category.CategoryId" type="button"><i class="bi bi-eye me-1"></i>View</button>
+                            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#categoryEdit-@category.CategoryId" type="button"><i class="bi bi-pencil me-1"></i>Edit</button>
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" type="button">More</button>
+                                <div class="dropdown-menu dropdown-menu-end action-menu">
+                                    <button class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#categoryDeactivate-@category.CategoryId" type="button"><i class="bi bi-slash-circle"></i>Deactivate</button>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-3">
+        <span class="text-muted">Total categories: @Model.Categories.TotalCount</span>
+        <div class="btn-group btn-group-sm">
+            <a class="btn btn-outline-secondary @(Model.Categories.PageNumber <= 1 ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-IsActive="@Model.IsActive" asp-route-PageNumber="@(Model.Categories.PageNumber - 1)">Previous</a>
+            <span class="btn btn-outline-secondary disabled">@Model.Categories.PageNumber / @totalPages</span>
+            <a class="btn btn-outline-secondary @(Model.Categories.PageNumber >= totalPages ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-IsActive="@Model.IsActive" asp-route-PageNumber="@(Model.Categories.PageNumber + 1)">Next</a>
+        </div>
+    </div>
+</section>
+
+<div class="modal fade app-modal" id="categoryAddModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" asp-page-handler="Create" class="modal-content">
+            <div class="modal-header"><div><h2 class="modal-title h5">Add Category</h2><p class="modal-subtitle">Create a POS product grouping.</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+            <div class="modal-body"><partial name="_CategoryFields" model="null" /></div>
+            <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save Category</button></div>
+        </form>
+    </div>
+</div>
+
+@foreach (var category in categories)
+{
+    <div class="modal fade app-modal" id="categoryView-@category.CategoryId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Category Detail</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><dl class="row detail-list mb-0"><dt class="col-4">Code</dt><dd class="col-8">@category.CategoryCode</dd><dt class="col-4">Name</dt><dd class="col-8">@category.CategoryName</dd><dt class="col-4">Description</dt><dd class="col-8">@category.Description</dd><dt class="col-4">Display Order</dt><dd class="col-8">@category.DisplayOrder</dd><dt class="col-4">Status</dt><dd class="col-8">@(category.IsActive ? "Active" : "Inactive")</dd></dl></div></div></div>
+    </div>
+    <div class="modal fade app-modal" id="categoryEdit-@category.CategoryId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="Update" class="modal-content"><div class="modal-header"><div><h2 class="modal-title h5">Edit Category</h2><p class="modal-subtitle">@category.CategoryCode</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><partial name="_CategoryFields" model="category" /></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save Changes</button></div></form></div>
+    </div>
+    <div class="modal fade app-modal" id="categoryDeactivate-@category.CategoryId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="Deactivate" asp-route-categoryId="@category.CategoryId" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Deactivate Category</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><p class="mb-0">Deactivate <strong>@category.CategoryName</strong>? Products keep their history, but this category will be hidden from active selection.</p></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-outline-danger" type="submit">Deactivate</button></div></form></div>
+    </div>
+}
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }
+
+

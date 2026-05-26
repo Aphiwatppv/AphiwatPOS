@@ -1,0 +1,88 @@
+﻿@page
+@model AphiwatPOS.Pages.Products.Brand.IndexModel
+@{
+    ViewData["Title"] = "Brand Management";
+    ViewData["Subtitle"] = "Manage product brands and brand logos.";
+    ViewData["NextBrandCode"] = Model.NextBrandCode;
+    var brands = Model.Brands.Brands.ToArray();
+    var totalPages = Math.Max(1, (int)Math.Ceiling(Model.Brands.TotalCount / (double)Math.Max(1, Model.Brands.PageSize)));
+    var activeCount = brands.Count(x => x.IsActive);
+    var inactiveCount = brands.Count(x => !x.IsActive);
+}
+
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div><h1>Brand Management</h1><p>Manage product brands and brand logos.</p></div>
+    <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#brandAddModal"><i class="bi bi-plus-lg me-1"></i>Add Brand</button>
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-award"></i></span><div><div class="metric-label">Total brands</div><div class="metric-value">@Model.Brands.TotalCount</div><div class="metric-helper">All brand records</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-check-circle"></i></span><div><div class="metric-label">Active brands</div><div class="metric-value">@activeCount</div><div class="metric-helper">Available for products</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-slash-circle"></i></span><div><div class="metric-label">Inactive brands</div><div class="metric-value">@inactiveCount</div><div class="metric-helper">Hidden from selection</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-box-seam"></i></span><div><div class="metric-label">Products with brands</div><div class="metric-value">@Model.Products.Count(x => x.BrandId.HasValue)</div><div class="metric-helper">Active branded products</div></div></div>
+</div>
+
+<form method="get" class="filter-card mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-7"><label class="form-label">Search brand</label><input asp-for="SearchText" class="form-control" placeholder="Search by brand code or brand name" /></div>
+        <div class="col-md-3"><label class="form-label">Active status</label><select asp-for="IsActive" class="form-select"><option value="">All</option><option value="true">Active</option><option value="false">Inactive</option></select></div>
+        <div class="col-md-2 d-flex gap-2"><button class="btn btn-primary flex-fill" type="submit"><i class="bi bi-search me-1"></i>Search</button><a class="btn btn-outline-secondary" asp-page="./Index">Clear</a></div>
+    </div>
+</form>
+
+<section class="data-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>Logo</th><th>Brand Code</th><th>Brand Name</th><th>Description</th><th>Product Count</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            @if (!brands.Any())
+            {
+                <tr><td colspan="7"><div class="empty-state"><i class="bi bi-award"></i><div class="fw-semibold">No brands found</div><div>Try changing filters or add a new brand.</div></div></td></tr>
+            }
+            @foreach (var brand in brands)
+            {
+                var productCount = Model.Products.Count(product => product.BrandId == brand.BrandId);
+                <tr>
+                    <td><span class="brand-logo-thumb">@if (!string.IsNullOrWhiteSpace(brand.LogoUrl)) { <img src="@brand.LogoUrl" alt="@brand.BrandName" /> } else { <i class="bi bi-award"></i> }</span></td>
+                    <td><span class="code-badge mono">@brand.BrandCode</span></td>
+                    <td class="fw-semibold">@brand.BrandName</td>
+                    <td class="text-muted">@brand.Description</td>
+                    <td><span class="count-link"><i class="bi bi-box-seam"></i>@productCount</span></td>
+                    <td><span class="badge status-badge @(brand.IsActive ? "badge-success" : "badge-muted")">@(brand.IsActive ? "Active" : "Inactive")</span></td>
+                    <td class="text-end">
+                        <div class="action-group">
+                            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#brandView-@brand.BrandId" type="button"><i class="bi bi-eye me-1"></i>View</button>
+                            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#brandEdit-@brand.BrandId" type="button"><i class="bi bi-pencil me-1"></i>Edit</button>
+                            <div class="dropdown"><button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" type="button">More</button><div class="dropdown-menu dropdown-menu-end action-menu"><button class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#brandDeactivate-@brand.BrandId" type="button"><i class="bi bi-slash-circle"></i>Deactivate</button></div></div>
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-3"><span class="text-muted">Total brands: @Model.Brands.TotalCount</span><div class="btn-group btn-group-sm"><a class="btn btn-outline-secondary @(Model.Brands.PageNumber <= 1 ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-IsActive="@Model.IsActive" asp-route-PageNumber="@(Model.Brands.PageNumber - 1)">Previous</a><span class="btn btn-outline-secondary disabled">@Model.Brands.PageNumber / @totalPages</span><a class="btn btn-outline-secondary @(Model.Brands.PageNumber >= totalPages ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-IsActive="@Model.IsActive" asp-route-PageNumber="@(Model.Brands.PageNumber + 1)">Next</a></div></div>
+</section>
+
+<div class="modal fade app-modal" id="brandAddModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><form method="post" enctype="multipart/form-data" asp-page-handler="Create" class="modal-content"><div class="modal-header"><div><h2 class="modal-title h5">Add Brand</h2><p class="modal-subtitle">Create a product brand and optional logo.</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><partial name="_BrandFields" model="null" /></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save Brand</button></div></form></div>
+</div>
+
+@foreach (var brand in brands)
+{
+    <div class="modal fade app-modal" id="brandView-@brand.BrandId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Brand Detail</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><div class="d-flex gap-3 align-items-center mb-3"><span class="brand-logo-thumb">@if (!string.IsNullOrWhiteSpace(brand.LogoUrl)) { <img src="@brand.LogoUrl" alt="@brand.BrandName" /> } else { <i class="bi bi-award"></i> }</span><div><div class="fw-bold">@brand.BrandName</div><div class="text-muted">@brand.BrandCode</div></div></div><dl class="row detail-list mb-0"><dt class="col-4">Description</dt><dd class="col-8">@brand.Description</dd><dt class="col-4">Status</dt><dd class="col-8">@(brand.IsActive ? "Active" : "Inactive")</dd><dt class="col-4">Created</dt><dd class="col-8">@brand.CreatedDate.ToString("yyyy-MM-dd HH:mm")</dd></dl></div></div></div>
+    </div>
+    <div class="modal fade app-modal" id="brandEdit-@brand.BrandId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><form method="post" enctype="multipart/form-data" asp-page-handler="Update" class="modal-content"><div class="modal-header"><div><h2 class="modal-title h5">Edit Brand</h2><p class="modal-subtitle">@brand.BrandCode</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><partial name="_BrandFields" model="brand" /></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save Changes</button></div></form></div>
+    </div>
+    <div class="modal fade app-modal" id="brandDeactivate-@brand.BrandId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="Deactivate" asp-route-brandId="@brand.BrandId" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Deactivate Brand</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><p class="mb-0">Deactivate <strong>@brand.BrandName</strong>? Product history remains safe.</p></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-outline-danger" type="submit">Deactivate</button></div></form></div>
+    </div>
+}
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }
+
+

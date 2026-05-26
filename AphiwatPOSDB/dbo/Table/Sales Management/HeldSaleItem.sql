@@ -1,0 +1,25 @@
+CREATE TABLE [dbo].[HeldSaleItem]
+(
+    [HeldSaleItemId] BIGINT IDENTITY(1,1) NOT NULL,
+    [HeldSaleHeaderId] BIGINT NOT NULL,
+    [ProductId] INT NOT NULL,
+    [ProductCodeSnapshot] NVARCHAR(50) NOT NULL,
+    [ProductNameSnapshot] NVARCHAR(200) NOT NULL,
+    [BarcodeSnapshot] NVARCHAR(100) NULL,
+    [UnitId] INT NOT NULL,
+    [UnitSymbolSnapshot] NVARCHAR(30) NOT NULL,
+    [Quantity] DECIMAL(18,4) NOT NULL,
+    [UnitPrice] DECIMAL(18,4) NOT NULL,
+    [CostPriceSnapshot] DECIMAL(18,4) NOT NULL,
+    [ItemDiscountAmount] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_HeldSaleItem_ItemDiscountAmount] DEFAULT (0),
+    [TaxAmount] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_HeldSaleItem_TaxAmount] DEFAULT (0),
+    [LineSubtotal] DECIMAL(18,4) NOT NULL,
+    [LineTotal] DECIMAL(18,4) NOT NULL,
+    [CreatedDate] DATETIME2(0) NOT NULL CONSTRAINT [DF_HeldSaleItem_CreatedDate] DEFAULT (SYSUTCDATETIME()),
+    CONSTRAINT [PK_HeldSaleItem] PRIMARY KEY CLUSTERED ([HeldSaleItemId]),
+    CONSTRAINT [FK_HeldSaleItem_Header] FOREIGN KEY ([HeldSaleHeaderId]) REFERENCES [dbo].[HeldSaleHeader] ([HeldSaleHeaderId]),
+    CONSTRAINT [FK_HeldSaleItem_Product] FOREIGN KEY ([ProductId]) REFERENCES [dbo].[Product] ([ProductId]),
+    CONSTRAINT [FK_HeldSaleItem_Unit] FOREIGN KEY ([UnitId]) REFERENCES [dbo].[ProductUnit] ([UnitId]),
+    CONSTRAINT [CK_HeldSaleItem_Quantity] CHECK ([Quantity] > 0),
+    CONSTRAINT [CK_HeldSaleItem_Amounts] CHECK ([UnitPrice] >= 0 AND [CostPriceSnapshot] >= 0 AND [ItemDiscountAmount] >= 0 AND [TaxAmount] >= 0 AND [LineSubtotal] >= 0 AND [LineTotal] >= 0 AND [ItemDiscountAmount] <= [LineSubtotal])
+);

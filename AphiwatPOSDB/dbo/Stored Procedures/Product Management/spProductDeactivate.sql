@@ -1,0 +1,1 @@
+﻿CREATE PROCEDURE [dbo].[spProductDeactivate] @ProductId INT, @UpdatedByUserId INT AS BEGIN SET NOCOUNT ON; UPDATE [dbo].[Product] SET IsActive=0, Status=N'Inactive', UpdatedByUserId=NULLIF(@UpdatedByUserId,0), UpdatedDate=SYSUTCDATETIME() WHERE ProductId=@ProductId; END;

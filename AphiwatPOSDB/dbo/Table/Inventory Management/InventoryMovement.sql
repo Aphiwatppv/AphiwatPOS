@@ -1,0 +1,25 @@
+CREATE TABLE [dbo].[InventoryMovement]
+(
+    [InventoryMovementId] BIGINT IDENTITY(1,1) NOT NULL,
+    [ProductId] INT NOT NULL,
+    [LocationId] INT NOT NULL,
+    [MovementType] NVARCHAR(30) NOT NULL,
+    [Quantity] DECIMAL(18,4) NOT NULL,
+    [QuantitySigned] DECIMAL(18,4) NOT NULL,
+    [UnitCost] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_InventoryMovement_UnitCost] DEFAULT (0),
+    [StockBefore] DECIMAL(18,4) NOT NULL,
+    [StockAfter] DECIMAL(18,4) NOT NULL,
+    [ReferenceType] NVARCHAR(50) NOT NULL CONSTRAINT [DF_InventoryMovement_ReferenceType] DEFAULT (N''),
+    [ReferenceId] BIGINT NULL,
+    [ReferenceNo] NVARCHAR(100) NOT NULL CONSTRAINT [DF_InventoryMovement_ReferenceNo] DEFAULT (N''),
+    [Reason] NVARCHAR(500) NOT NULL CONSTRAINT [DF_InventoryMovement_Reason] DEFAULT (N''),
+    [Remarks] NVARCHAR(1000) NOT NULL CONSTRAINT [DF_InventoryMovement_Remarks] DEFAULT (N''),
+    [IsActive] BIT NOT NULL CONSTRAINT [DF_InventoryMovement_IsActive] DEFAULT (1),
+    [CreatedByUserId] INT NULL,
+    [CreatedDate] DATETIME2(0) NOT NULL CONSTRAINT [DF_InventoryMovement_CreatedDate] DEFAULT (SYSUTCDATETIME()),
+    CONSTRAINT [PK_InventoryMovement] PRIMARY KEY CLUSTERED ([InventoryMovementId] ASC),
+    CONSTRAINT [FK_InventoryMovement_Product] FOREIGN KEY ([ProductId]) REFERENCES [dbo].[Product] ([ProductId]),
+    CONSTRAINT [FK_InventoryMovement_Location] FOREIGN KEY ([LocationId]) REFERENCES [dbo].[InventoryLocation] ([LocationId]),
+    CONSTRAINT [CK_InventoryMovement_MovementType] CHECK ([MovementType] IN (N'StockIn',N'StockOut',N'Sale',N'Return',N'PurchaseReceive',N'AdjustmentIn',N'AdjustmentOut',N'TransferIn',N'TransferOut',N'StockCountCorrection')),
+    CONSTRAINT [CK_InventoryMovement_QuantityPositive] CHECK ([Quantity] > 0)
+);

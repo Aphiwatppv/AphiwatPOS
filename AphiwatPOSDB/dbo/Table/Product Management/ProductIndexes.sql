@@ -1,0 +1,11 @@
+﻿--CREATE UNIQUE INDEX [UX_Product_Barcode_NotNull] ON [dbo].[Product] ([Barcode]) WHERE [Barcode] IS NOT NULL;
+--CREATE INDEX [IX_Product_CategoryId] ON [dbo].[Product] ([CategoryId]);
+--CREATE INDEX [IX_Product_BrandId] ON [dbo].[Product] ([BrandId]);
+--CREATE INDEX [IX_Product_UnitId] ON [dbo].[Product] ([UnitId]);
+--CREATE INDEX [IX_Product_IsActive] ON [dbo].[Product] ([IsActive]);
+--CREATE INDEX [IX_Product_Status] ON [dbo].[Product] ([Status]);
+--CREATE INDEX [IX_Product_Barcode] ON [dbo].[Product] ([Barcode]);
+--CREATE INDEX [IX_Product_ProductName] ON [dbo].[Product] ([ProductName]);
+--CREATE UNIQUE INDEX [UX_ProductUnitConversion_ActivePair] ON [dbo].[ProductUnitConversion] ([FromUnitId], [ToUnitId]) WHERE [IsActive] = 1;
+--CREATE INDEX [IX_ProductPriceHistory_ProductId_ChangedDate] ON [dbo].[ProductPriceHistory] ([ProductId], [ChangedDate] DESC);
+

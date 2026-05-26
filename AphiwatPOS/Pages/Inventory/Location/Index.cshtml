@@ -1,0 +1,121 @@
+@page
+@model AphiwatPOS.Pages.Inventory.Location.IndexModel
+@{
+    ViewData["Title"] = "Inventory Locations";
+    ViewData["Subtitle"] = "Manage stock locations used by current stock, adjustments, counts, and transfers.";
+    var locations = Model.Locations.ToArray();
+}
+
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div>
+        <h1>Inventory Locations</h1>
+        <p>Manage stock locations used by current stock, adjustments, counts, and transfers.</p>
+    </div>
+    <button class="btn btn-primary @(Model.CanManage ? "" : "disabled")" type="button" data-bs-toggle="modal" data-bs-target="#locationAddModal">
+        <i class="bi bi-plus-lg me-1"></i>Add Location
+    </button>
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-geo-alt"></i></span><div><div class="metric-label">Total locations</div><div class="metric-value">@locations.Length</div><div class="metric-helper">Matching filters</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-check-circle"></i></span><div><div class="metric-label">Active locations</div><div class="metric-value">@locations.Count(x => x.IsActive)</div><div class="metric-helper">Available in inventory forms</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-star"></i></span><div><div class="metric-label">Default location</div><div class="metric-value">@(locations.FirstOrDefault(x => x.IsDefault)?.LocationCode ?? "-")</div><div class="metric-helper">Primary stock location</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-boxes"></i></span><div><div class="metric-label">Products in stock</div><div class="metric-value">@Model.SummaryByLocationId.Values.Sum(x => x.ProductCount)</div><div class="metric-helper">Across visible locations</div></div></div>
+</div>
+
+<form method="get" class="filter-card mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-7"><label class="form-label">Search location</label><input asp-for="SearchText" class="form-control" placeholder="Code, name, or description" /></div>
+        <div class="col-md-3"><label class="form-label">Active status</label><select asp-for="IsActive" class="form-select"><option value="">All</option><option value="true">Active</option><option value="false">Inactive</option></select></div>
+        <div class="col-md-2 d-flex gap-2"><button class="btn btn-primary flex-fill" type="submit"><i class="bi bi-search me-1"></i>Search</button><a class="btn btn-outline-secondary" asp-page="./Index">Clear</a></div>
+    </div>
+</form>
+
+<section class="data-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>Location Code</th><th>Location Name</th><th>Description</th><th>Default</th><th>Products</th><th>Low</th><th>Out</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            @if (!locations.Any())
+            {
+                <tr><td colspan="9"><div class="empty-state"><i class="bi bi-geo-alt"></i><div class="fw-semibold">No locations found</div><div>Add a stock location to use inventory workflows.</div></div></td></tr>
+            }
+            @foreach (var location in locations)
+            {
+                var summary = Model.SummaryByLocationId.GetValueOrDefault(location.LocationId) ?? new InventoryEngine.Models.InventoryStockSummaryModel();
+                <tr>
+                    <td><span class="code-badge mono">@location.LocationCode</span></td>
+                    <td class="fw-semibold">@location.LocationName</td>
+                    <td class="text-muted">@location.Description</td>
+                    <td>@if (location.IsDefault) { <span class="badge status-badge badge-success"><i class="bi bi-star-fill"></i>Default</span> } else { <span class="badge status-badge badge-muted">No</span> }</td>
+                    <td>@summary.ProductCount</td>
+                    <td>@summary.LowStockCount</td>
+                    <td>@summary.OutOfStockCount</td>
+                    <td><span class="badge status-badge @(location.IsActive ? "badge-success" : "badge-muted")">@(location.IsActive ? "Active" : "Inactive")</span></td>
+                    <td class="text-end">
+                        <div class="action-group">
+                            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#locationView-@location.LocationId" type="button"><i class="bi bi-eye me-1"></i>View</button>
+                            <button class="btn btn-outline-secondary btn-sm @(Model.CanManage ? "" : "disabled")" data-bs-toggle="modal" data-bs-target="#locationEdit-@location.LocationId" type="button"><i class="bi bi-pencil me-1"></i>Edit</button>
+                            <form method="post" asp-page-handler="ToggleActive" asp-route-locationId="@location.LocationId" asp-route-isActive="@(!location.IsActive)" class="d-inline">
+                                <button class="btn btn-outline-secondary btn-sm @(Model.CanManage ? "" : "disabled")" type="submit">@(location.IsActive ? "Deactivate" : "Activate")</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<div class="modal fade app-modal" id="locationAddModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" asp-page-handler="Create" class="modal-content">
+            <div class="modal-header"><div><h2 class="modal-title h5">Add Location</h2><p class="modal-subtitle">Create a stock location for inventory transactions.</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+            <div class="modal-body">
+                <partial name="_LocationFields" model="null" />
+            </div>
+            <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save Location</button></div>
+        </form>
+    </div>
+</div>
+
+@foreach (var location in locations)
+{
+    var summary = Model.SummaryByLocationId.GetValueOrDefault(location.LocationId) ?? new InventoryEngine.Models.InventoryStockSummaryModel();
+    <div class="modal fade app-modal" id="locationView-@location.LocationId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header"><div><h2 class="modal-title h5">Location Detail</h2><p class="modal-subtitle">@location.LocationCode</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+                <div class="modal-body">
+                    <dl class="row detail-list mb-0">
+                        <dt class="col-4">Code</dt><dd class="col-8">@location.LocationCode</dd>
+                        <dt class="col-4">Name</dt><dd class="col-8">@location.LocationName</dd>
+                        <dt class="col-4">Description</dt><dd class="col-8">@location.Description</dd>
+                        <dt class="col-4">Default</dt><dd class="col-8">@(location.IsDefault ? "Yes" : "No")</dd>
+                        <dt class="col-4">Status</dt><dd class="col-8">@(location.IsActive ? "Active" : "Inactive")</dd>
+                        <dt class="col-4">Products</dt><dd class="col-8">@summary.ProductCount</dd>
+                        <dt class="col-4">Low Stock</dt><dd class="col-8">@summary.LowStockCount</dd>
+                        <dt class="col-4">Out of Stock</dt><dd class="col-8">@summary.OutOfStockCount</dd>
+                        <dt class="col-4">Created</dt><dd class="col-8">@location.CreatedDate.ToString("yyyy-MM-dd HH:mm")</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade app-modal" id="locationEdit-@location.LocationId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="post" asp-page-handler="Update" class="modal-content">
+                <div class="modal-header"><div><h2 class="modal-title h5">Edit Location</h2><p class="modal-subtitle">@location.LocationCode</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+                <div class="modal-body">
+                    <partial name="_LocationFields" model="location" />
+                </div>
+                <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save Changes</button></div>
+            </form>
+        </div>
+    </div>
+}
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

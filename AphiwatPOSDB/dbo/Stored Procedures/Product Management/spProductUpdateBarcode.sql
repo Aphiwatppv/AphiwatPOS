@@ -1,0 +1,1 @@
+﻿CREATE PROCEDURE [dbo].[spProductUpdateBarcode] @ProductId INT, @Barcode NVARCHAR(100), @UpdatedByUserId INT AS BEGIN SET NOCOUNT ON; UPDATE [dbo].[Product] SET Barcode=NULLIF(@Barcode,N''), UpdatedByUserId=NULLIF(@UpdatedByUserId,0), UpdatedDate=SYSUTCDATETIME() WHERE ProductId=@ProductId; END;

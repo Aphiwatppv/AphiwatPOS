@@ -1,0 +1,2 @@
+﻿CREATE PROCEDURE [dbo].[spCustomerPointGetMovementsPaged] @CustomerId INT,@PageNumber INT,@PageSize INT,@DateFrom DATETIME2=NULL,@DateTo DATETIME2=NULL,@MovementType NVARCHAR(30)=NULL AS
+BEGIN SELECT *,COUNT(1) OVER() TotalCount FROM dbo.CustomerPointMovement WHERE CustomerId=@CustomerId AND (@MovementType IS NULL OR MovementType=@MovementType) AND (@DateFrom IS NULL OR CreatedDate>=@DateFrom) AND (@DateTo IS NULL OR CreatedDate<DATEADD(DAY,1,@DateTo)) ORDER BY CreatedDate DESC OFFSET (@PageNumber-1)*@PageSize ROWS FETCH NEXT @PageSize ROWS ONLY; END

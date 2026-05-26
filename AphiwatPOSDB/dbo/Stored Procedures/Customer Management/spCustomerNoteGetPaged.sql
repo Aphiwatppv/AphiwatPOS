@@ -1,0 +1,2 @@
+﻿CREATE PROCEDURE [dbo].[spCustomerNoteGetPaged] @CustomerId INT,@PageNumber INT,@PageSize INT,@NoteType NVARCHAR(30)=NULL,@IsActive BIT=NULL AS
+BEGIN SELECT *,COUNT(1) OVER() TotalCount FROM dbo.CustomerNote WHERE CustomerId=@CustomerId AND (@NoteType IS NULL OR NoteType=@NoteType) AND (@IsActive IS NULL OR IsActive=@IsActive) ORDER BY IsImportant DESC,CreatedDate DESC OFFSET (@PageNumber-1)*@PageSize ROWS FETCH NEXT @PageSize ROWS ONLY; END

@@ -1,0 +1,36 @@
+@page
+@model AphiwatPOS.Pages.Settings.IndexModel
+@{
+    ViewData["Title"] = "Settings";
+    ViewData["TitleI18nKey"] = "settings.title";
+    ViewData["Subtitle"] = "Choose how AphiwatPOS looks and speaks for this browser.";
+    ViewData["SubtitleI18nKey"] = "settings.subtitle";
+}
+
+<section class="settings-grid">
+    <article class="settings-panel">
+        <div class="settings-panel-heading">
+            <span class="settings-icon"><i class="bi bi-translate"></i></span>
+            <div>
+                <h2 data-i18n="settings.languageTitle">Language</h2>
+                <p data-i18n="settings.languageDescription">Select the display language for menus and shared controls on this device.</p>
+            </div>
+        </div>
+
+        <div class="language-choice" role="group" aria-label="Language">
+            <button type="button" class="language-option" data-language-option="en">
+                <span class="language-code">EN</span>
+                <span>English</span>
+            </button>
+            <button type="button" class="language-option" data-language-option="th">
+                <span class="language-code">TH</span>
+                <span>ไทย</span>
+            </button>
+        </div>
+
+        <div class="settings-note">
+            <i class="bi bi-info-circle"></i>
+            <span data-i18n="settings.languageNote">Your choice is saved in this browser and applies automatically when you return.</span>
+        </div>
+    </article>
+</section>

@@ -1,0 +1,111 @@
+@page
+@model AphiwatPOS.Pages.Customers.CreditRepayment.IndexModel
+@using AphiwatPOS.Pages.Customer
+@{
+    ViewData["Title"] = "Credit Repayment";
+    ViewData["Subtitle"] = "Receive customer payments to reduce used credit and restore available credit.";
+    var selected = Model.SelectedCustomer;
+    var rows = Model.Repayments.Repayments.ToArray();
+}
+
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div><h1>Credit Repayment</h1><p>Receive customer payments to reduce used credit and restore available credit.</p></div>
+    <a class="btn btn-outline-secondary" asp-page="/Customers/Credit/Index"><i class="bi bi-credit-card me-1"></i>Customer Credit</a>
+</div>
+
+<div class="credit-repayment-shell">
+    <section class="credit-column">
+        <form method="get" class="filter-card mb-3">
+            <h2 class="h6 mb-3">Find Customer</h2>
+            <div class="input-group"><span class="input-group-text"><i class="bi bi-person-search"></i></span><input asp-for="SearchText" class="form-control" placeholder="Phone, customer code, or name" /><button class="btn btn-primary">Search</button><a class="btn btn-outline-secondary" asp-page="./Index">Clear</a></div>
+        </form>
+
+        <section class="data-card">
+            <div class="card-heading"><h2>Customer Results</h2></div>
+            @if (!Model.CustomerResults.Any())
+            {
+                <div class="empty-state"><i class="bi bi-person-search"></i><div class="fw-semibold">No customers found</div><div>Search by phone number, code, or name.</div></div>
+            }
+            <div class="customer-result-list">
+                @foreach (var c in Model.CustomerResults)
+                {
+                    <a class="customer-result @(selected?.CustomerId == c.CustomerId ? "active" : "")" asp-page="./Index" asp-route-SearchText="@Model.SearchText" asp-route-SelectedCustomerId="@c.CustomerId">
+                        <span class="selected-member-icon"><i class="bi bi-person"></i></span>
+                        <span class="min-w-0"><strong>@c.CustomerName</strong><small>@c.CustomerCode · @c.PhoneNumber · @(c.MemberLevelName ?? "No level")</small></span>
+                        <span class="text-end"><strong>@c.UsedCredit.ToString("N2")</strong><small>used</small></span>
+                    </a>
+                }
+            </div>
+        </section>
+    </section>
+
+    <section class="credit-column">
+        <div class="data-card mb-3">
+            <div class="card-heading"><h2>Selected Customer</h2></div>
+            @if (selected is null)
+            {
+                <div class="empty-state"><i class="bi bi-credit-card"></i><div class="fw-semibold">Select a customer</div><div>Choose a member to receive credit repayment.</div></div>
+            }
+            else
+            {
+                <div class="selected-credit-card">
+                    <div><h2>@selected.CustomerName</h2><p>@selected.CustomerCode · @selected.PhoneNumber · @(selected.MemberLevelName ?? "No level")</p></div>
+                    <span class="badge status-badge @(selected.IsCreditAllowed ? "badge-success" : "badge-danger")">@(selected.IsCreditAllowed ? "Credit Allowed" : "Credit Not Allowed")</span>
+                </div>
+                <div class="summary-grid compact mt-3">
+                    <div class="summary-card"><div><div class="metric-label">Credit limit</div><div class="metric-value">@selected.CreditLimit.ToString("N2")</div></div></div>
+                    <div class="summary-card"><div><div class="metric-label">Used credit</div><div class="metric-value text-warning">@selected.UsedCredit.ToString("N2")</div></div></div>
+                    <div class="summary-card"><div><div class="metric-label">Available credit</div><div class="metric-value text-success">@selected.AvailableCredit.ToString("N2")</div></div></div>
+                </div>
+            }
+        </div>
+
+        <form method="post" asp-page-handler="CreateCreditRepayment" class="data-card mb-3" data-repayment-form>
+            <div class="card-heading"><h2>Receive Payment</h2></div>
+            <input type="hidden" asp-for="Input.CustomerId" value="@(selected?.CustomerId ?? 0)" />
+            <div class="row g-3">
+                <div class="col-md-6"><label class="form-label required">Payment amount</label><input asp-for="Input.PaymentAmount" class="form-control" type="number" min="0.01" step="0.01" data-repay-amount readonly="@(selected is null || selected.UsedCredit <= 0 ? "readonly" : null)" /></div>
+                <div class="col-md-6 d-flex align-items-end"><button class="btn btn-outline-secondary w-100" type="button" data-full-repayment data-used-credit="@(selected?.UsedCredit ?? 0)" @(selected is null || selected.UsedCredit <= 0 ? "disabled" : "")>Full Repayment</button></div>
+                <div class="col-md-6"><label class="form-label required">Payment method</label><select asp-for="Input.PaymentMethodId" class="form-select" required><option value="">Select method</option>@foreach (var method in Model.PaymentMethods) { <option value="@method.PaymentMethodId" data-require-ref="@method.RequireReferenceNo.ToString().ToLowerInvariant()">@method.PaymentMethodName</option> }</select></div>
+                <div class="col-md-6"><label class="form-label">Reference number</label><input asp-for="Input.ReferenceNo" class="form-control" /></div>
+                <div class="col-12"><label class="form-label">Remark</label><textarea asp-for="Input.Remark" class="form-control" rows="3"></textarea></div>
+                @if (selected is not null && selected.UsedCredit <= 0)
+                {
+                    <div class="col-12"><div class="alert alert-success mb-0">This customer has no credit debt to repay.</div></div>
+                }
+                <div class="col-12"><button class="btn btn-primary w-100" type="submit" @(selected is null || selected.UsedCredit <= 0 ? "disabled" : "")><i class="bi bi-cash-coin me-1"></i>Receive Payment</button></div>
+            </div>
+        </form>
+    </section>
+</div>
+
+<section class="data-card mt-3">
+    <div class="card-heading"><h2>Recent Repayment History</h2></div>
+    <div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Repayment No</th><th>Date</th><th>Customer</th><th>Payment Method</th><th>Amount</th><th>Reference No</th><th>Status</th><th class="text-end">Action</th></tr></thead><tbody>
+        @if (!rows.Any()) { <tr><td colspan="8"><div class="empty-state"><i class="bi bi-cash-coin"></i><div class="fw-semibold">No repayment history found</div></div></td></tr> }
+        @foreach (var item in rows)
+        {
+            <tr><td><span class="code-badge mono">@item.RepaymentNo</span></td><td>@CustomerPageHelpers.DateTimeText(item.RepaymentDate)</td><td>@item.CustomerName</td><td>@item.PaymentMethodName</td><td><strong>@item.PaymentAmount.ToString("N2")</strong></td><td>@(item.ReferenceNo ?? "-")</td><td><span class="badge status-badge @(item.Status == "Completed" ? "badge-success" : "badge-danger")">@item.Status</span></td><td class="text-end"><button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#receipt-@item.CustomerCreditRepaymentId" type="button">View Receipt</button> <button class="btn btn-outline-danger btn-sm @(item.Status == "Voided" ? "disabled" : "")" data-bs-toggle="modal" data-bs-target="#void-@item.CustomerCreditRepaymentId" type="button">Void</button></td></tr>
+        }
+    </tbody></table></div>
+</section>
+
+@foreach (var item in rows)
+{
+    <div class="modal fade app-modal" id="receipt-@item.CustomerCreditRepaymentId" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Repayment Receipt</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><dl class="detail-list mb-0"><dt>Repayment No</dt><dd>@item.RepaymentNo</dd><dt>Date</dt><dd>@CustomerPageHelpers.DateTimeText(item.RepaymentDate)</dd><dt>Customer</dt><dd>@item.CustomerName</dd><dt>Payment method</dt><dd>@item.PaymentMethodName</dd><dt>Payment amount</dt><dd>@item.PaymentAmount.ToString("N2")</dd><dt>Reference No</dt><dd>@(item.ReferenceNo ?? "-")</dd></dl></div><div class="modal-footer"><button class="btn btn-outline-secondary" onclick="window.print()" type="button">Print Receipt</button><button class="btn btn-primary" data-bs-dismiss="modal" type="button">Close</button></div></div></div></div>
+    <div class="modal fade app-modal" id="void-@item.CustomerCreditRepaymentId" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="VoidCreditRepayment" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Void Repayment</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input type="hidden" asp-for="Void.CustomerCreditRepaymentId" value="@item.CustomerCreditRepaymentId" /><div class="alert alert-danger">Voiding this repayment will reverse the credit balance update.</div><label class="form-label required">Void reason</label><textarea asp-for="Void.Reason" class="form-control" required rows="3"></textarea></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-outline-danger" type="submit">Confirm Void</button></div></form></div></div>
+}
+
+<style>
+.credit-repayment-shell{display:grid;grid-template-columns:minmax(320px,.85fr)minmax(0,1.15fr);gap:18px}.customer-result-list{display:grid;gap:8px}.customer-result{align-items:center;border:1px solid var(--pos-border);color:var(--pos-text);display:grid;gap:10px;grid-template-columns:38px minmax(0,1fr)auto;padding:10px;text-decoration:none;transition:.16s}.customer-result:hover,.customer-result.active{background:var(--pos-primary-soft);border-color:var(--pos-primary);transform:translateY(-1px)}.customer-result small,.customer-result span:last-child small{color:var(--pos-muted);display:block}.selected-credit-card{align-items:start;display:flex;justify-content:space-between;gap:12px}.selected-credit-card h2{font-size:1.1rem;font-weight:900;margin:0}.selected-credit-card p{color:var(--pos-muted);margin:2px 0 0}.summary-grid.compact{grid-template-columns:repeat(3,minmax(0,1fr))}@@media(max-width:992px){.credit-repayment-shell{grid-template-columns:1fr}.summary-grid.compact{grid-template-columns:1fr}}
+</style>
+
+@section Scripts {
+<script>
+document.querySelector('[data-full-repayment]')?.addEventListener('click', e => {
+  document.querySelector('[data-repay-amount]').value = Number(e.currentTarget.dataset.usedCredit || 0).toFixed(2);
+});
+</script>
+}

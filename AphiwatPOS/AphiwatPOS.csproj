@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AccessEngine\AccessEngine.csproj" />
+    <ProjectReference Include="..\AuthenticationEngine\AuthenticationEngine.csproj" />
+    <ProjectReference Include="..\CustomerEngine\CustomerEngine.csproj" />
+    <ProjectReference Include="..\InventoryEngine\InventoryEngine.csproj" />
+    <ProjectReference Include="..\ProductEngine\ProductEngine.csproj" />
+    <ProjectReference Include="..\SalesEngine\SalesEngine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="QRCoder" Version="1.8.0" />
+  </ItemGroup>
+
+</Project>

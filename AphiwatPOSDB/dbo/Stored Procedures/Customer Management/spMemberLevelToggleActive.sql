@@ -1,0 +1,1 @@
+﻿CREATE PROCEDURE [dbo].[spMemberLevelToggleActive] @MemberLevelId INT,@IsActive BIT,@UpdatedByUserId INT AS BEGIN UPDATE dbo.MemberLevel SET IsActive=@IsActive,UpdatedDate=SYSDATETIME(),UpdatedByUserId=@UpdatedByUserId WHERE MemberLevelId=@MemberLevelId; END

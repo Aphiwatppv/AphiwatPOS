@@ -1,0 +1,28 @@
+﻿CREATE TABLE [dbo].[MemberLevel]
+(
+    MemberLevelId INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_MemberLevel PRIMARY KEY,
+    LevelCode NVARCHAR(50) NOT NULL,
+    LevelName NVARCHAR(255) NOT NULL,
+    Description NVARCHAR(500) NULL,
+    MinSpendingAmount DECIMAL(18,2) NOT NULL CONSTRAINT DF_MemberLevel_MinSpendingAmount DEFAULT(0),
+    DiscountPercent DECIMAL(9,2) NOT NULL CONSTRAINT DF_MemberLevel_DiscountPercent DEFAULT(0),
+    PointEarnAmount DECIMAL(18,2) NOT NULL CONSTRAINT DF_MemberLevel_PointEarnAmount DEFAULT(100),
+    PointEarnPoint DECIMAL(18,2) NOT NULL CONSTRAINT DF_MemberLevel_PointEarnPoint DEFAULT(1),
+    PointMultiplier DECIMAL(9,2) NOT NULL CONSTRAINT DF_MemberLevel_PointMultiplier DEFAULT(1),
+    AllowCredit BIT NOT NULL CONSTRAINT DF_MemberLevel_AllowCredit DEFAULT(0),
+    DefaultCreditLimit DECIMAL(18,2) NOT NULL CONSTRAINT DF_MemberLevel_DefaultCreditLimit DEFAULT(0),
+    DefaultCreditTermDays INT NOT NULL CONSTRAINT DF_MemberLevel_DefaultCreditTermDays DEFAULT(0),
+    RequireManagerApprovalForCredit BIT NOT NULL CONSTRAINT DF_MemberLevel_RequireManagerApprovalForCredit DEFAULT(0),
+    MaxOverdueDaysAllowed INT NOT NULL CONSTRAINT DF_MemberLevel_MaxOverdueDaysAllowed DEFAULT(0),
+    DisplayOrder INT NOT NULL CONSTRAINT DF_MemberLevel_DisplayOrder DEFAULT(0),
+    IsActive BIT NOT NULL CONSTRAINT DF_MemberLevel_IsActive DEFAULT(1),
+    CreatedDate DATETIME2 NOT NULL CONSTRAINT DF_MemberLevel_CreatedDate DEFAULT(SYSDATETIME()),
+    CreatedByUserId INT NOT NULL,
+    UpdatedDate DATETIME2 NULL,
+    UpdatedByUserId INT NULL,
+    CONSTRAINT UQ_MemberLevel_LevelCode UNIQUE(LevelCode),
+    CONSTRAINT CK_MemberLevel_DiscountPercent CHECK (DiscountPercent BETWEEN 0 AND 100),
+    CONSTRAINT CK_MemberLevel_NonNegative CHECK (MinSpendingAmount >= 0 AND DefaultCreditLimit >= 0 AND DefaultCreditTermDays >= 0 AND MaxOverdueDaysAllowed >= 0),
+    CONSTRAINT CK_MemberLevel_PointSettings CHECK (PointEarnAmount > 0 AND PointEarnPoint >= 0 AND PointMultiplier > 0),
+    CONSTRAINT CK_MemberLevel_NoCreditDefaultsWhenDisabled CHECK (AllowCredit = 1 OR (DefaultCreditLimit = 0 AND DefaultCreditTermDays = 0))
+);

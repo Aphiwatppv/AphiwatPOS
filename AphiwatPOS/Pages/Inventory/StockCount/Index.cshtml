@@ -1,0 +1,190 @@
+@page
+@model AphiwatPOS.Pages.Inventory.StockCount.IndexModel
+@using AphiwatPOS.Pages.Inventory
+@{
+    ViewData["Title"] = "Stock Count";
+    ViewData["Subtitle"] = "Compare counted quantity with system quantity and correct stock variance.";
+    var rows = Model.StockCounts.Items.ToArray();
+    var totalPages = InventoryUi.TotalPages(Model.StockCounts.TotalCount, Model.StockCounts.PageSize);
+    decimal CountVarianceValue(InventoryEngine.Models.StockCountModel count) =>
+        count.Items.Sum(item => item.VarianceQty * Model.ProductCostById.GetValueOrDefault(item.ProductId));
+}
+
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3 no-print" data-auto-open-scan-modal="#createCountModal" data-auto-open-scan-input="#createCountModal [data-barcode-scan-input]">
+    <div>
+        <h1>Stock Count</h1>
+        <p>Compare counted quantity with system quantity and correct stock variance.</p>
+        <div class="text-muted small mt-1"><i class="bi bi-upc-scan me-1"></i>Scan a product barcode on this page to open Create Stock Count automatically.</div>
+    </div>
+    <button class="btn btn-primary @(Model.Permissions.CanCreate ? "" : "disabled")" data-bs-toggle="modal" data-bs-target="#createCountModal" type="button">
+        <i class="bi bi-plus-lg me-1"></i>Create Stock Count
+    </button>
+</div>
+
+<div class="summary-grid no-print">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-clipboard"></i></span><div><div class="metric-label">Open counts</div><div class="metric-value">@rows.Count(x => x.Status == "Draft")</div><div class="metric-helper">Draft or counting</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-check-circle"></i></span><div><div class="metric-label">Approved counts</div><div class="metric-value">@rows.Count(x => x.Status == "Approved")</div><div class="metric-helper">Corrections posted</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-plus-slash-minus"></i></span><div><div class="metric-label">Total variance qty</div><div class="metric-value">@rows.Sum(x => x.Items.Sum(i => i.VarianceQty)).ToString("N2")</div><div class="metric-helper">Visible rows</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-cash-stack"></i></span><div><div class="metric-label">Variance value</div><div class="metric-value">@Model.VarianceValue.ToString("N2")</div><div class="metric-helper">Variance qty by product cost</div></div></div>
+</div>
+
+<form method="get" class="filter-card mb-3 no-print">
+    <div class="row g-3 align-items-end">
+        <div class="col-lg-3"><label class="form-label">Search stock count</label><input asp-for="SearchText" class="form-control" placeholder="Stock count number" /></div>
+        <div class="col-lg-2"><label class="form-label">Location</label><select asp-for="LocationId" class="form-select"><option value="">All</option>@foreach (var item in Model.Locations) { <option value="@item.LocationId">@item.LocationName</option> }</select></div>
+        <div class="col-lg-2"><label class="form-label">Status</label><select asp-for="Status" class="form-select"><option value="">All</option><option>Draft</option><option>Counting</option><option>Pending Approval</option><option>Approved</option><option>Cancelled</option></select></div>
+        <div class="col-lg-2"><label class="form-label">Date from</label><input asp-for="FromDate" type="date" class="form-control" /></div>
+        <div class="col-lg-2"><label class="form-label">Date to</label><input asp-for="ToDate" type="date" class="form-control" /></div>
+        <div class="col-lg-1 d-flex gap-2"><button class="btn btn-primary w-100" type="submit"><i class="bi bi-search"></i></button><a class="btn btn-outline-secondary" asp-page="./Index"><i class="bi bi-x-lg"></i></a></div>
+    </div>
+</form>
+
+<section class="data-card no-print">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>Stock Count No</th><th>Location</th><th>Status</th><th>Total Items</th><th>Total Variance Qty</th><th>Variance Value</th><th>Created By</th><th>Created Date</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            @if (!rows.Any())
+            {
+                <tr><td colspan="9"><div class="empty-state"><i class="bi bi-clipboard-check"></i><div class="fw-semibold">No stock counts found</div><div>Create a stock count to compare physical quantity against system stock.</div></div></td></tr>
+            }
+            @foreach (var item in rows)
+            {
+                <tr>
+                    <td><span class="code-badge mono">@item.StockCountNo</span></td>
+                    <td>@item.LocationName</td>
+                    <td><span class="badge status-badge @InventoryUi.StatusBadge(item.Status)">@item.Status</span></td>
+                    <td>@item.Items.Count</td>
+                    <td>@item.Items.Sum(i => i.VarianceQty).ToString("N2")</td>
+                    <td>@CountVarianceValue(item).ToString("N2")</td>
+                    <td>@(item.CreatedByUserId?.ToString() ?? "-")</td>
+                    <td>@item.CreatedDate.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td class="text-end">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" type="button">Action</button>
+                            <div class="dropdown-menu dropdown-menu-end action-menu">
+                                <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#countView-@item.StockCountId" type="button"><i class="bi bi-eye"></i>View</button>
+                                <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#printChecklist-@item.StockCountId" type="button"><i class="bi bi-printer"></i>Print Checklist</button>
+                                <button class="dropdown-item @(item.Status == "Draft" && Model.Permissions.CanUpdate ? "" : "disabled")" type="button"><i class="bi bi-pencil"></i>Edit Count</button>
+                                <button class="dropdown-item @(item.Status == "Draft" && Model.Permissions.CanApprove ? "" : "disabled")" data-bs-toggle="modal" data-bs-target="#approveCount-@item.StockCountId" type="button"><i class="bi bi-check2-circle"></i>Approve</button>
+                                <button class="dropdown-item text-danger @(item.Status == "Draft" && Model.Permissions.CanCancel ? "" : "disabled")" data-bs-toggle="modal" data-bs-target="#cancelCount-@item.StockCountId" type="button"><i class="bi bi-slash-circle"></i>Cancel</button>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-3">
+        <span class="text-muted">Total counts: @Model.StockCounts.TotalCount</span>
+        <div class="btn-group btn-group-sm">
+            <a class="btn btn-outline-secondary @(Model.PageNumber <= 1 ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-LocationId="@Model.LocationId" asp-route-Status="@Model.Status" asp-route-PageNumber="@(Model.PageNumber - 1)">Previous</a>
+            <span class="btn btn-outline-secondary disabled">@Model.PageNumber / @totalPages</span>
+            <a class="btn btn-outline-secondary @(Model.PageNumber >= totalPages ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-LocationId="@Model.LocationId" asp-route-Status="@Model.Status" asp-route-PageNumber="@(Model.PageNumber + 1)">Next</a>
+        </div>
+    </div>
+</section>
+
+<div class="modal fade app-modal" id="createCountModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <form method="post" asp-page-handler="Create" class="modal-content">
+            <div class="modal-header"><div><h2 class="modal-title h5">Create Stock Count</h2><p class="modal-subtitle">Approving count variance creates StockCountCorrection movements.</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+            <div class="modal-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4"><label class="form-label required">Location</label><select name="Input.LocationId" class="form-select" required data-stock-location-source data-stock-handler="?handler=ProductStock"><option value="">Select location</option>@foreach (var item in Model.Locations) { <option value="@item.LocationId">@item.LocationName</option> }</select></div>
+                    <div class="col-md-4"><label class="form-label">Scan barcode / SKU / code</label><div class="input-group"><span class="input-group-text"><i class="bi bi-upc-scan"></i></span><input class="form-control" data-barcode-scan-input data-scan-target="[data-count-table]" placeholder="Scan barcode then press Enter" autocomplete="off" /></div><div class="text-muted small mt-1" data-scan-feedback>Scanner input will add the product to the count rows.</div></div>
+                    <div class="col-md-4"><label class="form-label">Description</label><textarea name="Input.Remarks" class="form-control" rows="2"></textarea></div>
+                </div>
+                <div class="d-flex flex-wrap gap-2 mb-2"><button class="btn btn-outline-secondary btn-sm" type="button">Search product</button><button class="btn btn-outline-secondary btn-sm" type="button">Add by category</button><button class="btn btn-outline-secondary btn-sm" type="button">Add all active products</button></div>
+                <div class="table-responsive">
+                    <table class="table align-middle inventory-edit-table" data-count-table>
+                        <thead><tr><th>Product</th><th>System Qty</th><th>Counted Qty</th><th>Variance Qty</th><th>Note</th><th></th></tr></thead>
+                        <tbody>
+                        @for (var i = 0; i < 6; i++)
+                        {
+                            <tr>
+                                <td><select name="Input.Items[@i].ProductId" class="form-select" data-product-select><option value="">Select product</option>@foreach (var p in Model.Products) { <option value="@p.ProductId" data-stock="@(Model.StockByProduct.GetValueOrDefault(p.ProductId))" data-barcode="@p.Barcode" data-sku="@p.SKU" data-code="@p.ProductCode">@p.ProductName</option> }</select></td>
+                                <td><input class="form-control" readonly data-system-qty value="0.00" /></td>
+                                <td><input name="Input.Items[@i].CountedQty" class="form-control" type="number" min="0" step="0.01" data-counted-qty /></td>
+                                <td><input class="form-control" readonly data-variance-qty /></td>
+                                <td><input name="Input.Items[@i].Remarks" class="form-control" /></td>
+                                <td><button class="btn btn-outline-secondary btn-sm" type="button" data-clear-row><i class="bi bi-trash"></i></button></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-outline-secondary" type="submit">Save Draft</button><button class="btn btn-primary" type="submit">Submit Count</button></div>
+        </form>
+    </div>
+</div>
+
+@foreach (var item in rows)
+{
+    <div class="modal fade app-modal" id="countView-@item.StockCountId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header"><div><h2 class="modal-title h5">Stock Count Detail</h2><p class="modal-subtitle">@item.StockCountNo</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+                <div class="modal-body">
+                    <div class="summary-grid">
+                        <div class="summary-card"><span class="metric-icon"><i class="bi bi-plus-circle"></i></span><div><div class="metric-label">Positive variance</div><div class="metric-value">@item.Items.Where(i => i.VarianceQty > 0).Sum(i => i.VarianceQty).ToString("N2")</div></div></div>
+                        <div class="summary-card"><span class="metric-icon"><i class="bi bi-dash-circle"></i></span><div><div class="metric-label">Negative variance</div><div class="metric-value">@item.Items.Where(i => i.VarianceQty < 0).Sum(i => i.VarianceQty).ToString("N2")</div></div></div>
+                        <div class="summary-card"><span class="metric-icon"><i class="bi bi-cash-stack"></i></span><div><div class="metric-label">Variance value</div><div class="metric-value">@CountVarianceValue(item).ToString("N2")</div></div></div>
+                        <div class="summary-card"><span class="metric-icon"><i class="bi bi-exclamation-triangle"></i></span><div><div class="metric-label">Items with variance</div><div class="metric-value">@item.Items.Count(i => i.VarianceQty != 0)</div></div></div>
+                    </div>
+                    <div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Product</th><th>System Qty</th><th>Counted Qty</th><th>Variance Qty</th><th>Note</th></tr></thead><tbody>@foreach (var countItem in item.Items) { <tr><td><span class="fw-semibold">@countItem.ProductName</span><div class="text-muted small">@countItem.ProductCode</div></td><td>@countItem.SystemQty.ToString("N2")</td><td>@countItem.CountedQty.ToString("N2")</td><td>@countItem.VarianceQty.ToString("N2")</td><td>@countItem.Remarks</td></tr> }</tbody></table></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade app-modal" id="printChecklist-@item.StockCountId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header no-print"><div><h2 class="modal-title h5">Print Checklist</h2><p class="modal-subtitle">@item.StockCountNo</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+                <div class="modal-body">
+                    <section class="print-area stock-count-print">
+                        <div class="print-header">
+                            <div>
+                                <h1>Stock Count Checklist</h1>
+                                <p>@item.StockCountNo</p>
+                            </div>
+                            <div>
+                                <div><strong>Location:</strong> @item.LocationName</div>
+                                <div><strong>Date:</strong> @DateTime.Now.ToString("yyyy-MM-dd")</div>
+                                <div><strong>Prepared By:</strong> ____________________</div>
+                            </div>
+                        </div>
+                        <table class="table table-bordered align-middle print-table">
+                            <thead><tr><th style="width:44px">#</th><th>Product Code</th><th>Product</th><th style="width:150px">System Qty</th><th style="width:160px">Counted Qty</th><th>Note</th></tr></thead>
+                            <tbody>
+                            @for (var i = 0; i < item.Items.Count; i++)
+                            {
+                                var countItem = item.Items.ElementAt(i);
+                                <tr><td>@(i + 1)</td><td>@countItem.ProductCode</td><td>@countItem.ProductName</td><td>@countItem.SystemQty.ToString("N2")</td><td></td><td></td></tr>
+                            }
+                            </tbody>
+                        </table>
+                        <div class="print-signatures">
+                            <div>Counter: ____________________</div>
+                            <div>Reviewer: ____________________</div>
+                            <div>Approved By: ____________________</div>
+                        </div>
+                    </section>
+                </div>
+                <div class="modal-footer no-print"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Close</button><button class="btn btn-primary" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print Checklist</button></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade app-modal" id="approveCount-@item.StockCountId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="Approve" class="modal-content"><input type="hidden" name="Action.Id" value="@item.StockCountId" /><div class="modal-header"><h2 class="modal-title h5">Approve Stock Count</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body">Approving this stock count will create StockCountCorrection movements for variance items.</div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Approve</button></div></form></div>
+    </div>
+    <div class="modal fade app-modal" id="cancelCount-@item.StockCountId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="Cancel" class="modal-content"><input type="hidden" name="Action.Id" value="@item.StockCountId" /><div class="modal-header"><h2 class="modal-title h5">Cancel Stock Count</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><label class="form-label required">Cancel reason</label><textarea name="Action.Reason" class="form-control" required></textarea></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Keep</button><button class="btn btn-outline-danger" type="submit">Cancel</button></div></form></div>
+    </div>
+}

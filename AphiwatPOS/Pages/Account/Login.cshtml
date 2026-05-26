@@ -1,0 +1,50 @@
+@page
+@model AphiwatPOS.Pages.Account.LoginModel
+@{
+    ViewData["Title"] = "Sign In";
+}
+
+<main class="login-page">
+    <section class="login-card">
+        <div class="login-logo">A</div>
+        <div class="mb-4">
+            <h1 class="h3 fw-bold mb-1">AphiwatPOS</h1>
+            <p class="text-muted mb-0">Sign in to manage sales, inventory, employees, and security.</p>
+        </div>
+
+        <form method="post">
+            <input type="hidden" asp-for="ReturnUrl" />
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2" role="alert"></div>
+
+            <div class="alert alert-warning py-2 mb-3" role="status">
+                Locked accounts require Admin or Manager unlock before access is restored.
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Input.Username" class="form-label fw-semibold"></label>
+                <input asp-for="Input.Username" class="form-control form-control-lg" autocomplete="username" placeholder="Username or email" autofocus />
+                <span asp-validation-for="Input.Username" class="text-danger small"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Input.Password" class="form-label fw-semibold"></label>
+                <input asp-for="Input.Password" class="form-control form-control-lg" autocomplete="current-password" placeholder="Password" />
+                <span asp-validation-for="Input.Password" class="text-danger small"></span>
+            </div>
+
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <div class="form-check">
+                    <input asp-for="Input.RememberMe" class="form-check-input" />
+                    <label asp-for="Input.RememberMe" class="form-check-label"></label>
+                </div>
+                <a href="#">Forgot password?</a>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg w-100">Sign In</button>
+        </form>
+    </section>
+</main>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,6 @@
+@model string
+@{
+    var status = string.IsNullOrWhiteSpace(Model) ? "Good" : Model;
+    var css = status switch { "Good" => "badge-success", "Hold" => "badge-warning", "Blocked" => "badge-danger", _ => "badge-muted" };
+}
+<span class="badge status-badge @css">@status</span>

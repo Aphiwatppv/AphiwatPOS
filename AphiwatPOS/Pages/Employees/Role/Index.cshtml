@@ -1,0 +1,317 @@
+@page
+@model AphiwatPOS.Pages.Employees.Role.IndexModel
+@{
+    ViewData["Title"] = "Role Management";
+    var roleList = Model.Roles.ToArray();
+    var permissionGroups = Model.Permissions
+        .GroupBy(permission => string.IsNullOrWhiteSpace(permission.ModuleName) ? "General" : permission.ModuleName)
+        .ToArray();
+    var activeRoles = roleList.Count(role => role.IsActive);
+    var inactiveRoles = roleList.Count(role => !role.IsActive);
+}
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div>
+        <h1>Role Management</h1>
+        <p>Manage roles such as Admin, Manager, Cashier, and Inventory Staff.</p>
+    </div>
+    <button class="btn btn-primary @(Model.CanCreateRole ? "" : "access-disabled")" type="button" data-bs-toggle="modal" data-bs-target="#addRoleModal"><i class="bi bi-person-badge me-1"></i>Add Role</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <div class="alert alert-success">@Model.StatusMessage</div>
+}
+
+<div class="summary-grid">
+    <div class="summary-card">
+        <span class="metric-icon"><i class="bi bi-person-badge"></i></span>
+        <div class="metric-copy"><div class="metric-label">Total roles</div><div class="metric-value">@roleList.Length</div><div class="metric-helper">Configured access groups</div></div>
+    </div>
+    <div class="summary-card">
+        <span class="metric-icon"><i class="bi bi-check2-circle"></i></span>
+        <div class="metric-copy"><div class="metric-label">Active roles</div><div class="metric-value">@activeRoles</div><div class="metric-helper">Available for assignment</div></div>
+    </div>
+    <div class="summary-card">
+        <span class="metric-icon"><i class="bi bi-slash-circle"></i></span>
+        <div class="metric-copy"><div class="metric-label">Inactive roles</div><div class="metric-value">@inactiveRoles</div><div class="metric-helper">Hidden from new users</div></div>
+    </div>
+    <div class="summary-card">
+        <span class="metric-icon"><i class="bi bi-grid"></i></span>
+        <div class="metric-copy"><div class="metric-label">Permission modules</div><div class="metric-value">@permissionGroups.Length</div><div class="metric-helper">Grouped by business area</div></div>
+    </div>
+</div>
+
+<form method="get" class="filter-card mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-10">
+            <label asp-for="SearchText" class="form-label">Search role</label>
+            <input asp-for="SearchText" class="form-control" placeholder="Search role..." />
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-primary" type="submit">Search</button>
+        </div>
+    </div>
+</form>
+
+<section class="data-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Role Code</th>
+                    <th>Role Name</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th>Permissions</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!roleList.Any())
+                {
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <i class="bi bi-person-badge"></i>
+                                <div class="fw-semibold">No roles found</div>
+                                <div>Create a role to start assigning POS permissions.</div>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @foreach (var role in roleList)
+                {
+                    var rolePermissions = RolePermissionCodes(role.Permissions);
+                    var permissionCount = rolePermissions.Count;
+                    <tr>
+                        <td><span class="code-badge">@role.RoleCode</span></td>
+                        <td>@role.RoleName</td>
+                        <td>@role.Description</td>
+                        <td><span class="badge status-badge @(role.IsActive ? "badge-success" : "badge-muted")">@(role.IsActive ? "Active" : "Inactive")</span></td>
+                        <td><button class="count-link" type="button" data-bs-toggle="modal" data-bs-target="#rolePermissionsModal-@role.RoleId"><i class="bi bi-shield-check"></i>@permissionCount</button></td>
+                        <td class="text-end">
+                            <div class="action-group">
+                                <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#viewRoleModal-@role.RoleId">View</button>
+                                <button class="btn btn-outline-secondary btn-sm @(Model.CanUpdateRole ? "" : "access-disabled")" type="button" data-bs-toggle="modal" data-bs-target="#editRoleModal-@role.RoleId">Edit</button>
+                                <button class="btn btn-outline-secondary btn-sm @(Model.CanAssignPermissions ? "" : "access-disabled")" type="button" data-bs-toggle="modal" data-bs-target="#rolePermissionsModal-@role.RoleId"><i class="bi bi-shield-check me-1"></i>Permissions</button>
+                                <button class="btn btn-outline-danger btn-sm @(Model.CanDeactivateRole ? "" : "access-disabled")" type="button" data-bs-toggle="modal" data-bs-target="#deactivateRoleModal-@role.RoleId">Deactivate</button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<div class="modal fade app-modal" id="addRoleModal" tabindex="-1" aria-labelledby="addRoleLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" asp-page-handler="Create" class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="addRoleLabel">Role Information</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label asp-for="CreateInput.RoleCode" class="form-label"></label>
+                    <input asp-for="CreateInput.RoleCode" class="form-control" placeholder="ADMIN" />
+                    <span asp-validation-for="CreateInput.RoleCode" class="text-danger small"></span>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="CreateInput.RoleName" class="form-label"></label>
+                    <input asp-for="CreateInput.RoleName" class="form-control" placeholder="Administrator" />
+                    <span asp-validation-for="CreateInput.RoleName" class="text-danger small"></span>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="CreateInput.Description" class="form-label"></label>
+                    <textarea asp-for="CreateInput.Description" class="form-control" placeholder="Full system access"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@foreach (var role in roleList)
+{
+    var rolePermissions = RolePermissionCodes(role.Permissions);
+    var permissionCount = rolePermissions.Count;
+
+    <div class="modal fade app-modal" id="viewRoleModal-@role.RoleId" tabindex="-1" aria-labelledby="viewRoleLabel-@role.RoleId" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="viewRoleLabel-@role.RoleId">Role Detail</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <dl class="row mb-0 detail-list">
+                        <dt class="col-4">Code</dt><dd class="col-8">@role.RoleCode</dd>
+                        <dt class="col-4">Name</dt><dd class="col-8">@role.RoleName</dd>
+                        <dt class="col-4">Description</dt><dd class="col-8">@role.Description</dd>
+                        <dt class="col-4">Status</dt><dd class="col-8">@(role.IsActive ? "Active" : "Inactive")</dd>
+                        <dt class="col-4">Permissions</dt><dd class="col-8">@permissionCount</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade app-modal" id="editRoleModal-@role.RoleId" tabindex="-1" aria-labelledby="editRoleLabel-@role.RoleId" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="post" asp-page-handler="Update" class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="editRoleLabel-@role.RoleId">Role Information</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="EditInput.RoleId" value="@role.RoleId" />
+                    <div class="mb-3">
+                        <label class="form-label">Role Code</label>
+                        <input class="form-control" value="@role.RoleCode" readonly />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Role Name</label>
+                        <input class="form-control" name="EditInput.RoleName" value="@role.RoleName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="EditInput.Description">@role.Description</textarea>
+                    </div>
+                    <label class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="EditInput.IsActive" value="true" checked="@role.IsActive" />
+                        <input type="hidden" name="EditInput.IsActive" value="false" />
+                        <span class="form-check-label">Active</span>
+                    </label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade app-modal" id="rolePermissionsModal-@role.RoleId" tabindex="-1" aria-labelledby="rolePermissionsLabel-@role.RoleId" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <form method="post" asp-page-handler="AssignPermissions" class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h2 class="modal-title h5" id="rolePermissionsLabel-@role.RoleId">Assign Permissions to Role</h2>
+                        <p class="modal-subtitle">@role.RoleName</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="PermissionInput.RoleId" value="@role.RoleId" />
+                    <div class="summary-card shadow-none mb-3">
+                        <span class="metric-icon"><i class="bi bi-shield-check"></i></span>
+                        <div>
+                            <div class="metric-label">@role.RoleCode</div>
+                            <div class="fw-bold">@role.RoleName permissions</div>
+                            <div class="text-muted small"><span data-selected-count="@role.RoleId">@permissionCount</span> selected permissions</div>
+                        </div>
+                    </div>
+                    <input class="form-control mb-3 permission-search" data-role-permission-search="@role.RoleId" placeholder="Search permission code..." />
+                    @foreach (var module in permissionGroups)
+                    {
+                        var moduleId = $"{role.RoleId}-{Slug(module.Key)}";
+                        <div class="permission-module-card" data-permission-module="@role.RoleId">
+                            <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                                <div class="fw-semibold">@module.Key</div>
+                                <button class="btn btn-outline-secondary btn-sm" type="button" data-select-module="@moduleId">Select module</button>
+                            </div>
+                            <div class="checkbox-grid" data-module-checkboxes="@moduleId">
+                                @foreach (var permission in module)
+                                {
+                                    <label class="check-tile" data-permission-tile="@role.RoleId">
+                                        <input class="form-check-input" type="checkbox" name="PermissionInput.SelectedPermissions" value="@permission.PermissionCode" checked="@rolePermissions.Contains(permission.PermissionCode)" />
+                                                <span class="code-badge mono">@permission.PermissionCode</span>
+                                    </label>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1"></i>Save Permissions</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade app-modal" id="deactivateRoleModal-@role.RoleId" tabindex="-1" aria-labelledby="deactivateRoleLabel-@role.RoleId" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="post" asp-page-handler="Deactivate" asp-route-roleId="@role.RoleId" class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="deactivateRoleLabel-@role.RoleId">Deactivate Role</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">Deactivate <strong>@role.RoleName</strong>? Users with this role may lose access to protected POS functions.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-outline-danger">Deactivate</button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
+@functions {
+    private static HashSet<string> RolePermissionCodes(string permissions)
+    {
+        return permissions.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string Slug(string? value)
+    {
+        var text = string.IsNullOrWhiteSpace(value) ? "general" : value;
+        return new string(text.Select(character => char.IsLetterOrDigit(character) ? char.ToLowerInvariant(character) : '-').ToArray());
+    }
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.querySelectorAll('[data-select-module]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const target = document.querySelector(`[data-module-checkboxes="${button.dataset.selectModule}"]`);
+                if (!target) return;
+
+                const checkboxes = [...target.querySelectorAll('input[type="checkbox"]')];
+                const shouldCheck = checkboxes.some((checkbox) => !checkbox.checked);
+                checkboxes.forEach((checkbox) => checkbox.checked = shouldCheck);
+                updateSelectedCount(button.closest('.modal'));
+            });
+        });
+
+        document.querySelectorAll('.permission-search').forEach((input) => {
+            input.addEventListener('input', () => {
+                const term = input.value.trim().toLowerCase();
+                const modal = input.closest('.modal');
+                modal.querySelectorAll('[data-permission-tile]').forEach((tile) => {
+                    tile.style.display = tile.textContent.toLowerCase().includes(term) ? '' : 'none';
+                });
+            });
+        });
+
+        document.querySelectorAll('.app-modal input[name="PermissionInput.SelectedPermissions"]').forEach((checkbox) => {
+            checkbox.addEventListener('change', () => updateSelectedCount(checkbox.closest('.modal')));
+        });
+
+        function updateSelectedCount(modal) {
+            if (!modal) return;
+            const counter = modal.querySelector('[data-selected-count]');
+            if (!counter) return;
+            counter.textContent = modal.querySelectorAll('input[name="PermissionInput.SelectedPermissions"]:checked').length;
+        }
+    </script>
+}

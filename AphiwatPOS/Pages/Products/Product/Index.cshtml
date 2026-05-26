@@ -1,0 +1,160 @@
+@page
+@model AphiwatPOS.Pages.Products.Product.IndexModel
+@{
+    ViewData["Title"] = "Product Management";
+    ViewData["Subtitle"] = "Manage products, pricing, barcode, image, stock level, and product status.";
+    ViewData["Categories"] = Model.Categories;
+    ViewData["Brands"] = Model.Brands;
+    ViewData["Units"] = Model.Units;
+    ViewData["NextProductCode"] = Model.NextProductCode;
+    ViewData["PrefillBarcode"] = Model.ProductInput.Barcode;
+    var openCreateModal = Model.Mode?.Equals("create", StringComparison.OrdinalIgnoreCase) == true;
+    var products = Model.Products.Products.ToArray();
+    var totalPages = Math.Max(1, (int)Math.Ceiling(Model.Products.TotalCount / (double)Math.Max(1, Model.Products.PageSize)));
+    decimal ProfitAmount(ProductEngine.Models.ProductModel p) => p.SellingPrice - p.CostPrice;
+    decimal ProfitMargin(ProductEngine.Models.ProductModel p) => p.SellingPrice <= 0 ? 0 : ((p.SellingPrice - p.CostPrice) / p.SellingPrice) * 100;
+    decimal InventoryQty(int productId) => Model.InventoryStockByProductId.GetValueOrDefault(productId, Array.Empty<InventoryEngine.Models.InventoryStockModel>()).Sum(x => x.CurrentStock);
+    string InventoryStatus(ProductEngine.Models.ProductModel p)
+    {
+        if (!p.IsStockTracked) return "Not Tracked";
+        var qty = InventoryQty(p.ProductId);
+        return qty <= 0 ? "Out of Stock" : qty <= p.MinimumStockLevel ? "Low Stock" : "Normal";
+    }
+    string InventoryBadge(string status) => status switch { "Normal" => "badge-success", "Low Stock" => "badge-warning", "Out of Stock" => "badge-danger", _ => "badge-muted" };
+}
+
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div><h1>Product Management</h1><p>Manage products, pricing, barcode, image, stock level, and product status.</p></div>
+    <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#productAddModal"><i class="bi bi-plus-lg me-1"></i>Add Product</button>
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-box-seam"></i></span><div><div class="metric-label">Total products</div><div class="metric-value">@Model.Products.TotalCount</div><div class="metric-helper">Products matching filters</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-check-circle"></i></span><div><div class="metric-label">Active products</div><div class="metric-value">@products.Count(x => x.IsActive)</div><div class="metric-helper">Available at checkout</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-exclamation-triangle"></i></span><div><div class="metric-label">Inventory low stock</div><div class="metric-value">@Model.InventoryLowStockCount</div><div class="metric-helper">From InventoryStock</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-slash-circle"></i></span><div><div class="metric-label">Inactive products</div><div class="metric-value">@products.Count(x => !x.IsActive)</div><div class="metric-helper">Hidden from sales</div></div></div>
+</div>
+
+<form method="get" class="filter-card mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-lg-3"><label class="form-label">Search product</label><input asp-for="SearchText" class="form-control" placeholder="Code, SKU, barcode, or name" /></div>
+        <div class="col-lg-2"><label class="form-label">Category</label><select asp-for="CategoryId" class="form-select"><option value="">All</option>@foreach (var item in Model.Categories) { <option value="@item.CategoryId">@item.CategoryName</option> }</select></div>
+        <div class="col-lg-2"><label class="form-label">Brand</label><select asp-for="BrandId" class="form-select"><option value="">All</option>@foreach (var item in Model.Brands) { <option value="@item.BrandId">@item.BrandName</option> }</select></div>
+        <div class="col-lg-2"><label class="form-label">Unit</label><select asp-for="UnitId" class="form-select"><option value="">All</option>@foreach (var item in Model.Units) { <option value="@item.UnitId">@item.UnitName</option> }</select></div>
+        <div class="col-lg-1"><label class="form-label">Status</label><select asp-for="Status" class="form-select"><option value="">All</option><option>Active</option><option>Inactive</option><option>Discontinued</option><option>Draft</option></select></div>
+        <div class="col-lg-1"><label class="form-label">Active</label><select asp-for="IsActive" class="form-select"><option value="">All</option><option value="true">Yes</option><option value="false">No</option></select></div>
+        <div class="col-lg-1 d-flex align-items-end"><a class="btn btn-outline-secondary w-100" asp-page="/Inventory/LowStock/Index"><i class="bi bi-boxes me-1"></i>Stock</a></div>
+        <div class="col-12 d-flex gap-2 justify-content-end"><button class="btn btn-primary" type="submit"><i class="bi bi-search me-1"></i>Search</button><a class="btn btn-outline-secondary" asp-page="./Index">Clear</a></div>
+    </div>
+</form>
+
+<section class="data-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>Product</th><th>Barcode / SKU</th><th>Category</th><th>Brand</th><th>Unit</th><th>Cost Price</th><th>Selling Price</th><th>Wholesale Price</th><th>Inventory Stock</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            @if (!products.Any())
+            {
+                <tr><td colspan="11"><div class="empty-state"><i class="bi bi-box-seam"></i><div class="fw-semibold">No products found</div><div>Try changing filters or add a new product for POS sales.</div><button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#productAddModal" type="button">Add Product</button></div></td></tr>
+            }
+            @foreach (var product in products)
+            {
+                var inventoryQty = InventoryQty(product.ProductId);
+                var inventoryStatus = InventoryStatus(product);
+                var discontinued = product.Status.Equals("Discontinued", StringComparison.OrdinalIgnoreCase);
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="product-thumb">@if (!string.IsNullOrWhiteSpace(product.ProductImageUrl)) { <img src="@product.ProductImageUrl" alt="@product.ProductName" /> } else { <i class="bi bi-box-seam"></i> }</span>
+                            <span><span class="fw-semibold d-block">@product.ProductName</span><span class="text-muted small">@product.ProductCode</span></span>
+                        </div>
+                    </td>
+                    <td><div>@(string.IsNullOrWhiteSpace(product.Barcode) ? "-" : product.Barcode)</div><div class="text-muted small">@product.SKU</div></td>
+                    <td>@product.CategoryName</td>
+                    <td>@(string.IsNullOrWhiteSpace(product.BrandName) ? "-" : product.BrandName)</td>
+                    <td>@product.UnitName</td>
+                    <td><span class="price-slate">@product.CostPrice.ToString("N2")</span></td>
+                    <td><span class="price-emerald">@product.SellingPrice.ToString("N2")</span><span class="profit-chip">Margin @ProfitMargin(product).ToString("N1")%</span></td>
+                    <td><span class="price-emerald">@((product.WholesalePrice > 0 ? product.WholesalePrice : product.SellingPrice).ToString("N2"))</span><span class="profit-chip">Min @product.WholesaleMinQty.ToString("N0")</span></td>
+                    <td>
+                        @if (!product.IsStockTracked) { <span class="badge status-badge badge-muted">Not Tracked</span> }
+                        else { <span class="badge status-badge @InventoryBadge(inventoryStatus)">@inventoryQty.ToString("N2")</span><a class="profit-chip" asp-page="/Inventory/CurrentStock/Index" asp-route-SearchText="@product.ProductCode">View inventory</a> }
+                    </td>
+                    <td><span class="badge status-badge @(product.IsActive && !discontinued ? "badge-success" : discontinued ? "badge-warning" : "badge-muted")">@product.Status</span></td>
+                    <td class="text-end">
+                        <div class="action-group">
+                            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#productView-@product.ProductId" type="button"><i class="bi bi-eye me-1"></i>View</button>
+                            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#productEdit-@product.ProductId" type="button"><i class="bi bi-pencil me-1"></i>Edit</button>
+                            <div class="dropdown"><button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" type="button">More</button><div class="dropdown-menu dropdown-menu-end action-menu">
+                                <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#priceUpdate-@product.ProductId" type="button"><i class="bi bi-cash-coin"></i>Update Price</button>
+                                <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#priceHistory-@product.ProductId" type="button"><i class="bi bi-clock-history"></i>View Price History</button>
+                                <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#barcodeUpdate-@product.ProductId" type="button"><i class="bi bi-upc-scan"></i>Update Barcode</button>
+                                <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#imageUpdate-@product.ProductId" type="button"><i class="bi bi-image"></i>Update Image</button>
+                                <a class="dropdown-item" asp-page="/Inventory/CurrentStock/Index" asp-route-SearchText="@product.ProductCode"><i class="bi bi-boxes"></i>View Stock</a>
+                                <button class="dropdown-item disabled" type="button"><i class="bi bi-receipt"></i>View Sales History later</button>
+                                <button class="dropdown-item disabled" type="button"><i class="bi bi-bag-check"></i>View Purchase History later</button>
+                                <button class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#productDeactivate-@product.ProductId" type="button"><i class="bi bi-slash-circle"></i>Deactivate</button>
+                            </div></div>
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-3"><span class="text-muted">Total products: @Model.Products.TotalCount</span><div class="btn-group btn-group-sm"><a class="btn btn-outline-secondary @(Model.Products.PageNumber <= 1 ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-CategoryId="@Model.CategoryId" asp-route-BrandId="@Model.BrandId" asp-route-UnitId="@Model.UnitId" asp-route-Status="@Model.Status" asp-route-IsActive="@Model.IsActive" asp-route-PageNumber="@(Model.Products.PageNumber - 1)">Previous</a><span class="btn btn-outline-secondary disabled">@Model.Products.PageNumber / @totalPages</span><a class="btn btn-outline-secondary @(Model.Products.PageNumber >= totalPages ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-CategoryId="@Model.CategoryId" asp-route-BrandId="@Model.BrandId" asp-route-UnitId="@Model.UnitId" asp-route-Status="@Model.Status" asp-route-IsActive="@Model.IsActive" asp-route-PageNumber="@(Model.Products.PageNumber + 1)">Next</a></div></div>
+</section>
+
+<div class="modal fade app-modal" id="productAddModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><form method="post" enctype="multipart/form-data" asp-page-handler="Create" class="modal-content"><div class="modal-header"><div><h2 class="modal-title h5">Add Product</h2><p class="modal-subtitle">Create a product ready for POS checkout.</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><partial name="_ProductFields" model="null" /></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save Product</button></div></form></div>
+</div>
+
+@foreach (var product in products)
+{
+    var history = Model.PriceHistoryByProductId.GetValueOrDefault(product.ProductId, Array.Empty<ProductEngine.Models.ProductPriceHistoryModel>());
+    var inventoryQty = InventoryQty(product.ProductId);
+    var inventoryStatus = InventoryStatus(product);
+    <div class="modal fade app-modal" id="productEdit-@product.ProductId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><form method="post" enctype="multipart/form-data" asp-page-handler="Update" class="modal-content"><div class="modal-header"><div><h2 class="modal-title h5">Edit Product</h2><p class="modal-subtitle">@product.ProductCode</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><partial name="_ProductFields" model="product" /></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save Changes</button></div></form></div>
+    </div>
+    <div class="modal fade app-modal" id="productView-@product.ProductId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><div><h2 class="modal-title h5">Product Detail</h2><p class="modal-subtitle">@product.ProductCode</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><div class="d-flex gap-3 align-items-center mb-3"><span class="product-thumb" style="width:88px;height:88px;flex-basis:88px">@if (!string.IsNullOrWhiteSpace(product.ProductImageUrl)) { <img src="@product.ProductImageUrl" alt="@product.ProductName" /> } else { <i class="bi bi-box-seam fs-2"></i> }</span><div><h3 class="h5 fw-bold mb-1">@product.ProductName</h3><div class="text-muted">@product.ProductCode</div></div></div><dl class="row detail-list mb-0"><dt class="col-md-3">SKU</dt><dd class="col-md-3">@product.SKU</dd><dt class="col-md-3">Barcode</dt><dd class="col-md-3">@product.Barcode</dd><dt class="col-md-3">Category</dt><dd class="col-md-3">@product.CategoryName</dd><dt class="col-md-3">Brand</dt><dd class="col-md-3">@product.BrandName</dd><dt class="col-md-3">Unit</dt><dd class="col-md-3">@product.UnitName</dd><dt class="col-md-3">Cost Price</dt><dd class="col-md-3">@product.CostPrice.ToString("N2")</dd><dt class="col-md-3">Selling Price</dt><dd class="col-md-3">@product.SellingPrice.ToString("N2")</dd><dt class="col-md-3">Wholesale Price</dt><dd class="col-md-3">@((product.WholesalePrice > 0 ? product.WholesalePrice : product.SellingPrice).ToString("N2"))</dd><dt class="col-md-3">Wholesale Min Qty</dt><dd class="col-md-3">@product.WholesaleMinQty.ToString("N2")</dd><dt class="col-md-3">Profit Amount</dt><dd class="col-md-3">@ProfitAmount(product).ToString("N2")</dd><dt class="col-md-3">Profit Margin</dt><dd class="col-md-3">@ProfitMargin(product).ToString("N2")%</dd><dt class="col-md-3">Tax Rate</dt><dd class="col-md-3">@product.TaxRate.ToString("N2")%</dd><dt class="col-md-3">Discount Allowed</dt><dd class="col-md-3">@(product.DiscountAllowed ? "Yes" : "No")</dd><dt class="col-md-3">Stock Tracked</dt><dd class="col-md-3">@(product.IsStockTracked ? "Yes" : "No")</dd><dt class="col-md-3">Minimum Stock</dt><dd class="col-md-3">@product.MinimumStockLevel.ToString("N2")</dd><dt class="col-md-3">Inventory Stock</dt><dd class="col-md-3"><span class="badge status-badge @InventoryBadge(inventoryStatus)">@inventoryQty.ToString("N2")</span></dd><dt class="col-md-3">Status</dt><dd class="col-md-3">@product.Status</dd><dt class="col-md-3">Created</dt><dd class="col-md-3">@product.CreatedDate.ToString("yyyy-MM-dd HH:mm")</dd><dt class="col-md-3">Updated</dt><dd class="col-md-3">@(product.UpdatedDate?.ToString("yyyy-MM-dd HH:mm") ?? "-")</dd><dt class="col-md-3">Description</dt><dd class="col-md-9">@product.Description</dd></dl></div></div></div>
+    </div>
+    <div class="modal fade app-modal" id="priceUpdate-@product.ProductId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="UpdatePrice" class="modal-content" data-price-form><div class="modal-header"><div><h2 class="modal-title h5">Update Price</h2><p class="modal-subtitle">@product.ProductName</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input type="hidden" name="PriceInput.ProductId" value="@product.ProductId" /><div class="alert alert-warning py-2"><i class="bi bi-exclamation-triangle me-1"></i>This price change will be saved in product price history.</div><div class="modal-form-grid"><div><label class="form-label">Product Name</label><input class="form-control" value="@product.ProductName" readonly /></div><div><label class="form-label">Product Code</label><input class="form-control" value="@product.ProductCode" readonly /></div><div><label class="form-label">Current Cost Price</label><input class="form-control" value="@product.CostPrice.ToString("N2")" readonly /></div><div><label class="form-label">Current Selling Price</label><input class="form-control" value="@product.SellingPrice.ToString("N2")" readonly /></div><div><label class="form-label">New Cost Price</label><input class="form-control" name="PriceInput.NewCostPrice" type="number" step="0.01" min="0" value="@product.CostPrice" data-new-cost /></div><div><label class="form-label">New Selling Price</label><input class="form-control" name="PriceInput.NewSellingPrice" type="number" step="0.01" min="0" value="@product.SellingPrice" data-new-selling /></div><div><label class="form-label">New Wholesale Price</label><input class="form-control" name="PriceInput.NewWholesalePrice" type="number" step="0.01" min="0" value="@product.WholesalePrice" /></div><div><label class="form-label">Wholesale Min Qty</label><input class="form-control" name="PriceInput.NewWholesaleMinQty" type="number" step="0.01" min="0" value="@product.WholesaleMinQty" /></div><div><label class="form-label">New Profit Amount</label><input class="form-control" readonly data-profit-amount /></div><div><label class="form-label">New Profit Margin %</label><input class="form-control" readonly data-profit-margin /></div><div class="span-2"><label class="form-label">Change Reason</label><textarea class="form-control" name="PriceInput.ChangeReason" rows="3"></textarea></div></div></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save Price</button></div></form></div>
+    </div>
+    <div class="modal fade app-modal" id="priceHistory-@product.ProductId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><div><h2 class="modal-title h5">Price History</h2><p class="modal-subtitle">@product.ProductName · @product.ProductCode · Current @product.SellingPrice.ToString("N2") / Cost @product.CostPrice.ToString("N2")</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Changed Date</th><th>Old Cost Price</th><th>New Cost Price</th><th>Old Selling Price</th><th>New Selling Price</th><th>Old Margin %</th><th>New Margin %</th><th>Changed By</th><th>Reason</th></tr></thead><tbody>@if (!history.Any()) { <tr><td colspan="9"><div class="empty-state"><i class="bi bi-clock-history"></i><div class="fw-semibold">No price history found</div><div>Price changes will appear after Update Price is used.</div></div></td></tr> } @foreach (var item in history) { var oldMargin = item.OldSellingPrice <= 0 ? 0 : ((item.OldSellingPrice - item.OldCostPrice) / item.OldSellingPrice) * 100; var priceClass = item.NewSellingPrice > item.OldSellingPrice ? "badge-success" : item.NewSellingPrice < item.OldSellingPrice ? "badge-danger" : "badge-muted"; <tr><td>@item.ChangedDate.ToString("yyyy-MM-dd HH:mm")</td><td>@item.OldCostPrice.ToString("N2")</td><td>@item.NewCostPrice.ToString("N2")</td><td>@item.OldSellingPrice.ToString("N2")</td><td><span class="badge status-badge @priceClass">@item.NewSellingPrice.ToString("N2")</span></td><td>@oldMargin.ToString("N2")%</td><td>@item.ProfitMargin.ToString("N2")%</td><td>@(item.ChangedByUserId?.ToString() ?? "-")</td><td>@item.ChangeReason</td></tr> }</tbody></table></div></div></div></div>
+    </div>
+    <div class="modal fade app-modal" id="barcodeUpdate-@product.ProductId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="UpdateBarcode" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Update Barcode</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input type="hidden" name="BarcodeInput.ProductId" value="@product.ProductId" /><label class="form-label">Current Barcode</label><input class="form-control mb-3" value="@product.Barcode" readonly /><label class="form-label">New Barcode</label><input class="form-control" name="BarcodeInput.NewBarcode" value="@product.Barcode" /><div class="text-danger small mt-2">Duplicate barcode validation runs before saving.</div></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save Barcode</button></div></form></div>
+    </div>
+    <div class="modal fade app-modal" id="imageUpdate-@product.ProductId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><form method="post" enctype="multipart/form-data" asp-page-handler="UpdateImage" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Update Image</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input type="hidden" name="ImageInput.ProductId" value="@product.ProductId" /><input type="hidden" name="ImageInput.ExistingImageUrl" value="@product.ProductImageUrl" /><label class="form-label">Product Image</label><div class="d-flex gap-3 align-items-center"><div class="image-preview-box" data-image-preview="image-@product.ProductId">@if (!string.IsNullOrWhiteSpace(product.ProductImageUrl)) { <img src="@product.ProductImageUrl" alt="@product.ProductName" /> } else { <i class="bi bi-image"></i> }</div><input class="form-control" name="ImageInput.ProductImage" type="file" accept=".jpg,.jpeg,.png,.webp" data-image-input="image-@product.ProductId" /></div></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save Image</button></div></form></div>
+    </div>
+    <div class="modal fade app-modal" id="productDeactivate-@product.ProductId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="Deactivate" asp-route-productId="@product.ProductId" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Deactivate Product</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><p>Deactivate <strong>@product.ProductName</strong>?</p><p class="mb-0 text-muted">Product history, sales references, inventory links, and price history remain safe.</p></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-outline-danger" type="submit">Deactivate</button></div></form></div>
+    </div>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    @if (openCreateModal)
+    {
+        <script>
+        (() => {
+            const modal = document.querySelector('#productAddModal');
+            if (!modal) return;
+            bootstrap.Modal.getOrCreateInstance(modal).show();
+            modal.addEventListener('shown.bs.modal', () => {
+                modal.querySelector('[data-product-name-input]')?.focus();
+            }, { once: true });
+        })();
+        </script>
+    }
+}
+
+
+

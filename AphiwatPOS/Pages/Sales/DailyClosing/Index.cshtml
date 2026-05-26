@@ -1,0 +1,159 @@
+@page
+@model AphiwatPOS.Pages.Sales.DailyClosing.IndexModel
+@{
+    ViewData["Title"] = "Daily Sales Closing";
+    ViewData["Subtitle"] = "Reconcile sales, refunds, payments, profit, and counted cash.";
+    var closing = Model.Closing;
+}
+
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div>
+        <h1>Daily Sales Closing</h1>
+        <p>Review owner totals and save counted cash for the day.</p>
+    </div>
+    <a class="btn btn-outline-secondary" asp-page="/Sales/SalesHistory/Index">
+        <i class="bi bi-receipt me-1"></i>Sales History
+    </a>
+</div>
+
+<form method="get" class="filter-card mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label" asp-for="ClosingDate">Closing date</label>
+            <input class="form-control" asp-for="ClosingDate" type="date" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" asp-for="CashierUserId">Cashier</label>
+            <select class="form-select" asp-for="CashierUserId">
+                <option value="">All cashiers</option>
+                @foreach (var cashier in Model.Cashiers)
+                {
+                    <option value="@cashier.UserId">@cashier.DisplayName (@cashier.Username)</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-primary w-100" type="submit">
+                <i class="bi bi-search me-1"></i>Load
+            </button>
+        </div>
+    </div>
+</form>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="data-card metric-card">
+            <span class="metric-label">Net sales</span>
+            <strong>@closing.NetSalesAmount.ToString("N2")</strong>
+            <small>@closing.TransactionCount transaction(s)</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="data-card metric-card">
+            <span class="metric-label">Gross profit</span>
+            <strong>@closing.GrossProfitAmount.ToString("N2")</strong>
+            <small>COGS @closing.CostOfGoodsSold.ToString("N2")</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="data-card metric-card">
+            <span class="metric-label">Discounts</span>
+            <strong>@closing.DiscountAmount.ToString("N2")</strong>
+            <small>Tax @closing.TaxAmount.ToString("N2")</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="data-card metric-card">
+            <span class="metric-label">Refunds</span>
+            <strong>@closing.RefundAmount.ToString("N2")</strong>
+            <small>Completed returns</small>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <section class="data-card">
+            <div class="section-title-row">
+                <div>
+                    <h2 class="h5 mb-1">Payment Breakdown</h2>
+                    <p class="text-muted mb-0">Expected money by payment method.</p>
+                </div>
+            </div>
+            <div class="table-responsive mt-3">
+                <table class="table align-middle">
+                    <tbody>
+                        <tr><th>Cash received</th><td class="text-end">@closing.CashAmount.ToString("N2")</td></tr>
+                        <tr><th>Transfer / QR</th><td class="text-end">@closing.TransferAmount.ToString("N2")</td></tr>
+                        <tr><th>Customer credit</th><td class="text-end">@closing.CreditAmount.ToString("N2")</td></tr>
+                        <tr><th>Other payments</th><td class="text-end">@closing.OtherPaymentAmount.ToString("N2")</td></tr>
+                        <tr class="table-light"><th>Expected cash after refunds</th><td class="text-end fw-semibold">@closing.ExpectedCashAmount.ToString("N2")</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="data-card mt-3">
+            <div class="section-title-row">
+                <div>
+                    <h2 class="h5 mb-1">Stock Movement</h2>
+                    <p class="text-muted mb-0">Sale and return inventory movement value for this day.</p>
+                </div>
+            </div>
+            <div class="row g-3 mt-1">
+                <div class="col-md-6">
+                    <div class="summary-line"><span>Movement count</span><strong>@closing.StockMovementCount</strong></div>
+                </div>
+                <div class="col-md-6">
+                    <div class="summary-line"><span>Movement value</span><strong>@closing.StockMovementValue.ToString("N2")</strong></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div class="col-lg-5">
+        <section class="data-card">
+            <div class="section-title-row">
+                <div>
+                    <h2 class="h5 mb-1">Cash Closing</h2>
+                    <p class="text-muted mb-0">Save the counted drawer amount and any notes.</p>
+                </div>
+                @if (closing.IsClosed)
+                {
+                    <span class="badge badge-success">Closed</span>
+                }
+            </div>
+
+            <form method="post" asp-page-handler="Close" class="mt-3">
+                <input type="hidden" asp-for="ClosingDate" />
+                <input type="hidden" asp-for="CashierUserId" />
+                <div class="mb-3">
+                    <label class="form-label" asp-for="ActualCashAmount">Actual counted cash</label>
+                    <input class="form-control text-end" asp-for="ActualCashAmount" type="number" min="0" step="0.01" />
+                    <span class="text-danger small" asp-validation-for="ActualCashAmount"></span>
+                </div>
+                <div class="summary-line"><span>Expected cash</span><strong>@closing.ExpectedCashAmount.ToString("N2")</strong></div>
+                <div class="summary-line"><span>Saved difference</span><strong>@((closing.CashDifferenceAmount ?? 0).ToString("N2"))</strong></div>
+                <div class="mb-3 mt-3">
+                    <label class="form-label" asp-for="Notes">Closing note</label>
+                    <textarea class="form-control" asp-for="Notes" rows="4"></textarea>
+                    <span class="text-danger small" asp-validation-for="Notes"></span>
+                </div>
+                <button class="btn btn-primary w-100" type="submit">
+                    <i class="bi bi-check2-circle me-1"></i>Save Closing
+                </button>
+            </form>
+
+            @if (closing.IsClosed)
+            {
+                <div class="alert alert-light border mt-3 mb-0">
+                    Closed by @(closing.ClosedByName ?? "user") at @closing.ClosedAtUtc?.ToString("yyyy-MM-dd HH:mm") UTC.
+                </div>
+            }
+        </section>
+    </div>
+</div>
+
+<partial name="_ValidationScriptsPartial" />

@@ -1,0 +1,1 @@
+﻿CREATE PROCEDURE [dbo].[spProductUnitCheckNameExists] @UnitName NVARCHAR(100), @ExcludeUnitId INT = NULL AS BEGIN SET NOCOUNT ON; SELECT CAST(CASE WHEN EXISTS(SELECT 1 FROM [dbo].[ProductUnit] WHERE UnitName=@UnitName AND (@ExcludeUnitId IS NULL OR UnitId<>@ExcludeUnitId)) THEN 1 ELSE 0 END AS BIT); END;

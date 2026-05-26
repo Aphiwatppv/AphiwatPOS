@@ -1,0 +1,6 @@
+@model string
+@{
+    var level = string.IsNullOrWhiteSpace(Model) ? "Normal" : Model;
+    var css = level switch { "Gold" => "badge-warning", "Platinum" => "badge-info", "VIP" => "badge-success", "Silver" => "badge-light text-dark", _ => "badge-muted" };
+}
+<span class="badge status-badge @css">@level</span>

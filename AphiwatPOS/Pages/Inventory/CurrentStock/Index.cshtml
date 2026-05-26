@@ -1,0 +1,139 @@
+@page
+@model AphiwatPOS.Pages.Inventory.CurrentStock.IndexModel
+@using AphiwatPOS.Pages.Inventory
+@{
+    ViewData["Title"] = "Current Stock";
+    ViewData["Subtitle"] = "View real-time stock balance by product, location, and stock status.";
+    var rows = Model.StockRows.ToArray();
+    var totalPages = InventoryUi.TotalPages(Model.Stocks.TotalCount, Model.Stocks.PageSize);
+}
+
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div><h1>Current Stock</h1><p>View real-time stock balance by product, location, and stock status.</p></div>
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-boxes"></i></span><div><div class="metric-label">Total products in stock</div><div class="metric-value">@Model.Summary.ProductCount</div><div class="metric-helper">Tracked product-location rows</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-cash-stack"></i></span><div><div class="metric-label">Total stock value</div><div class="metric-value">@Model.TotalStockValue.ToString("N2")</div><div class="metric-helper">Estimated by cost price</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-exclamation-triangle"></i></span><div><div class="metric-label">Low stock products</div><div class="metric-value">@Model.Summary.LowStockCount</div><div class="metric-helper">Current stock at minimum</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-x-octagon"></i></span><div><div class="metric-label">Out of stock products</div><div class="metric-value">@Model.Summary.OutOfStockCount</div><div class="metric-helper">Current stock is zero or less</div></div></div>
+</div>
+
+<form method="get" class="filter-card mb-3" data-scan-search-form data-scan-modal-param="ScanBarcode">
+    <input type="hidden" name="ScanBarcode" value="" data-scan-modal-input />
+    <div class="row g-3 align-items-end">
+        <div class="col-lg-3"><label class="form-label">Search product</label><input asp-for="SearchText" class="form-control" placeholder="Code, barcode, SKU, or name" data-scan-search-input /><div class="text-muted small mt-1"><i class="bi bi-upc-scan me-1"></i>Scan barcode to open stock detail.</div></div>
+        <div class="col-lg-2"><label class="form-label">Location</label><select asp-for="LocationId" class="form-select"><option value="">All</option>@foreach (var item in Model.Locations) { <option value="@item.LocationId">@item.LocationName</option> }</select></div>
+        <div class="col-lg-2"><label class="form-label">Category</label><select asp-for="CategoryId" class="form-select"><option value="">All</option>@foreach (var item in Model.Categories) { <option value="@item.CategoryId">@item.CategoryName</option> }</select></div>
+        <div class="col-lg-2"><label class="form-label">Brand</label><select asp-for="BrandId" class="form-select"><option value="">All</option>@foreach (var item in Model.Brands) { <option value="@item.BrandId">@item.BrandName</option> }</select></div>
+        <div class="col-lg-2"><label class="form-label">Stock status</label><select asp-for="StockStatus" class="form-select"><option>All</option><option>Normal</option><option>Low Stock</option><option>Out of Stock</option></select></div>
+        <div class="col-lg-1 d-flex gap-2"><button class="btn btn-primary w-100" type="submit"><i class="bi bi-search"></i></button><a class="btn btn-outline-secondary" asp-page="./Index"><i class="bi bi-x-lg"></i></a></div>
+    </div>
+</form>
+
+@if (!string.IsNullOrWhiteSpace(Model.ScanBarcode) && rows.Any())
+{
+    <div class="alert alert-info d-flex align-items-center gap-2">
+        <i class="bi bi-upc-scan"></i>
+        <div>Showing current count and product detail for scanned barcode <strong>@Model.ScanBarcode</strong>.</div>
+    </div>
+}
+
+<section class="data-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>Product</th><th>Barcode / SKU</th><th>Category</th><th>Brand</th><th>Location</th><th>Current Qty</th><th>Minimum Stock</th><th>Stock Status</th><th>Last Movement Date</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            @if (!rows.Any())
+            {
+                <tr><td colspan="10"><div class="empty-state"><i class="bi bi-boxes"></i><div class="fw-semibold">No stock rows found</div><div>Try clearing filters or confirm stock movements have been recorded.</div></div></td></tr>
+            }
+            @foreach (var row in rows)
+            {
+                <tr class="@(row.StockStatus == "Out of Stock" ? "inventory-row-danger" : row.StockStatus == "Low Stock" ? "inventory-row-warning" : "")">
+                    <td><div class="d-flex align-items-center gap-2"><span class="product-thumb">@if (!string.IsNullOrWhiteSpace(row.ProductImageUrl)) { <img src="@row.ProductImageUrl" alt="@row.ProductName" /> } else { <i class="bi bi-box-seam"></i> }</span><span><span class="fw-semibold d-block">@row.ProductName</span><span class="text-muted small">@row.ProductCode</span></span></div></td>
+                    <td><div>@(string.IsNullOrWhiteSpace(row.Barcode) ? "-" : row.Barcode)</div><div class="text-muted small">@row.SKU</div></td>
+                    <td>@(string.IsNullOrWhiteSpace(row.CategoryName) ? "-" : row.CategoryName)</td>
+                    <td>@(string.IsNullOrWhiteSpace(row.BrandName) ? "-" : row.BrandName)</td>
+                    <td><span class="code-badge">@row.LocationName</span></td>
+                    <td><span class="fw-bold">@row.CurrentStock.ToString("N2")</span> <span class="text-muted small">@row.UnitSymbol</span></td>
+                    <td>@row.MinimumStockLevel.ToString("N2")</td>
+                    <td><span class="badge status-badge @InventoryUi.StatusBadge(row.StockStatus)">@row.StockStatus</span></td>
+                    <td>@row.LastMovementDate.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td class="text-end">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" type="button">Action</button>
+                            <div class="dropdown-menu dropdown-menu-end action-menu">
+                                <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#stockDetail-@row.InventoryStockId" type="button"><i class="bi bi-eye"></i>View Detail</button>
+                                <a class="dropdown-item" asp-page="/Inventory/Movement/Index" asp-route-ProductId="@row.ProductId" asp-route-LocationId="@row.LocationId"><i class="bi bi-arrow-left-right"></i>View Movement</a>
+                                <a class="dropdown-item @(Model.Permissions.CanCreate ? "" : "disabled")" asp-page="/Inventory/Adjustment/Index" asp-route-LocationId="@row.LocationId"><i class="bi bi-sliders"></i>Adjust Stock</a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-3"><span class="text-muted">Total rows: @Model.Stocks.TotalCount</span><div class="btn-group btn-group-sm"><a class="btn btn-outline-secondary @(Model.PageNumber <= 1 ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-LocationId="@Model.LocationId" asp-route-CategoryId="@Model.CategoryId" asp-route-BrandId="@Model.BrandId" asp-route-StockStatus="@Model.StockStatus" asp-route-PageNumber="@(Model.PageNumber - 1)">Previous</a><span class="btn btn-outline-secondary disabled">@Model.PageNumber / @totalPages</span><a class="btn btn-outline-secondary @(Model.PageNumber >= totalPages ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-LocationId="@Model.LocationId" asp-route-CategoryId="@Model.CategoryId" asp-route-BrandId="@Model.BrandId" asp-route-StockStatus="@Model.StockStatus" asp-route-PageNumber="@(Model.PageNumber + 1)">Next</a></div></div>
+</section>
+
+@foreach (var row in rows)
+{
+    <div class="modal fade app-modal" id="stockDetail-@row.InventoryStockId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header"><div><h2 class="modal-title h5">Stock Detail</h2><p class="modal-subtitle">@row.ProductCode · @row.LocationName</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+                <div class="modal-body">
+                    <div class="d-flex gap-3 align-items-center mb-3"><span class="product-thumb" style="width:84px;height:84px;flex-basis:84px">@if (!string.IsNullOrWhiteSpace(row.ProductImageUrl)) { <img src="@row.ProductImageUrl" alt="@row.ProductName" /> } else { <i class="bi bi-box-seam fs-2"></i> }</span><div><h3 class="h5 fw-bold mb-1">@row.ProductName</h3><div class="text-muted">@row.ProductCode</div></div></div>
+                    <dl class="row detail-list">
+                        <dt class="col-md-3">Barcode</dt><dd class="col-md-3">@row.Barcode</dd><dt class="col-md-3">Location</dt><dd class="col-md-3">@row.LocationName</dd>
+                        <dt class="col-md-3">Current quantity</dt><dd class="col-md-3">@row.CurrentStock.ToString("N2")</dd><dt class="col-md-3">Minimum stock level</dt><dd class="col-md-3">@row.MinimumStockLevel.ToString("N2")</dd>
+                        <dt class="col-md-3">Unit</dt><dd class="col-md-3">@row.UnitName</dd><dt class="col-md-3">Last movement</dt><dd class="col-md-3">@row.LastMovementDate.ToString("yyyy-MM-dd HH:mm")</dd>
+                        <dt class="col-md-3">Stock status</dt><dd class="col-md-9"><span class="badge status-badge @InventoryUi.StatusBadge(row.StockStatus)">@row.StockStatus</span></dd>
+                    </dl>
+                    <div class="modal-section"><div class="section-label">Recent movements preview</div><div class="table-responsive"><table class="table table-hover"><thead><tr><th>Date</th><th>Type</th><th>Reference</th><th>Qty</th></tr></thead><tbody>@foreach (var movement in Model.RecentMovements.Where(m => m.ProductId == row.ProductId && m.LocationId == row.LocationId).Take(5)) { <tr><td>@movement.CreatedDate.ToString("yyyy-MM-dd HH:mm")</td><td><span class="badge status-badge @InventoryUi.StatusBadge(movement.MovementType)">@movement.MovementType</span></td><td>@movement.ReferenceNo</td><td class="@(movement.QuantitySigned < 0 ? "text-danger" : "text-success")">@movement.QuantitySigned.ToString("+0.##;-0.##;0")</td></tr> } </tbody></table></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script>
+    (() => {
+        const scannedStockRowId = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ScannedStockRowId?.ToString()));
+        const scanUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Url.Page("./Index")));
+        const locationId = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.LocationId?.ToString()));
+
+        const openScannedModal = () => {
+            if (!scannedStockRowId || !window.bootstrap) return;
+            const modalElement = document.querySelector(`#stockDetail-${CSS.escape(scannedStockRowId)}`);
+            if (!modalElement) return;
+            bootstrap.Modal.getOrCreateInstance(modalElement).show();
+        };
+
+        const goToScannedStock = (barcode) => {
+            const value = (barcode || "").trim();
+            if (!value) return;
+
+            const url = new URL(scanUrl, window.location.origin);
+            url.searchParams.set("ScanBarcode", value);
+            if (locationId) url.searchParams.set("LocationId", locationId);
+            window.location.href = url.toString();
+        };
+
+        const globalInput = document.querySelector("[data-global-barcode-input]");
+        globalInput?.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            goToScannedStock(globalInput.value);
+        }, true);
+
+        document.addEventListener("DOMContentLoaded", openScannedModal);
+    })();
+    </script>
+}

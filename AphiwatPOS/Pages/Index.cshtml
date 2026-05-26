@@ -1,0 +1,256 @@
+@page
+@model IndexModel
+@using System.Text.Json
+@{
+    ViewData["Title"] = Model.IsCashierDashboard ? "Cashier Dashboard" : "Manager Dashboard";
+    var manager = Model.ManagerDashboard;
+    var cashier = Model.CashierDashboard;
+    var salesTrend = manager?.SalesOverview.SalesTrend ?? Array.Empty<AphiwatPOS.Services.DashboardTrendPointModel>();
+    var topProducts = manager?.SalesOverview.BestSellingProducts ?? Array.Empty<AphiwatPOS.Services.DashboardProductMetricModel>();
+    var paymentSummary = manager?.PaymentSummary;
+    decimal maxTrend = Math.Max(1, salesTrend.Any() ? salesTrend.Max(x => x.Value) : 1);
+    decimal maxProduct = Math.Max(1, topProducts.Any() ? topProducts.Max(x => x.Quantity) : 1);
+    string Money(decimal value) => value.ToString("N2");
+}
+
+@if (Model.CanViewManagerDashboard)
+{
+    <div class="dashboard-switch">
+        <a class="switch-tab @(!Model.IsCashierDashboard ? "active" : "")" asp-page="/Index">Manager / Owner</a>
+        <a class="switch-tab @(Model.IsCashierDashboard ? "active" : "")" asp-page="/Index" asp-route-viewMode="cashier">Cashier View</a>
+    </div>
+}
+
+@if (!Model.IsCashierDashboard && manager is not null)
+{
+    <section class="dash-hero manager-hero">
+        <div>
+            <h1>Manager / Owner Dashboard</h1>
+            <p>Business performance, stock risk, customer credit, and cashier activity.</p>
+        </div>
+        <div class="hero-date">@DateTime.Now.ToString("dddd, MMM dd yyyy")</div>
+    </section>
+
+    <section class="kpi-grid manager-kpis">
+        <article class="kpi-card accent"><span>Today's Sales</span><strong>@Money(manager.SalesOverview.TodaySales)</strong><small>@manager.SalesOverview.TotalTransactions transactions this month</small></article>
+        <article class="kpi-card"><span>This Week</span><strong>@Money(manager.SalesOverview.WeekSales)</strong><small>Average bill @Money(manager.SalesOverview.AverageBillAmount)</small></article>
+        <article class="kpi-card"><span>This Month</span><strong>@Money(manager.SalesOverview.MonthSales)</strong><small>Net sales after discount</small></article>
+        <article class="kpi-card warning"><span>Outstanding Credit</span><strong>@Money(manager.CustomerOverview.OutstandingCustomerCredit)</strong><small>@manager.CustomerOverview.CustomersUsingCredit credit customers</small></article>
+    </section>
+
+    <section class="manager-grid">
+        <article class="dash-panel span-2">
+            <div class="panel-head"><h2>Sales Trend</h2><a asp-page="/Sales/SalesHistory/Index">View Sales Report</a></div>
+            <div class="trend-chart">
+                @foreach (var point in salesTrend)
+                {
+                    var height = Math.Max(6, (int)Math.Round(point.Value / maxTrend * 100));
+                    <div class="trend-bar" style="--h:@height%">
+                        <span></span><small>@point.Label</small>
+                    </div>
+                }
+            </div>
+        </article>
+
+        <article class="dash-panel">
+            <div class="panel-head"><h2>Profit / Revenue</h2></div>
+            <div class="metric-list">
+                <div><span>Gross sales</span><strong>@Money(manager.ProfitSummary.GrossSales)</strong></div>
+                <div><span>Discount</span><strong>@Money(manager.ProfitSummary.DiscountAmount)</strong></div>
+                <div><span>Net sales</span><strong>@Money(manager.ProfitSummary.NetSales)</strong></div>
+                <div><span>COGS</span><strong>@Money(manager.ProfitSummary.CostOfGoodsSold)</strong></div>
+                <div class="total"><span>Estimated profit</span><strong>@Money(manager.ProfitSummary.EstimatedProfit)</strong></div>
+                <div><span>Margin</span><strong>@manager.ProfitSummary.ProfitMarginPercent.ToString("N1")%</strong></div>
+            </div>
+        </article>
+
+        <article class="dash-panel">
+            <div class="panel-head"><h2>Payment Summary</h2></div>
+            <div class="payment-bars">
+                @{
+                    var paymentRows = new[] {
+                        ("Cash", paymentSummary?.CashSales ?? 0),
+                        ("QR", paymentSummary?.QrPaymentSales ?? 0),
+                        ("Transfer", paymentSummary?.BankTransferSales ?? 0),
+                        ("Credit", paymentSummary?.CreditSales ?? 0),
+                        ("Mixed", paymentSummary?.MixedPaymentSales ?? 0)
+                    };
+                    var maxPayment = Math.Max(1, paymentRows.Max(x => x.Item2));
+                }
+                @foreach (var row in paymentRows)
+                {
+                    var width = Math.Max(4, (int)Math.Round(row.Item2 / maxPayment * 100));
+                    <div class="payment-row"><span>@row.Item1</span><div><b style="width:@width%"></b></div><strong>@Money(row.Item2)</strong></div>
+                }
+            </div>
+        </article>
+
+        <article class="dash-panel">
+            <div class="panel-head"><h2>Inventory Overview</h2><a asp-page="/Inventory/Dashboard/Index">Inventory Report</a></div>
+            <div class="metric-list">
+                <div><span>Total products</span><strong>@manager.InventoryOverview.TotalProducts</strong></div>
+                <div><span>Low stock</span><strong class="text-warning">@manager.InventoryOverview.LowStockProducts</strong></div>
+                <div><span>Out of stock</span><strong class="text-danger">@manager.InventoryOverview.OutOfStockProducts</strong></div>
+                <div><span>Stock value</span><strong>@Money(manager.InventoryOverview.StockValue)</strong></div>
+                <div><span>Stock movement</span><strong>@manager.InventoryOverview.StockOutQty.ToString("N0") out</strong></div>
+            </div>
+        </article>
+
+        <article class="dash-panel">
+            <div class="panel-head"><h2>Best-Selling Products</h2></div>
+            <div class="rank-list">
+                @foreach (var product in topProducts)
+                {
+                    var width = Math.Max(6, (int)Math.Round(product.Quantity / maxProduct * 100));
+                    <div class="rank-row"><span>@product.ProductName</span><div><b style="width:@width%"></b></div><strong>@product.Quantity.ToString("N0")</strong></div>
+                }
+            </div>
+        </article>
+
+        <article class="dash-panel span-2">
+            <div class="panel-head"><h2>Low Stock Products</h2><a asp-page="/Inventory/LowStock/Index">Manage Stock</a></div>
+            <table class="dash-table"><thead><tr><th>Product</th><th>Location</th><th class="text-end">Current</th><th class="text-end">Shortage</th></tr></thead><tbody>
+                @foreach (var item in manager.InventoryOverview.LowStockList.Take(6))
+                {
+                    <tr><td><strong>@item.ProductName</strong><div>@item.ProductCode</div></td><td>@item.LocationName</td><td class="text-end">@item.CurrentQty.ToString("N0")</td><td class="text-end text-danger">@item.ShortageQty.ToString("N0")</td></tr>
+                }
+            </tbody></table>
+        </article>
+
+        <article class="dash-panel">
+            <div class="panel-head"><h2>Customer Overview</h2><a asp-page="/Customer/CustomerReport/Index">Customer Report</a></div>
+            <div class="metric-list">
+                <div><span>Total customers</span><strong>@manager.CustomerOverview.TotalCustomers</strong></div>
+                <div><span>New this month</span><strong>@manager.CustomerOverview.NewCustomersThisMonth</strong></div>
+                <div><span>Members</span><strong>@manager.CustomerOverview.MemberCustomers</strong></div>
+                <div><span>Using credit</span><strong>@manager.CustomerOverview.CustomersUsingCredit</strong></div>
+            </div>
+        </article>
+
+        <article class="dash-panel span-2">
+            <div class="panel-head"><h2>Cashier Performance</h2><a asp-page="/Sales/DailyClosing/Index">Cashier Report</a></div>
+            <table class="dash-table"><thead><tr><th>Cashier</th><th class="text-end">Sales</th><th class="text-end">Transactions</th><th class="text-end">Discounts</th><th class="text-end">Cash Diff.</th></tr></thead><tbody>
+                @foreach (var row in manager.CashierPerformance)
+                {
+                    <tr><td>@row.CashierName</td><td class="text-end">@Money(row.SalesAmount)</td><td class="text-end">@row.TransactionCount</td><td class="text-end">@Money(row.DiscountAmount)</td><td class="text-end">@Money(row.CashDifferenceAmount)</td></tr>
+                }
+            </tbody></table>
+        </article>
+
+        <article class="dash-panel">
+            <div class="panel-head"><h2>Alerts / Warnings</h2></div>
+            <div class="alert-list">
+                @foreach (var alert in manager.Alerts)
+                {
+                    <a class="dash-alert @alert.Severity" href="@alert.Url"><strong>@alert.Title</strong><span>@alert.Message</span></a>
+                }
+            </div>
+        </article>
+
+        <article class="dash-panel span-3 quick-actions-panel">
+            <div class="panel-head"><h2>Quick Actions</h2></div>
+            <div class="quick-actions">
+                <a asp-page="/Sales/SalesHistory/Index"><i class="bi bi-graph-up"></i>View Sales Report</a>
+                <a asp-page="/Inventory/Dashboard/Index"><i class="bi bi-boxes"></i>View Inventory Report</a>
+                <a asp-page="/Customer/CustomerReport/Index"><i class="bi bi-people"></i>View Customer Report</a>
+                <a asp-page="/Sales/DailyClosing/Index"><i class="bi bi-person-lines-fill"></i>View Cashier Report</a>
+                <a asp-page="/Products/Product/Index"><i class="bi bi-tags"></i>Manage Products</a>
+                <a asp-page="/Inventory/CurrentStock/Index"><i class="bi bi-clipboard-data"></i>Manage Stock</a>
+                <a asp-page="/Customer/CustomerList/Index"><i class="bi bi-person-vcard"></i>Manage Customers</a>
+            </div>
+        </article>
+    </section>
+}
+else if (cashier is not null)
+{
+    <section class="dash-hero cashier-hero">
+        <div>
+            <h1>Cashier Dashboard</h1>
+            <p>Welcome, @cashier.ShiftSummary.CashierName. Focus on today’s sales and next actions.</p>
+        </div>
+        <span class="status-pill @(cashier.CustomerDisplayStatus.IsConnected ? "connected" : "disconnected")">
+            Customer display @(cashier.CustomerDisplayStatus.IsConnected ? "connected" : "ready to open")
+        </span>
+    </section>
+
+    <section class="cashier-actions">
+        <a class="primary-action" asp-page="/Sales/POSCheckout/Index"><i class="bi bi-cart-plus"></i><span>Start New Sale</span></a>
+        <a asp-page="/Sales/HeldSales/Index"><i class="bi bi-pause-circle"></i><span>Continue Held Sale</span><strong>@cashier.ShiftSummary.HeldSalesCount</strong></a>
+        <a asp-page="/Sales/SalesHistory/Index"><i class="bi bi-clock-history"></i><span>Sales History</span></a>
+        <a asp-page="/Sales/ReturnsRefunds/Index"><i class="bi bi-arrow-counterclockwise"></i><span>Return / Refund</span></a>
+        <button type="button"><i class="bi bi-cash-coin"></i><span>Open Cash Drawer</span></button>
+        <button type="button"><i class="bi bi-printer"></i><span>Print Last Receipt</span></button>
+    </section>
+
+    <section class="cashier-grid">
+        <article class="dash-panel span-2">
+            <div class="panel-head"><h2>Today’s Shift Summary</h2><span>Started @cashier.ShiftSummary.ShiftStartTime.ToString("HH:mm")</span></div>
+            <div class="shift-kpis">
+                <div><span>Today sales</span><strong>@Money(cashier.ShiftSummary.TodaySales)</strong></div>
+                <div><span>Transactions</span><strong>@cashier.ShiftSummary.TransactionCount</strong></div>
+                <div><span>Cash received</span><strong>@Money(cashier.ShiftSummary.CashReceived)</strong></div>
+                <div><span>QR / payment</span><strong>@Money(cashier.ShiftSummary.QrPaymentReceived)</strong></div>
+                <div><span>Refunds</span><strong>@Money(cashier.ShiftSummary.RefundAmount)</strong></div>
+                <div><span>Held sales</span><strong>@cashier.ShiftSummary.HeldSalesCount</strong></div>
+            </div>
+        </article>
+
+        <article class="dash-panel">
+            <div class="panel-head"><h2>Customer Display</h2></div>
+            <div class="display-status-box">
+                <strong>@(cashier.CustomerDisplayStatus.IsConnected ? "Connected" : "Disconnected")</strong>
+                <span>Terminal: @cashier.CustomerDisplayStatus.TerminalId</span>
+                <span>Status: @cashier.CustomerDisplayStatus.CurrentSaleStatus</span>
+                <a class="btn btn-primary" asp-page="/Sales/CustomerDisplay/Index" asp-route-terminalId="@cashier.CustomerDisplayStatus.TerminalId" target="_blank">Open Customer Display</a>
+            </div>
+        </article>
+
+        <article class="dash-panel">
+            <div class="panel-head"><h2>Pending Tasks</h2></div>
+            <div class="task-list">
+                @foreach (var task in cashier.PendingTasks)
+                {
+                    <a class="task-row @task.Status" href="@task.Url"><strong>@task.Title</strong><span>@task.Detail</span></a>
+                }
+            </div>
+        </article>
+
+        <article class="dash-panel span-2">
+            <div class="panel-head"><h2>Recent Sales</h2><a asp-page="/Sales/SalesHistory/Index">View All</a></div>
+            <table class="dash-table"><thead><tr><th>Invoice</th><th>Time</th><th>Customer</th><th>Payment</th><th class="text-end">Total</th><th>Status</th><th></th></tr></thead><tbody>
+                @foreach (var sale in cashier.RecentSales)
+                {
+                    <tr><td>@sale.SaleNo</td><td>@sale.SaleDate.ToString("HH:mm")</td><td>@(sale.CustomerName ?? "Walk-in")</td><td>Recorded</td><td class="text-end">@Money(sale.NetAmount)</td><td><span class="status-badge badge-success">@sale.Status</span></td><td><a asp-page="/Sales/SalesHistory/Index" asp-route-SearchText="@sale.SaleNo">View / Print</a></td></tr>
+                }
+            </tbody></table>
+        </article>
+
+        <article class="dash-panel">
+            <div class="panel-head"><h2>Credit Reminder</h2></div>
+            <div class="task-list">
+                @if (!cashier.CustomerCreditToday.Any())
+                {
+                    <div class="empty-note">No customer credit sales today.</div>
+                }
+                @foreach (var credit in cashier.CustomerCreditToday)
+                {
+                    <div class="task-row warning"><strong>@credit.CustomerName</strong><span>@Money(credit.CreditAmount) credit used • @credit.PaymentStatus</span></div>
+                }
+            </div>
+        </article>
+
+        <article class="dash-panel span-3">
+            <div class="panel-head"><h2>Notifications</h2></div>
+            <div class="notification-row">
+                @foreach (var notification in cashier.Notifications)
+                {
+                    <span class="@notification.Severity">@notification.Message</span>
+                }
+            </div>
+        </article>
+    </section>
+}
+
+<style>
+.dashboard-switch{display:inline-flex;border:1px solid #dbe4ee;background:#fff;margin-bottom:16px}.switch-tab{color:#64748b;font-weight:900;padding:10px 16px;text-decoration:none}.switch-tab.active{background:#0f766e;color:#fff}.dash-hero{align-items:center;background:#fff;border:1px solid #dbe4ee;display:flex;justify-content:space-between;margin-bottom:16px;padding:22px}.dash-hero h1{font-size:1.8rem;font-weight:900;margin:0}.dash-hero p{color:#64748b;margin:5px 0 0}.manager-hero{border-left:6px solid #0f766e}.cashier-hero{border-left:6px solid #2563eb}.hero-date,.status-pill{font-weight:900}.status-pill{border:1px solid #cbd5e1;padding:8px 12px}.status-pill.connected{background:#ecfdf5;color:#047857}.status-pill.disconnected{background:#eff6ff;color:#1d4ed8}.kpi-grid{display:grid;gap:14px;grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:16px}.kpi-card{background:#fff;border:1px solid #dbe4ee;padding:18px}.kpi-card span{color:#64748b;font-weight:900}.kpi-card strong{display:block;font-size:1.9rem;font-weight:900;margin-top:6px}.kpi-card small{color:#64748b}.kpi-card.accent{border-left:6px solid #0f766e}.kpi-card.warning{border-left:6px solid #f59e0b}.manager-grid,.cashier-grid{display:grid;gap:16px;grid-template-columns:repeat(3,minmax(0,1fr))}.dash-panel{background:#fff;border:1px solid #dbe4ee;min-width:0;padding:16px}.span-2{grid-column:span 2}.span-3{grid-column:1/-1}.panel-head{align-items:center;display:flex;justify-content:space-between;margin-bottom:12px}.panel-head h2{font-size:1.05rem;font-weight:900;margin:0}.panel-head a{font-weight:800}.trend-chart{align-items:end;display:flex;gap:8px;height:240px}.trend-bar{align-items:center;display:grid;grid-template-rows:1fr auto;min-width:34px;text-align:center}.trend-bar span{align-self:end;background:#0f766e;display:block;height:var(--h)}.trend-bar small{color:#64748b;font-size:.72rem;margin-top:6px}.metric-list{display:grid;gap:9px}.metric-list div,.payment-row,.rank-row{align-items:center;display:flex;gap:12px;justify-content:space-between}.metric-list span,.payment-row span,.rank-row span{color:#64748b;font-weight:800}.metric-list strong{font-weight:900}.metric-list .total{border-top:1px solid #e2e8f0;padding-top:9px}.payment-bars,.rank-list{display:grid;gap:10px}.payment-row div,.rank-row div{background:#e2e8f0;flex:1;height:9px}.payment-row b,.rank-row b{background:#0f766e;display:block;height:100%}.dash-table{font-size:.9rem;width:100%}.dash-table th{color:#64748b;font-size:.75rem;text-transform:uppercase}.dash-table td,.dash-table th{border-bottom:1px solid #e2e8f0;padding:9px 6px;vertical-align:top}.dash-table td div{color:#64748b;font-size:.8rem}.alert-list,.task-list{display:grid;gap:9px}.dash-alert,.task-row{border:1px solid #e2e8f0;color:#0f172a;display:grid;padding:10px;text-decoration:none}.dash-alert span,.task-row span{color:#64748b}.dash-alert.warning,.task-row.warning{background:#fffbeb;border-color:#fde68a}.dash-alert.danger{background:#fef2f2;border-color:#fecaca}.quick-actions{display:grid;gap:10px;grid-template-columns:repeat(7,minmax(0,1fr))}.quick-actions a,.cashier-actions a,.cashier-actions button{align-items:center;background:#f8fafc;border:1px solid #dbe4ee;color:#0f172a;display:flex;font-weight:900;gap:8px;justify-content:center;min-height:58px;padding:10px;text-align:center;text-decoration:none}.quick-actions i,.cashier-actions i{font-size:1.25rem}.cashier-actions{display:grid;gap:12px;grid-template-columns:2fr repeat(5,1fr);margin-bottom:16px}.cashier-actions .primary-action{background:#0f766e;color:#fff;font-size:1.15rem}.cashier-actions button{cursor:not-allowed;opacity:.72}.shift-kpis{display:grid;gap:12px;grid-template-columns:repeat(3,minmax(0,1fr))}.shift-kpis div{background:#f8fafc;border:1px solid #e2e8f0;padding:14px}.shift-kpis span{color:#64748b;font-weight:900}.shift-kpis strong{display:block;font-size:1.5rem;font-weight:900}.display-status-box{display:grid;gap:9px}.notification-row{display:flex;flex-wrap:wrap;gap:10px}.notification-row span{border:1px solid #dbe4ee;font-weight:800;padding:9px 12px}.notification-row .success{background:#ecfdf5;color:#047857}.notification-row .info{background:#eff6ff;color:#1d4ed8}.empty-note{color:#64748b;font-weight:800;padding:12px}.text-warning{color:#b45309!important}.text-danger{color:#dc2626!important}@@media(max-width:1200px){.kpi-grid,.manager-grid,.cashier-grid,.quick-actions,.cashier-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.span-2,.span-3{grid-column:1/-1}.cashier-actions .primary-action{grid-column:1/-1}}@@media(max-width:700px){.kpi-grid,.manager-grid,.cashier-grid,.quick-actions,.cashier-actions,.shift-kpis{grid-template-columns:1fr}.dash-hero{align-items:flex-start;display:grid;gap:10px}.trend-chart{height:180px;overflow:auto}.dash-panel{padding:12px}}
+</style>

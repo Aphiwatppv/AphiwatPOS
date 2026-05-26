@@ -1,0 +1,2 @@
+﻿CREATE PROCEDURE [dbo].[spHeldSaleCancel] @HeldSaleHeaderId BIGINT,@Reason NVARCHAR(500),@UpdatedByUserId INT AS BEGIN SET NOCOUNT ON; UPDATE dbo.HeldSaleHeader SET Status=N'Cancelled', Note=CONCAT(Note, CASE WHEN Note=N'' THEN N'' ELSE N' | ' END, N'Cancelled: ', @Reason), UpdatedByUserId=@UpdatedByUserId, UpdatedDate=SYSUTCDATETIME() WHERE HeldSaleHeaderId=@HeldSaleHeaderId AND Status IN (N'Held',N'Resumed'); END;
+

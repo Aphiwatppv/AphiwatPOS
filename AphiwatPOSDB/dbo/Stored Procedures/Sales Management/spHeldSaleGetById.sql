@@ -1,0 +1,2 @@
+﻿CREATE PROCEDURE [dbo].[spHeldSaleGetById] @HeldSaleHeaderId BIGINT AS BEGIN SET NOCOUNT ON; SELECT h.*, c.CustomerName, u.DisplayName CashierName FROM dbo.HeldSaleHeader h LEFT JOIN dbo.Customer c ON c.CustomerId=h.CustomerId JOIN dbo.AccessUser u ON u.UserId=h.CashierUserId WHERE h.HeldSaleHeaderId=@HeldSaleHeaderId; SELECT * FROM dbo.HeldSaleItem WHERE HeldSaleHeaderId=@HeldSaleHeaderId ORDER BY HeldSaleItemId; END;
+

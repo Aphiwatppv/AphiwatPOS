@@ -1,0 +1,1 @@
+﻿CREATE PROCEDURE [dbo].[spProductBrandCheckCodeExists] @BrandCode NVARCHAR(50), @ExcludeBrandId INT = NULL AS BEGIN SET NOCOUNT ON; SELECT CAST(CASE WHEN EXISTS(SELECT 1 FROM [dbo].[ProductBrand] WHERE BrandCode=@BrandCode AND (@ExcludeBrandId IS NULL OR BrandId<>@ExcludeBrandId)) THEN 1 ELSE 0 END AS BIT); END;

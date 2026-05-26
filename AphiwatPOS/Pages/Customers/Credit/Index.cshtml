@@ -1,0 +1,75 @@
+@page
+@model AphiwatPOS.Pages.Customers.Credit.IndexModel
+@using AphiwatPOS.Pages.Customer
+@{
+    ViewData["Title"] = "Customer Credit";
+    ViewData["Subtitle"] = "Monitor customer credit limits, used credit, available credit, and credit activity.";
+    var rows = Model.Customers.Customers.ToArray();
+    string badge(CustomerEngine.Models.CustomerSummaryModel c) => c.CreditLimit <= 0 ? "badge-neutral" : c.AvailableCredit <= 0 ? "badge-danger" : c.CurrentOutstandingAmount > 0 ? "badge-warning" : "badge-success";
+    string txBadge(string type) => type switch { "CreditUsed" => "badge-warning", "CreditRepaid" => "badge-success", "CreditRefunded" => "badge-success", "CreditAdjusted" => "badge-warning", "CreditAdded" => "badge-success", _ => "badge-neutral" };
+}
+
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div><h1>Customer Credit</h1><p>Monitor customer credit limits, used credit, available credit, and credit activity.</p></div>
+    <a class="btn btn-primary" asp-page="/Customers/CreditRepayment/Index"><i class="bi bi-cash-coin me-1"></i>Receive Payment</a>
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-credit-card"></i></span><div><div class="metric-label">Total Credit Limit</div><div class="metric-value">@Model.TotalCreditLimit.ToString("N2")</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-exclamation-circle"></i></span><div><div class="metric-label">Total Used Credit</div><div class="metric-value">@Model.TotalUsedCredit.ToString("N2")</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-wallet2"></i></span><div><div class="metric-label">Total Available Credit</div><div class="metric-value">@Model.TotalAvailableCredit.ToString("N2")</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-people"></i></span><div><div class="metric-label">Customers Using Credit</div><div class="metric-value">@Model.CustomersUsingCredit</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-slash-circle"></i></span><div><div class="metric-label">No Available Credit</div><div class="metric-value">@Model.CustomersWithNoAvailableCredit</div></div></div>
+</div>
+
+<form method="get" class="filter-card mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-lg-4"><label class="form-label">Search customer</label><input asp-for="SearchText" class="form-control" placeholder="Customer code, name, or phone" /></div>
+        <div class="col-lg-3"><label class="form-label">Member level</label><select asp-for="MemberLevelId" class="form-select"><option value="">All</option>@foreach (var level in Model.MemberLevels) { <option value="@level.MemberLevelId">@level.LevelName</option> }</select></div>
+        <div class="col-lg-3"><label class="form-label">Credit status</label><select asp-for="CreditFilter" class="form-select"><option value="">All</option><option value="CreditAllowed">Credit Allowed</option><option value="CreditNotAllowed">Credit Not Allowed</option><option value="HasUsedCredit">Has Used Credit</option><option value="NoAvailableCredit">No Available Credit</option></select></div>
+        <div class="col-lg-2 d-flex gap-2"><button class="btn btn-primary flex-fill"><i class="bi bi-search me-1"></i>Search</button><a class="btn btn-outline-secondary" asp-page="./Index">Clear</a></div>
+    </div>
+</form>
+
+<section class="data-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>Customer</th><th>Phone</th><th>Member Level</th><th>Credit Limit</th><th>Used Credit</th><th>Available Credit</th><th>Credit Status</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            @if (!rows.Any())
+            {
+                <tr><td colspan="8"><div class="empty-state"><i class="bi bi-credit-card"></i><div class="fw-semibold">No customers found</div><div>Try clearing the filters.</div></div></td></tr>
+            }
+            @foreach (var c in rows)
+            {
+                <tr>
+                    <td><span class="fw-semibold d-block">@c.CustomerName</span><span class="text-muted small">@c.CustomerCode</span></td>
+                    <td>@c.PhoneNumber</td>
+                    <td>@(c.MemberLevelName ?? "-")</td>
+                    <td>@c.CreditLimit.ToString("N2")</td>
+                    <td class="@(c.CurrentOutstandingAmount > 0 ? "text-warning fw-semibold" : "")">@c.CurrentOutstandingAmount.ToString("N2")</td>
+                    <td class="@(c.AvailableCredit > 0 ? "text-success fw-semibold" : "text-danger fw-semibold")">@c.AvailableCredit.ToString("N2")</td>
+                    <td><span class="badge status-badge @badge(c)">@(c.CreditLimit > 0 ? c.CreditStatus : "Not Allowed")</span></td>
+                    <td class="text-end"><div class="dropdown"><button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" type="button">Action</button><div class="dropdown-menu dropdown-menu-end action-menu"><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#creditDetail-@c.CustomerId" type="button"><i class="bi bi-eye"></i>View Transactions</button><a class="dropdown-item" asp-page="/Customers/CreditRepayment/Index" asp-route-SelectedCustomerId="@c.CustomerId"><i class="bi bi-cash-coin"></i>Receive Payment</a><a class="dropdown-item" asp-page="/Customer/CustomerList/Detail" asp-route-customerId="@c.CustomerId"><i class="bi bi-person"></i>View Customer</a></div></div></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@foreach (var c in rows)
+{
+    var transactions = Model.LatestTransactions.GetValueOrDefault(c.CustomerId) ?? Array.Empty<CustomerEngine.Models.CustomerCreditTransactionModel>();
+    <div class="modal fade app-modal" id="creditDetail-@c.CustomerId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><div><h2 class="modal-title h5">@c.CustomerName</h2><p class="modal-subtitle">@c.PhoneNumber · @(c.MemberLevelName ?? "No level")</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body">
+            <div class="summary-grid mb-3"><div class="summary-card"><div><div class="metric-label">Credit limit</div><div class="metric-value">@c.CreditLimit.ToString("N2")</div></div></div><div class="summary-card"><div><div class="metric-label">Used credit</div><div class="metric-value">@c.CurrentOutstandingAmount.ToString("N2")</div></div></div><div class="summary-card"><div><div class="metric-label">Available credit</div><div class="metric-value">@c.AvailableCredit.ToString("N2")</div></div></div></div>
+            <div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Date</th><th>Type</th><th>Reference</th><th>Amount</th><th>Before</th><th>After</th><th>Description</th></tr></thead><tbody>
+                @if (!transactions.Any()) { <tr><td colspan="7"><div class="empty-state"><i class="bi bi-clock-history"></i><div class="fw-semibold">No credit transactions found</div></div></td></tr> }
+                @foreach (var tx in transactions) { <tr><td>@CustomerPageHelpers.DateTimeText(tx.CreatedDate)</td><td><span class="badge status-badge @txBadge(tx.TransactionType)">@tx.TransactionType</span></td><td>@(tx.ReferenceType ?? "-") <span class="text-muted">@tx.ReferenceNo</span></td><td>@tx.Amount.ToString("N2")</td><td>@tx.BalanceBefore.ToString("N2")</td><td>@tx.BalanceAfter.ToString("N2")</td><td>@(tx.Description ?? tx.Remark)</td></tr> }
+            </tbody></table></div>
+        </div><div class="modal-footer"><a class="btn btn-primary" asp-page="/Customers/CreditRepayment/Index" asp-route-SelectedCustomerId="@c.CustomerId">Receive Payment</a><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Close</button></div></div></div>
+    </div>
+}

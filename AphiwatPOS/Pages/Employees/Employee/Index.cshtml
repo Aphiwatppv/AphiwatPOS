@@ -1,0 +1,504 @@
+@page
+@model AphiwatPOS.Pages.Employees.Employee.IndexModel
+@{
+    ViewData["Title"] = "Employee Management";
+    var totalPages = Math.Max(1, (int)Math.Ceiling(Model.Users.TotalCount / (double)Math.Max(1, Model.Users.PageSize)));
+    var currentUsers = Model.Users.Users.ToArray();
+    var activeCount = currentUsers.Count(user => user.IsActive);
+    var lockedCount = currentUsers.Count(user => user.IsLocked);
+    var inactiveCount = currentUsers.Count(user => !user.IsActive);
+}
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div>
+        <h1>Employee Management</h1>
+        <p>Manage employee accounts, roles, permissions, lock status, and login history.</p>
+    </div>
+    <button class="btn btn-primary @(Model.CanCreateUser ? "" : "access-disabled")" type="button" data-bs-toggle="modal" data-bs-target="#addUserModal"><i class="bi bi-person-plus me-1"></i>Add Employee</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <div class="alert alert-success">@Model.StatusMessage</div>
+}
+
+<div class="summary-grid">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-people"></i></span><div class="metric-copy"><div class="metric-label">Total employees</div><div class="metric-value">@Model.Users.TotalCount</div><div class="metric-helper">All secure POS accounts</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-person-check"></i></span><div class="metric-copy"><div class="metric-label">Active employees</div><div class="metric-value">@activeCount</div><div class="metric-helper">Able to access POS</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-lock"></i></span><div class="metric-copy"><div class="metric-label">Locked employees</div><div class="metric-value">@lockedCount</div><div class="metric-helper">Temporarily restricted</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-person-dash"></i></span><div class="metric-copy"><div class="metric-label">Inactive employees</div><div class="metric-value">@inactiveCount</div><div class="metric-helper">Disabled accounts</div></div></div>
+</div>
+
+<form method="get" class="filter-card mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-lg-4">
+            <label asp-for="SearchText" class="form-label">Search user</label>
+            <input asp-for="SearchText" class="form-control" placeholder="Search user..." />
+        </div>
+        <div class="col-lg-3">
+            <label asp-for="RoleCode" class="form-label">Role Filter</label>
+            <select asp-for="RoleCode" class="form-select">
+                <option value="">All roles</option>
+                @foreach (var role in Model.Roles)
+                {
+                    <option value="@role.RoleCode">@role.RoleName</option>
+                }
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <label asp-for="Status" class="form-label">Status Filter</label>
+            <select asp-for="Status" class="form-select">
+                <option value="">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <label asp-for="LockStatus" class="form-label">Lock Filter</label>
+            <select asp-for="LockStatus" class="form-select">
+                <option value="">All</option>
+                <option value="locked">Locked</option>
+                <option value="unlocked">Unlocked</option>
+            </select>
+        </div>
+        <div class="col-lg-1 d-grid">
+            <button class="btn btn-primary" type="submit">Search</button>
+        </div>
+    </div>
+</form>
+
+<section class="data-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Locked</th>
+                    <th>Last Login</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!currentUsers.Any())
+                {
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <i class="bi bi-people"></i>
+                                <div class="fw-semibold">No employees found</div>
+                                <div>Try changing filters or add a new employee account.</div>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @foreach (var user in currentUsers)
+                {
+                    var modalSuffix = user.UserId.ToString();
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="employee-avatar">
+                                    @if (!string.IsNullOrWhiteSpace(user.ProfileImageUrl))
+                                    {
+                                        <img src="@user.ProfileImageUrl" alt="@user.DisplayName" />
+                                    }
+                                    else
+                                    {
+                                        @user.DisplayName.Take(1).FirstOrDefault()
+                                    }
+                                </span>
+                                <span>
+                                    <span class="fw-semibold d-block">@user.DisplayName</span>
+                                    <span class="text-muted small">@user.Username</span>
+                                </span>
+                            </div>
+                        </td>
+                        <td>@user.Email</td>
+                        <td>@user.Roles</td>
+                        <td><span class="badge status-badge @(user.IsActive ? "badge-success" : "badge-muted")">@(user.IsActive ? "Active" : "Inactive")</span></td>
+                        <td><span class="badge status-badge @(user.IsLocked ? "badge-danger" : "badge-muted")">@(user.IsLocked ? "Locked" : "Unlocked")</span></td>
+                        <td>@(user.LastLoginAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
+                        <td class="text-end">
+                            <div class="action-group">
+                                <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#detailUserModal-@modalSuffix"><i class="bi bi-eye me-1"></i>View</button>
+                                <button class="btn btn-outline-secondary btn-sm @(Model.CanUpdateUser ? "" : "access-disabled")" type="button" data-bs-toggle="modal" data-bs-target="#editUserModal-@modalSuffix"><i class="bi bi-pencil me-1"></i>Edit</button>
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">More</button>
+                                    <div class="dropdown-menu dropdown-menu-end action-menu">
+                                        <button class="dropdown-item @(Model.CanAssignRoles ? "" : "access-disabled")" type="button" data-bs-toggle="modal" data-bs-target="#assignRolesModal-@modalSuffix"><i class="bi bi-person-badge"></i>Assign Roles</button>
+                                        <button class="dropdown-item @(Model.CanAssignPermissions ? "" : "access-disabled")" type="button" data-bs-toggle="modal" data-bs-target="#assignPermissionsModal-@modalSuffix"><i class="bi bi-shield-check"></i>Assign Permissions</button>
+                                        <button class="dropdown-item @(Model.CanResetPassword ? "" : "access-disabled")" type="button" data-bs-toggle="modal" data-bs-target="#resetPasswordModal-@modalSuffix"><i class="bi bi-key"></i>Reset Password</button>
+                                        <button class="dropdown-item @(Model.CanLockUser ? "" : "access-disabled")" type="button" data-bs-toggle="modal" data-bs-target="#lockUserModal-@modalSuffix"><i class="bi @(user.IsLocked ? "bi-unlock" : "bi-lock")"></i>@(user.IsLocked ? "Unlock" : "Lock")</button>
+                                        <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#loginHistoryModal-@modalSuffix"><i class="bi bi-clock-history"></i>Login History</button>
+                                        <button class="dropdown-item text-danger @(Model.CanDeactivateUser ? "" : "access-disabled")" type="button" data-bs-toggle="modal" data-bs-target="#deactivateUserModal-@modalSuffix"><i class="bi bi-person-x"></i>Deactivate</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-3">
+        <span class="text-muted">Total employees: @Model.Users.TotalCount</span>
+        <div class="btn-group btn-group-sm">
+            <a class="btn btn-outline-secondary @(Model.Users.PageNumber <= 1 ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-RoleCode="@Model.RoleCode" asp-route-Status="@Model.Status" asp-route-LockStatus="@Model.LockStatus" asp-route-PageNumber="@(Model.Users.PageNumber - 1)">Previous</a>
+            <span class="btn btn-outline-secondary disabled">@Model.Users.PageNumber / @totalPages</span>
+            <a class="btn btn-outline-secondary @(Model.Users.PageNumber >= totalPages ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-RoleCode="@Model.RoleCode" asp-route-Status="@Model.Status" asp-route-LockStatus="@Model.LockStatus" asp-route-PageNumber="@(Model.Users.PageNumber + 1)">Next</a>
+        </div>
+    </div>
+</section>
+
+<div class="modal fade app-modal" id="addUserModal" tabindex="-1" aria-labelledby="addUserLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <form method="post" enctype="multipart/form-data" asp-page-handler="Create" class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title h5" id="addUserLabel">Add Employee</h2>
+                    <p class="modal-subtitle">Create a secure POS user account.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="CreateInput.Username" class="form-label"></label>
+                        <input asp-for="CreateInput.Username" class="form-control" />
+                        <span asp-validation-for="CreateInput.Username" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="CreateInput.DisplayName" class="form-label"></label>
+                        <input asp-for="CreateInput.DisplayName" class="form-control" />
+                        <span asp-validation-for="CreateInput.DisplayName" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="CreateInput.Email" class="form-label"></label>
+                        <input asp-for="CreateInput.Email" class="form-control" />
+                        <span asp-validation-for="CreateInput.Email" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="CreateInput.ProfileImage" class="form-label">Profile Image</label>
+                        <div class="d-flex gap-3 align-items-center">
+                            <div class="image-preview-box" data-image-preview="CreateInput.ProfileImage"><i class="bi bi-person"></i></div>
+                            <div class="flex-grow-1">
+                                <input asp-for="CreateInput.ProfileImage" class="form-control" type="file" accept=".jpg,.jpeg,.png,.webp" data-image-input="CreateInput.ProfileImage" />
+                                <span asp-validation-for="CreateInput.ProfileImage" class="text-danger small"></span>
+                                <div class="text-muted small mt-1">JPG, PNG, or WebP.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="CreateInput.Password" class="form-label"></label>
+                        <input asp-for="CreateInput.Password" class="form-control" data-password-strength-input />
+                        <span asp-validation-for="CreateInput.Password" class="text-danger small"></span>
+                        <div class="password-strength mt-2" aria-hidden="true"><span data-password-strength-bar></span></div>
+                        <div class="text-muted small mt-1" data-password-strength-text>Enter at least 8 characters.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="CreateInput.ConfirmPassword" class="form-label"></label>
+                        <input asp-for="CreateInput.ConfirmPassword" class="form-control" />
+                        <span asp-validation-for="CreateInput.ConfirmPassword" class="text-danger small"></span>
+                    </div>
+                </div>
+                <div class="modal-section">
+                    <div class="section-label">Roles</div>
+                    <div class="role-select-grid">
+                        @foreach (var role in Model.Roles)
+                        {
+                            <label class="role-select-card">
+                                <input class="form-check-input" type="checkbox" name="CreateInput.SelectedRoles" value="@role.RoleCode" />
+                                <span class="fw-semibold">@role.RoleName</span>
+                                <span class="text-muted small">@role.Description</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+                <label class="form-check form-switch mt-3">
+                    <input asp-for="CreateInput.IsActive" class="form-check-input" checked />
+                    <span class="form-check-label">Active account</span>
+                </label>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Employee</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@foreach (var user in currentUsers)
+{
+    var modalSuffix = user.UserId.ToString();
+    var userRoleCodes = UserRoleCodes(user.Roles);
+    var userPermissionCodes = UserPermissionCodes(user.Permissions);
+
+    <div class="modal fade app-modal" id="detailUserModal-@modalSuffix" tabindex="-1" aria-labelledby="detailUserLabel-@modalSuffix" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="detailUserLabel-@modalSuffix">Employee Detail</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <span class="employee-avatar employee-avatar-lg">
+                            @if (!string.IsNullOrWhiteSpace(user.ProfileImageUrl))
+                            {
+                                <img src="@user.ProfileImageUrl" alt="@user.DisplayName" />
+                            }
+                            else
+                            {
+                                @user.DisplayName.Take(1).FirstOrDefault()
+                            }
+                        </span>
+                        <div>
+                            <div class="fw-bold">@user.DisplayName</div>
+                            <div class="text-muted">@user.Username</div>
+                        </div>
+                    </div>
+                    <dl class="row mb-0 detail-list">
+                        <dt class="col-4">Email</dt><dd class="col-8">@user.Email</dd>
+                        <dt class="col-4">Roles</dt><dd class="col-8">@user.Roles</dd>
+                        <dt class="col-4">Permissions</dt><dd class="col-8">@user.Permissions</dd>
+                        <dt class="col-4">Last Login</dt><dd class="col-8">@(user.LastLoginAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-")</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade app-modal" id="editUserModal-@modalSuffix" tabindex="-1" aria-labelledby="editUserLabel-@modalSuffix" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <form method="post" enctype="multipart/form-data" asp-page-handler="Update" class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h2 class="modal-title h5" id="editUserLabel-@modalSuffix">Edit Employee</h2>
+                        <p class="modal-subtitle">@user.Username</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="EditInput.UserId" value="@user.UserId" />
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Display Name</label>
+                            <input class="form-control" name="EditInput.DisplayName" value="@user.DisplayName" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input class="form-control" name="EditInput.Email" value="@user.Email" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Profile Image</label>
+                            <input class="form-control" name="EditInput.ProfileImage" type="file" accept=".jpg,.jpeg,.png,.webp" />
+                            <span asp-validation-for="EditInput.ProfileImage" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <label class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="EditInput.IsActive" value="true" checked="@user.IsActive" />
+                                <input type="hidden" name="EditInput.IsActive" value="false" />
+                                <span class="form-check-label">Active account</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-section">
+                        <div class="section-label">Roles</div>
+                        <div class="checkbox-grid">
+                            @foreach (var role in Model.Roles)
+                            {
+                                <label class="check-tile">
+                                    <input class="form-check-input" type="checkbox" name="EditInput.SelectedRoles" value="@role.RoleCode" checked="@(userRoleCodes.Contains(role.RoleCode) || userRoleCodes.Contains(role.RoleName))" />
+                                    <span>@role.RoleName</span>
+                                </label>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Employee</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade app-modal" id="resetPasswordModal-@modalSuffix" tabindex="-1" aria-labelledby="resetPasswordLabel-@modalSuffix" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="post" asp-page-handler="ResetPassword" class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="resetPasswordLabel-@modalSuffix">Reset Password</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="ResetPasswordInput.UserId" value="@user.UserId" />
+                    <div class="mb-3">
+                        <label class="form-label">New Password</label>
+                        <input class="form-control" name="ResetPasswordInput.NewPassword" type="password" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confirm Password</label>
+                        <input class="form-control" name="ResetPasswordInput.ConfirmPassword" type="password" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Reset Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade app-modal" id="lockUserModal-@modalSuffix" tabindex="-1" aria-labelledby="lockUserLabel-@modalSuffix" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="post" asp-page-handler="Lock" class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="lockUserLabel-@modalSuffix">Lock / Unlock Employee</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="LockInput.UserId" value="@user.UserId" />
+                    <label class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="LockInput.IsLocked" value="true" checked="@user.IsLocked" />
+                        <input type="hidden" name="LockInput.IsLocked" value="false" />
+                        <span class="form-check-label">Locked</span>
+                    </label>
+                    <label class="form-label">Lock Until</label>
+                    <input class="form-control" name="LockInput.LockoutEndAtUtc" type="datetime-local" />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Lock Status</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade app-modal" id="assignRolesModal-@modalSuffix" tabindex="-1" aria-labelledby="assignRolesLabel-@modalSuffix" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="post" asp-page-handler="AssignRoles" class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="assignRolesLabel-@modalSuffix">Assign Roles</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="AssignmentInput.UserId" value="@user.UserId" />
+                    <div class="checkbox-grid">
+                        @foreach (var role in Model.Roles)
+                        {
+                            <label class="check-tile">
+                                <input class="form-check-input" type="checkbox" name="AssignmentInput.SelectedValues" value="@role.RoleCode" checked="@(userRoleCodes.Contains(role.RoleCode) || userRoleCodes.Contains(role.RoleName))" />
+                                <span>@role.RoleName</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Roles</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade app-modal" id="assignPermissionsModal-@modalSuffix" tabindex="-1" aria-labelledby="assignPermissionsLabel-@modalSuffix" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <form method="post" asp-page-handler="AssignPermissions" class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="assignPermissionsLabel-@modalSuffix">Assign Direct Permissions</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="AssignmentInput.UserId" value="@user.UserId" />
+                    @foreach (var group in Model.Permissions.GroupBy(permission => permission.ModuleName))
+                    {
+                        <div class="permission-module-card">
+                            <div class="fw-semibold mb-2">@group.Key</div>
+                            <div class="checkbox-grid">
+                                @foreach (var permission in group)
+                                {
+                                    <label class="check-tile">
+                                        <input class="form-check-input" type="checkbox" name="AssignmentInput.SelectedValues" value="@permission.PermissionCode" checked="@userPermissionCodes.Contains(permission.PermissionCode)" />
+                                        <span>@permission.PermissionCode</span>
+                                    </label>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Permissions</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade app-modal" id="loginHistoryModal-@modalSuffix" tabindex="-1" aria-labelledby="loginHistoryLabel-@modalSuffix" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="loginHistoryLabel-@modalSuffix">Login History</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <table class="table table-sm">
+                        <thead><tr><th>Date</th><th>IP Address</th><th>Status</th><th>Reason</th><th>Logout Time</th></tr></thead>
+                        <tbody>
+                            @foreach (var history in Model.LoginHistoryByUserId.GetValueOrDefault(user.UserId, Array.Empty<AuthenticationEngine.Models.LoginHistorySummary>()))
+                            {
+                                <tr>
+                                    <td>@history.AttemptedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td>-</td>
+                                    <td>@(history.Succeeded ? "Success" : "Failed")</td>
+                                    <td>@history.FailureReason</td>
+                                    <td>@(history.LogoutAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade app-modal" id="deactivateUserModal-@modalSuffix" tabindex="-1" aria-labelledby="deactivateUserLabel-@modalSuffix" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="post" asp-page-handler="Deactivate" asp-route-userId="@user.UserId" class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="deactivateUserLabel-@modalSuffix">Deactivate Employee</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">Deactivate <strong>@user.DisplayName</strong>? This user will no longer be able to access the POS system.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-outline-danger">Deactivate</button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
+@functions {
+    private static HashSet<string> UserRoleCodes(string roles)
+    {
+        return roles.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static HashSet<string> UserPermissionCodes(string permissions)
+    {
+        return permissions.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

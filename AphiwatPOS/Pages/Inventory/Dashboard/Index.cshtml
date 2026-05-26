@@ -1,0 +1,345 @@
+@page
+@model AphiwatPOS.Pages.Inventory.Dashboard.IndexModel
+@using AphiwatPOS.Pages.Inventory
+@{
+    ViewData["Title"] = "Inventory Dashboard";
+    ViewData["Subtitle"] = "Monitor stock health, inventory value, low stock risk, and recent stock movement.";
+    var categoryRows = Model.ValueByCategory.OrderByDescending(x => x.TotalValue).ToArray();
+    var locationRows = Model.ValueByLocation.OrderByDescending(x => x.TotalValue).ToArray();
+    var lowRows = Model.LowStockProducts.ToArray();
+    var movementRows = Model.RecentMovements.ToArray();
+    var topRows = Model.TopMovingProducts.OrderByDescending(x => x.TotalMovedQty).ToArray();
+    var highestLocationId = locationRows.FirstOrDefault()?.LocationId;
+    string DateValue(DateTime? value) => value?.ToString("yyyy-MM-dd") ?? string.Empty;
+    string QtyClass(decimal qty) => qty < 0 ? "text-danger" : qty > 0 ? "text-success" : "text-muted";
+}
+
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div>
+        <h1>Inventory Dashboard</h1>
+        <p>Monitor stock health, inventory value, low stock risk, and recent stock movement.</p>
+    </div>
+    <span class="badge status-badge badge-muted"><i class="bi bi-eye"></i>Read only</span>
+</div>
+
+<form method="get" class="filter-card dashboard-filter mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-xl-2 col-md-4">
+            <label class="form-label">Location</label>
+            <select asp-for="LocationId" class="form-select">
+                <option value="">All locations</option>
+                @foreach (var item in Model.Locations)
+                {
+                    <option value="@item.LocationId">@item.LocationName</option>
+                }
+            </select>
+        </div>
+        <div class="col-xl-2 col-md-4">
+            <label class="form-label">Category</label>
+            <select asp-for="CategoryId" class="form-select">
+                <option value="">All categories</option>
+                @foreach (var item in Model.Categories)
+                {
+                    <option value="@item.CategoryId">@item.CategoryName</option>
+                }
+            </select>
+        </div>
+        <div class="col-xl-2 col-md-4">
+            <label class="form-label">Brand</label>
+            <select asp-for="BrandId" class="form-select">
+                <option value="">All brands</option>
+                @foreach (var item in Model.Brands)
+                {
+                    <option value="@item.BrandId">@item.BrandName</option>
+                }
+            </select>
+        </div>
+        <div class="col-xl-2 col-md-4">
+            <label class="form-label">Date from</label>
+            <input class="form-control" type="date" name="DateFrom" value="@DateValue(Model.DateFrom)" />
+        </div>
+        <div class="col-xl-2 col-md-4">
+            <label class="form-label">Date to</label>
+            <input class="form-control" type="date" name="DateTo" value="@DateValue(Model.DateTo)" />
+        </div>
+        <div class="col-xl-1 col-md-4">
+            <label class="form-label">Group by</label>
+            <select asp-for="GroupBy" class="form-select">
+                <option>Daily</option>
+                <option>Weekly</option>
+                <option>Monthly</option>
+            </select>
+        </div>
+        <div class="col-xl-1 col-md-4 d-flex gap-2">
+            <button class="btn btn-primary w-100" type="submit" data-dashboard-submit><i class="bi bi-funnel"></i></button>
+            <a class="btn btn-outline-secondary" asp-page="./Index"><i class="bi bi-arrow-counterclockwise"></i></a>
+        </div>
+    </div>
+</form>
+
+<div class="summary-grid dashboard-kpi-grid">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-box-seam"></i></span><div class="metric-copy"><div class="metric-label">Total Products</div><div class="metric-value">@Model.Summary.TotalProducts.ToString("N0")</div><div class="metric-helper">Active product masters</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-check2-square"></i></span><div class="metric-copy"><div class="metric-label">Tracked Products</div><div class="metric-value">@Model.Summary.TrackedProducts.ToString("N0")</div><div class="metric-helper">Stock-tracked items</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-boxes"></i></span><div class="metric-copy"><div class="metric-label">Total Stock Qty</div><div class="metric-value">@Model.Summary.TotalStockQty.ToString("N2")</div><div class="metric-helper">From InventoryStock</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-cash-stack"></i></span><div class="metric-copy"><div class="metric-label">Inventory Value</div><div class="metric-value">THB @Model.Summary.TotalStockValue.ToString("N2")</div><div class="metric-helper">Qty times cost price</div></div></div>
+    <div class="summary-card metric-warning"><span class="metric-icon"><i class="bi bi-exclamation-triangle"></i></span><div class="metric-copy"><div class="metric-label">Low Stock Products</div><div class="metric-value">@Model.Summary.LowStockProducts.ToString("N0")</div><div class="metric-helper">Current qty at minimum</div></div></div>
+    <div class="summary-card metric-danger"><span class="metric-icon"><i class="bi bi-x-octagon"></i></span><div class="metric-copy"><div class="metric-label">Out of Stock Products</div><div class="metric-value">@Model.Summary.OutOfStockProducts.ToString("N0")</div><div class="metric-helper">Current qty zero or less</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-arrow-down-circle"></i></span><div class="metric-copy"><div class="metric-label">Stock In Today</div><div class="metric-value">@Model.Summary.StockInQty.ToString("N2")</div><div class="metric-helper">Incoming movements</div></div></div>
+    <div class="summary-card metric-danger"><span class="metric-icon"><i class="bi bi-arrow-up-circle"></i></span><div class="metric-copy"><div class="metric-label">Stock Out Today</div><div class="metric-value">@Model.Summary.StockOutQty.ToString("N2")</div><div class="metric-helper">Outgoing movements</div></div></div>
+    <div class="summary-card @(Model.Summary.NetMovementQty < 0 ? "metric-danger" : "")"><span class="metric-icon"><i class="bi bi-arrow-left-right"></i></span><div class="metric-copy"><div class="metric-label">Net Movement Today</div><div class="metric-value @QtyClass(Model.Summary.NetMovementQty)">@Model.Summary.NetMovementQty.ToString("+0.##;-0.##;0")</div><div class="metric-helper">In minus out</div></div></div>
+</div>
+
+<div class="dashboard-chart-grid">
+    <section class="data-card dashboard-card">
+        <div class="card-heading"><div><h2>Stock Health</h2><p>Current stock status by product.</p></div></div>
+        @if (!Model.StockStatusSummary.Any(x => x.ProductCount > 0))
+        {
+            <div class="empty-state"><i class="bi bi-pie-chart"></i><div class="fw-semibold">No stock status data</div><div>Stock status appears after products and stock balances exist.</div></div>
+        }
+        else
+        {
+            <div class="chart-box chart-box-sm"><canvas id="stockStatusChart"></canvas></div>
+            <div class="chart-legend">
+                @foreach (var item in Model.StockStatusSummary)
+                {
+                    <span><i class="legend-dot @item.StockStatus.Replace(" ", "-").ToLowerInvariant()"></i>@item.StockStatus <strong>@item.ProductCount</strong></span>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="data-card dashboard-card">
+        <div class="card-heading"><div><h2>Stock Movement Trend</h2><p>Stock in, stock out, and net movement over selected period.</p></div></div>
+        @if (!Model.MovementTrend.Any())
+        {
+            <div class="empty-state"><i class="bi bi-graph-up"></i><div class="fw-semibold">No movement trend data</div><div>No inventory movements match the selected filters.</div></div>
+        }
+        else
+        {
+            <div class="chart-box"><canvas id="movementTrendChart"></canvas></div>
+        }
+    </section>
+
+    <section class="data-card dashboard-card">
+        <div class="card-heading"><div><h2>Inventory Value by Category</h2><p>Stock value grouped by product category.</p></div>@if (categoryRows.Length > 8) { <span class="badge status-badge badge-muted">Top 8</span> }</div>
+        @if (!categoryRows.Any())
+        {
+            <div class="empty-state"><i class="bi bi-tags"></i><div class="fw-semibold">No category value data</div><div>Inventory value appears after stock exists for categorized products.</div></div>
+        }
+        else
+        {
+            <div class="chart-box"><canvas id="categoryValueChart"></canvas></div>
+            <div class="rank-list">
+                @foreach (var item in categoryRows.Take(8))
+                {
+                    <div class="rank-row"><span>@item.CategoryName</span><strong>THB @item.TotalValue.ToString("N2")</strong><small>@item.TotalQty.ToString("N2") qty · @item.ProductCount products</small></div>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="data-card dashboard-card">
+        <div class="card-heading"><div><h2>Inventory Value by Location</h2><p>Stock value distributed across locations.</p></div></div>
+        @if (!locationRows.Any())
+        {
+            <div class="empty-state"><i class="bi bi-geo-alt"></i><div class="fw-semibold">No location value data</div><div>Location value appears after stock is recorded at locations.</div></div>
+        }
+        else
+        {
+            <div class="chart-box"><canvas id="locationValueChart"></canvas></div>
+            <div class="table-responsive mt-3">
+                <table class="table table-hover align-middle">
+                    <thead><tr><th>Location</th><th>Qty</th><th>Value</th><th>Products</th></tr></thead>
+                    <tbody>
+                    @foreach (var item in locationRows)
+                    {
+                        <tr class="@(item.LocationId == highestLocationId ? "inventory-row-success" : "")"><td>@item.LocationName</td><td>@item.TotalQty.ToString("N2")</td><td>THB @item.TotalValue.ToString("N2")</td><td>@item.ProductCount</td></tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+<section class="data-card mt-3">
+    <div class="card-heading"><div><h2>Low Stock Products</h2><p>Products that need restocking attention.</p></div></div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>Product</th><th>Category</th><th>Brand</th><th>Location</th><th>Current Qty</th><th>Minimum Stock</th><th>Shortage Qty</th><th>Unit</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            @if (!lowRows.Any())
+            {
+                <tr><td colspan="10"><div class="empty-state"><i class="bi bi-check-circle"></i><div class="fw-semibold">No low stock products</div><div>All tracked products are above their minimum stock level.</div></div></td></tr>
+            }
+            @foreach (var item in lowRows)
+            {
+                <tr class="@(item.StockStatus == "Out of Stock" ? "inventory-row-danger" : "inventory-row-warning")">
+                    <td><span class="fw-semibold d-block">@item.ProductName</span><span class="text-muted small">@item.ProductCode</span></td>
+                    <td>@item.CategoryName</td>
+                    <td>@(string.IsNullOrWhiteSpace(item.BrandName) ? "-" : item.BrandName)</td>
+                    <td>@item.LocationName</td>
+                    <td class="fw-bold">@item.CurrentQty.ToString("N2")</td>
+                    <td>@item.MinimumStockLevel.ToString("N2")</td>
+                    <td><span class="badge status-badge @(item.StockStatus == "Out of Stock" ? "badge-danger" : "badge-warning")">@item.ShortageQty.ToString("N2")</span></td>
+                    <td>@(string.IsNullOrWhiteSpace(item.UnitSymbol) ? item.UnitName : item.UnitSymbol)</td>
+                    <td><span class="badge status-badge @InventoryUi.StatusBadge(item.StockStatus)">@item.StockStatus</span></td>
+                    <td class="text-end"><a class="btn btn-outline-secondary btn-sm @(Model.Permissions.CanViewStock ? "" : "disabled")" asp-page="/Inventory/CurrentStock/Index" asp-route-SearchText="@item.ProductCode" asp-route-LocationId="@item.LocationId">View Stock</a><a class="btn btn-outline-secondary btn-sm @(Model.Permissions.CanViewMovement ? "" : "disabled")" asp-page="/Inventory/Movement/Index" asp-route-ProductId="@item.ProductId" asp-route-LocationId="@item.LocationId">Movement</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<div class="dashboard-table-grid mt-3">
+    <section class="data-card">
+        <div class="card-heading"><div><h2>Recent Stock Movements</h2><p>Latest inventory transactions across products and locations.</p></div></div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead><tr><th>Date</th><th>Product</th><th>Location</th><th>Movement Type</th><th>Quantity</th><th>Reference No</th><th>Created By</th><th class="text-end">Action</th></tr></thead>
+                <tbody>
+                @if (!movementRows.Any())
+                {
+                    <tr><td colspan="8"><div class="empty-state"><i class="bi bi-arrow-left-right"></i><div class="fw-semibold">No recent movements</div><div>Movements appear after sales, returns, receiving, adjustments, counts, or transfers.</div></div></td></tr>
+                }
+                @foreach (var item in movementRows)
+                {
+                    <tr>
+                        <td>@item.MovementDate.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td><span class="fw-semibold d-block">@item.ProductName</span><span class="text-muted small">@item.ProductCode</span></td>
+                        <td>@item.LocationName</td>
+                        <td><span class="badge status-badge @InventoryUi.StatusBadge(item.MovementType)">@item.MovementType</span></td>
+                        <td class="@(InventoryUi.IsOutMovement(item.MovementType, item.QuantitySigned) ? "text-danger" : "text-success") fw-bold">@item.QuantitySigned.ToString("+0.##;-0.##;0")</td>
+                        <td>@(string.IsNullOrWhiteSpace(item.ReferenceNo) ? "-" : item.ReferenceNo)</td>
+                        <td>@(string.IsNullOrWhiteSpace(item.CreatedByName) ? "-" : item.CreatedByName)</td>
+                        <td class="text-end"><a class="btn btn-outline-secondary btn-sm @(Model.Permissions.CanViewMovement ? "" : "disabled")" asp-page="/Inventory/Movement/Index" asp-route-ProductId="@item.ProductId" asp-route-LocationId="@item.LocationId">View Detail</a></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="data-card">
+        <div class="card-heading"><div><h2>Top Moving Products</h2><p>Products with the highest stock activity in the selected period.</p></div></div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead><tr><th>Rank</th><th>Product</th><th>Total In Qty</th><th>Total Out Qty</th><th>Total Movement Qty</th><th>Movement Count</th><th class="text-end">Action</th></tr></thead>
+                <tbody>
+                @if (!topRows.Any())
+                {
+                    <tr><td colspan="7"><div class="empty-state"><i class="bi bi-trophy"></i><div class="fw-semibold">No top moving products</div><div>No product movements match the selected period.</div></div></td></tr>
+                }
+                @for (var i = 0; i < topRows.Length; i++)
+                {
+                    var item = topRows[i];
+                    <tr>
+                        <td><span class="rank-badge @(i < 3 ? "rank-top" : "")">@(i + 1)</span></td>
+                        <td><span class="fw-semibold d-block">@item.ProductName</span><span class="text-muted small">@item.ProductCode</span></td>
+                        <td class="text-success fw-bold">@item.StockInQty.ToString("N2")</td>
+                        <td class="text-danger fw-bold">@item.StockOutQty.ToString("N2")</td>
+                        <td>@item.TotalMovedQty.ToString("N2")</td>
+                        <td>@item.MovementCount</td>
+                        <td class="text-end"><a class="btn btn-outline-secondary btn-sm @(Model.Permissions.CanViewMovement ? "" : "disabled")" asp-page="/Inventory/Movement/Index" asp-route-ProductId="@item.ProductId">Movement</a></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<section class="quick-actions-grid mt-3">
+    <a class="quick-action-card @(Model.Permissions.CanViewStock ? "" : "disabled")" asp-page="/Inventory/CurrentStock/Index"><i class="bi bi-boxes"></i><span>View Current Stock</span><small>Real-time product balances by location.</small></a>
+    <a class="quick-action-card @(Model.Permissions.CanViewStock ? "" : "disabled")" asp-page="/Inventory/LowStock/Index"><i class="bi bi-exclamation-triangle"></i><span>View Low Stock</span><small>Restocking risks and shortages.</small></a>
+    <a class="quick-action-card @(Model.Permissions.CanCreateAdjustment ? "" : "disabled")" asp-page="/Inventory/Adjustment/Index"><i class="bi bi-sliders"></i><span>Create Stock Adjustment</span><small>Correct stock through movement audit.</small></a>
+    <a class="quick-action-card @(Model.Permissions.CanCreateStockCount ? "" : "disabled")" asp-page="/Inventory/StockCount/Index"><i class="bi bi-clipboard-check"></i><span>Start Stock Count</span><small>Compare physical and system quantity.</small></a>
+    <a class="quick-action-card @(Model.Permissions.CanCreateTransfer ? "" : "disabled")" asp-page="/Inventory/Transfer/Index"><i class="bi bi-truck"></i><span>Create Stock Transfer</span><small>Move stock between locations.</small></a>
+    <a class="quick-action-card @(Model.Permissions.CanViewMovement ? "" : "disabled")" asp-page="/Inventory/Movement/Index"><i class="bi bi-arrow-left-right"></i><span>View Stock Movement</span><small>Audit source of truth for stock changes.</small></a>
+</section>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script>
+        (() => {
+            const emerald = "#059669";
+            const amber = "#F59E0B";
+            const red = "#DC2626";
+            const slate = "#64748B";
+            const grid = "#E2E8F0";
+            const money = (value) => `THB ${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            const qty = (value) => Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+            const baseOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 250 },
+                plugins: {
+                    legend: { labels: { color: slate, boxWidth: 10, boxHeight: 10 } },
+                    tooltip: { backgroundColor: "#0F172A", padding: 10, displayColors: true }
+                },
+                scales: {
+                    x: { grid: { color: grid }, ticks: { color: slate } },
+                    y: { grid: { color: grid }, ticks: { color: slate } }
+                }
+            };
+
+            const stockStatus = @Html.Raw(Model.StockStatusChartJson);
+            const movementTrend = @Html.Raw(Model.MovementTrendChartJson);
+            const categoryValue = @Html.Raw(Model.CategoryValueChartJson);
+            const locationValue = @Html.Raw(Model.LocationValueChartJson);
+
+            const statusCanvas = document.getElementById("stockStatusChart");
+            if (statusCanvas) {
+                new Chart(statusCanvas, {
+                    type: "doughnut",
+                    data: { labels: stockStatus.labels, datasets: [{ data: stockStatus.values, backgroundColor: stockStatus.colors, borderColor: "#fff", borderWidth: 3 }] },
+                    options: { responsive: true, maintainAspectRatio: false, cutout: "64%", animation: { duration: 250 }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${qty(ctx.parsed)} products` } } } }
+                });
+            }
+
+            const trendCanvas = document.getElementById("movementTrendChart");
+            if (trendCanvas) {
+                new Chart(trendCanvas, {
+                    type: "line",
+                    data: {
+                        labels: movementTrend.labels,
+                        datasets: [
+                            { label: "Stock In Qty", data: movementTrend.stockIn, borderColor: emerald, backgroundColor: "rgba(5,150,105,.12)", tension: .25, fill: true },
+                            { label: "Stock Out Qty", data: movementTrend.stockOut, borderColor: red, backgroundColor: "rgba(220,38,38,.08)", tension: .25, fill: false },
+                            { label: "Net Qty", data: movementTrend.net, borderColor: amber, backgroundColor: "rgba(245,158,11,.1)", tension: .25, fill: false }
+                        ]
+                    },
+                    options: { ...baseOptions, plugins: { ...baseOptions.plugins, tooltip: { ...baseOptions.plugins.tooltip, callbacks: { label: (ctx) => `${ctx.dataset.label}: ${qty(ctx.parsed.y)}` } } } }
+                });
+            }
+
+            const categoryCanvas = document.getElementById("categoryValueChart");
+            if (categoryCanvas) {
+                new Chart(categoryCanvas, {
+                    type: "bar",
+                    data: { labels: categoryValue.labels, datasets: [{ label: "Inventory Value", data: categoryValue.values, backgroundColor: "rgba(5,150,105,.78)", borderRadius: 4 }] },
+                    options: { ...baseOptions, indexAxis: "y", plugins: { ...baseOptions.plugins, legend: { display: false }, tooltip: { ...baseOptions.plugins.tooltip, callbacks: { label: (ctx) => money(ctx.parsed.x) } } } }
+                });
+            }
+
+            const locationCanvas = document.getElementById("locationValueChart");
+            if (locationCanvas) {
+                new Chart(locationCanvas, {
+                    type: "bar",
+                    data: { labels: locationValue.labels, datasets: [{ label: "Inventory Value", data: locationValue.values, backgroundColor: "rgba(5,150,105,.78)", borderRadius: 4 }] },
+                    options: { ...baseOptions, plugins: { ...baseOptions.plugins, legend: { display: false }, tooltip: { ...baseOptions.plugins.tooltip, callbacks: { label: (ctx) => money(ctx.parsed.y) } } } }
+                });
+            }
+
+            document.querySelector("[data-dashboard-submit]")?.closest("form")?.addEventListener("submit", (event) => {
+                const button = event.submitter;
+                if (!button) return;
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>';
+            });
+        })();
+    </script>
+}

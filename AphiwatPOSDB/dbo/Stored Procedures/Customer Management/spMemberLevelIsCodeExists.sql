@@ -1,0 +1,1 @@
+﻿CREATE PROCEDURE [dbo].[spMemberLevelIsCodeExists] @LevelCode NVARCHAR(50),@ExcludeMemberLevelId INT=NULL AS BEGIN SELECT CONVERT(BIT,CASE WHEN EXISTS(SELECT 1 FROM dbo.MemberLevel WHERE LevelCode=@LevelCode AND (@ExcludeMemberLevelId IS NULL OR MemberLevelId<>@ExcludeMemberLevelId)) THEN 1 ELSE 0 END); END

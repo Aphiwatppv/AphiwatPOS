@@ -1,0 +1,131 @@
+@page
+@model AphiwatPOS.Pages.Sales.SalesHistory.IndexModel
+@using AphiwatPOS.Pages.Sales
+@{
+    ViewData["Title"] = "Sales History";
+    ViewData["Subtitle"] = "Review completed sales, payment records, receipts, and refund status.";
+    var rows = Model.Sales.Sales.ToArray();
+    var totalPages = SalesPageHelpers.TotalPages(Model.Sales.TotalCount, Model.Sales.PageSize);
+    var txCount = Model.Summary.Sum(x => x.TransactionCount);
+    var net = Model.Summary.Sum(x => x.NetAmount);
+    var discount = Model.Summary.Sum(x => x.DiscountAmount);
+    var tax = Model.Summary.Sum(x => x.TaxAmount);
+    var refund = Model.Summary.Sum(x => x.RefundAmount);
+    var creditSales = Model.CustomerCreditSalesAmount;
+}
+
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div><h1>Sales History</h1><p>Review completed sales, payment records, receipts, and refund status.</p></div>
+    <a class="btn btn-primary" asp-page="/Sales/POSCheckout/Index"><i class="bi bi-cart-check me-1"></i>POS Checkout</a>
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-receipt"></i></span><div><div class="metric-label">Total sales</div><div class="metric-value">@rows.Length</div><div class="metric-helper">Rows in current view</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-cash-stack"></i></span><div><div class="metric-label">Net sales amount</div><div class="metric-value">@net.ToString("N2")</div><div class="metric-helper">Selected date range</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-credit-card"></i></span><div><div class="metric-label">Customer credit sales</div><div class="metric-value">@creditSales.ToString("N2")</div><div class="metric-helper">Current page rows</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-bank"></i></span><div><div class="metric-label">Total tax</div><div class="metric-value">@tax.ToString("N2")</div><div class="metric-helper">Tax collected</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-arrow-counterclockwise"></i></span><div><div class="metric-label">Refunded amount</div><div class="metric-value">@refund.ToString("N2")</div><div class="metric-helper">Completed refunds</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-list-check"></i></span><div><div class="metric-label">Transactions</div><div class="metric-value">@txCount</div><div class="metric-helper">Completed sale count</div></div></div>
+</div>
+
+<form method="get" class="filter-card mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-lg-3"><label class="form-label">Search</label><input asp-for="SearchText" class="form-control" placeholder="Sale no, receipt, product, or customer" /></div>
+        <div class="col-lg-2"><label class="form-label">Date from</label><input asp-for="FromDate" class="form-control" type="date" /></div>
+        <div class="col-lg-2"><label class="form-label">Date to</label><input asp-for="ToDate" class="form-control" type="date" /></div>
+        <div class="col-lg-1"><label class="form-label">Cashier</label><input asp-for="CashierUserId" class="form-control" type="number" placeholder="All" /></div>
+        <div class="col-lg-2"><label class="form-label">Payment method</label><select asp-for="PaymentMethodId" class="form-select"><option value="">All</option>@foreach (var method in Model.PaymentMethods) { <option value="@method.PaymentMethodId">@method.PaymentMethodName</option> }</select></div>
+        <div class="col-lg-1"><label class="form-label">Status</label><select asp-for="Status" class="form-select"><option value="">All</option><option>Completed</option><option>PartiallyRefunded</option><option>Refunded</option><option>Voided</option></select></div>
+        <div class="col-lg-1"><label class="form-label">Credit</label><label class="form-check mt-2"><input asp-for="CustomerCreditOnly" class="form-check-input" /> Credit only</label></div>
+        <div class="col-lg-1 d-flex gap-2"><button class="btn btn-primary w-100" type="submit"><i class="bi bi-search"></i></button><a class="btn btn-outline-secondary" asp-page="./Index"><i class="bi bi-x-lg"></i></a></div>
+    </div>
+</form>
+
+<section class="data-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>Sale No</th><th>Sale Date</th><th>Cashier</th><th>Customer</th><th>Net Amount</th><th>Customer Credit Used</th><th>Paid Amount</th><th>Payment Method</th><th>Documents</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            @if (!rows.Any())
+            {
+                <tr><td colspan="11"><div class="empty-state"><i class="bi bi-receipt"></i><div class="fw-semibold">No sales history found</div><div>Try a wider date range or clear filters.</div></div></td></tr>
+            }
+            @foreach (var sale in rows)
+            {
+                <tr>
+                    <td><span class="code-badge mono">@sale.SaleNo</span></td>
+                    <td>@sale.SaleDate.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>@sale.CashierName</td>
+                    <td>@(sale.CustomerName ?? "Walk-in")</td>
+                    <td><strong>@sale.NetAmount.ToString("N2")</strong></td>
+                    <td><span class="@(Model.CreditUsedBySale.GetValueOrDefault(sale.SalesHeaderId) > 0 ? "text-warning fw-semibold" : "text-muted")">@Model.CreditUsedBySale.GetValueOrDefault(sale.SalesHeaderId).ToString("N2")</span></td>
+                    <td>@sale.PaidAmount.ToString("N2")</td>
+                    <td><span class="text-muted">@string.Join(", ", Model.PaymentsBySale.GetValueOrDefault(sale.SalesHeaderId)?.Select(x => x.PaymentMethodName).Distinct() ?? Array.Empty<string>())</span></td>
+                    <td>
+                        @{
+                            var docs = Model.DocumentsBySale.GetValueOrDefault(sale.SalesHeaderId) ?? Array.Empty<SalesEngine.Models.SalesDocumentModel>();
+                        }
+                        @if (!docs.Any()) { <span class="text-muted small">None</span> }
+                        @foreach (var doc in docs)
+                        {
+                            <span class="badge status-badge badge-success" title="@doc.DocumentNo">@IndexModel.DocumentLabel(doc.DocumentType) @doc.PrintedCount</span>
+                        }
+                    </td>
+                    <td><span class="badge status-badge @SalesPageHelpers.StatusBadge(sale.Status)">@sale.Status</span></td>
+                    <td class="text-end">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" type="button">Action</button>
+                            <div class="dropdown-menu dropdown-menu-end action-menu">
+                                <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#saleDetail-@sale.SalesHeaderId" type="button"><i class="bi bi-eye"></i>View Detail</button>
+                                <form method="post" asp-page-handler="ReprintReceipt" asp-route-salesHeaderId="@sale.SalesHeaderId"><input type="hidden" name="salesHeaderId" value="@sale.SalesHeaderId" /><button class="dropdown-item" type="submit"><i class="bi bi-printer"></i>Issue / Print Receipt</button></form>
+                                <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#shortTax-@sale.SalesHeaderId" type="button"><i class="bi bi-file-earmark-text"></i>Short Tax Invoice</button>
+                                <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#fullTax-@sale.SalesHeaderId" type="button"><i class="bi bi-building"></i>Full Tax Invoice</button>
+                                <a class="dropdown-item @(Model.CanRefund ? "" : "disabled")" asp-page="/Sales/ReturnsRefunds/Index" asp-route-SearchSaleNo="@sale.SaleNo"><i class="bi bi-arrow-counterclockwise"></i>Start Refund</a>
+                                <button class="dropdown-item text-danger @(Model.CanVoid && sale.Status == "Completed" ? "" : "disabled")" data-bs-toggle="modal" data-bs-target="#voidSale-@sale.SalesHeaderId" type="button"><i class="bi bi-slash-circle"></i>Void</button>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-3"><span class="text-muted">Total rows: @Model.Sales.TotalCount</span><div class="btn-group btn-group-sm"><a class="btn btn-outline-secondary @(Model.PageNumber <= 1 ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-FromDate="@Model.FromDate" asp-route-ToDate="@Model.ToDate" asp-route-CashierUserId="@Model.CashierUserId" asp-route-PaymentMethodId="@Model.PaymentMethodId" asp-route-Status="@Model.Status" asp-route-PageNumber="@(Model.PageNumber - 1)">Previous</a><span class="btn btn-outline-secondary disabled">@Model.PageNumber / @totalPages</span><a class="btn btn-outline-secondary @(Model.PageNumber >= totalPages ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-FromDate="@Model.FromDate" asp-route-ToDate="@Model.ToDate" asp-route-CashierUserId="@Model.CashierUserId" asp-route-PaymentMethodId="@Model.PaymentMethodId" asp-route-Status="@Model.Status" asp-route-PageNumber="@(Model.PageNumber + 1)">Next</a></div></div>
+</section>
+
+@foreach (var sale in rows)
+{
+    <div class="modal fade app-modal" id="saleDetail-@sale.SalesHeaderId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><div><h2 class="modal-title h5">Sale Detail</h2><p class="modal-subtitle">@sale.SaleNo</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><dl class="row detail-list"><dt class="col-md-3">Customer</dt><dd class="col-md-3">@(sale.CustomerName ?? "Walk-in")</dd><dt class="col-md-3">Cashier</dt><dd class="col-md-3">@sale.CashierName</dd><dt class="col-md-3">Subtotal</dt><dd class="col-md-3">@sale.SubtotalAmount.ToString("N2")</dd><dt class="col-md-3">Discount</dt><dd class="col-md-3">@sale.TotalDiscountAmount.ToString("N2")</dd><dt class="col-md-3">Tax</dt><dd class="col-md-3">@sale.TaxAmount.ToString("N2")</dd><dt class="col-md-3">Net</dt><dd class="col-md-3">@sale.NetAmount.ToString("N2")</dd><dt class="col-md-3">Refund status</dt><dd class="col-md-9"><span class="badge status-badge @SalesPageHelpers.StatusBadge(sale.Status)">@sale.Status</span></dd></dl><ul class="nav nav-tabs no-print" role="tablist"><li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#receiptTab-@sale.SalesHeaderId" type="button" role="tab">Receipt Preview</button></li><li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#invoiceTab-@sale.SalesHeaderId" type="button" role="tab">Invoice Preview</button></li></ul><div class="tab-content sale-print-preview"><div class="tab-pane fade show active" id="receiptTab-@sale.SalesHeaderId" role="tabpanel"><div class="print-document receipt-format"><h3>AphiwatPOS</h3><div>Receipt No: @sale.SaleNo</div><div>Sale No: @sale.SaleNo</div><div>Date: @sale.SaleDate.ToString("yyyy-MM-dd HH:mm")</div><hr /><div>Customer: @(sale.CustomerName ?? "Walk-in")</div><div>Cashier: @sale.CashierName</div><hr /><div class="summary-line"><span>Net Amount</span><strong>@sale.NetAmount.ToString("N2")</strong></div><div class="summary-line"><span>Customer Credit Used</span><strong>@Model.CreditUsedBySale.GetValueOrDefault(sale.SalesHeaderId).ToString("N2")</strong></div><div class="summary-line"><span>Paid Amount</span><strong>@sale.PaidAmount.ToString("N2")</strong></div><div class="summary-line"><span>Change</span><strong>@sale.ChangeAmount.ToString("N2")</strong></div>@if (Model.CreditUsedBySale.GetValueOrDefault(sale.SalesHeaderId) > 0) { <div class="alert alert-warning mt-2 mb-0">This sale was paid using customer credit. The customer must repay this amount later.</div> }</div></div><div class="tab-pane fade" id="invoiceTab-@sale.SalesHeaderId" role="tabpanel"><div class="print-document invoice-format"><div class="d-flex justify-content-between border-bottom pb-3 mb-3"><div><h3>AphiwatPOS</h3><div class="text-muted">Professional invoice</div></div><div class="text-end"><strong>Invoice</strong><div>Invoice No: @sale.SaleNo</div><div>Sale No: @sale.SaleNo</div></div></div><div class="row g-3 mb-3"><div class="col-md-6"><strong>Customer</strong><div>@(sale.CustomerName ?? "Walk-in")</div></div><div class="col-md-6 text-md-end"><strong>Sale Information</strong><div>@sale.SaleDate.ToString("yyyy-MM-dd HH:mm")</div><div>Cashier: @sale.CashierName</div></div></div><div class="summary-line"><span>Subtotal</span><strong>@sale.SubtotalAmount.ToString("N2")</strong></div><div class="summary-line"><span>Discount</span><strong>@sale.TotalDiscountAmount.ToString("N2")</strong></div><div class="summary-line"><span>Tax</span><strong>@sale.TaxAmount.ToString("N2")</strong></div><div class="summary-line total"><span>Net Amount</span><strong>@sale.NetAmount.ToString("N2")</strong></div><div class="summary-line"><span>Customer Credit Used</span><strong>@Model.CreditUsedBySale.GetValueOrDefault(sale.SalesHeaderId).ToString("N2")</strong></div><div class="summary-line"><span>Paid Amount</span><strong>@sale.PaidAmount.ToString("N2")</strong></div>@if (Model.CreditUsedBySale.GetValueOrDefault(sale.SalesHeaderId) > 0) { <div class="alert alert-warning mt-3">Customer credit used in this sale becomes customer debt and must be repaid later.</div> }<div class="text-center mt-4 fw-semibold">Thank you.</div></div></div></div><div class="alert alert-success mt-3 mb-0 no-print"><i class="bi bi-info-circle me-1"></i>Use backend detail handlers to load full item, payment, and receipt history when opening this sale from a dedicated detail workflow.</div></div><div class="modal-footer no-print"><form method="post" asp-page-handler="ReprintReceipt" asp-route-salesHeaderId="@sale.SalesHeaderId"><input type="hidden" name="salesHeaderId" value="@sale.SalesHeaderId" /><button class="btn btn-outline-secondary" type="submit"><i class="bi bi-printer me-1"></i>Reprint Receipt</button></form><button class="btn btn-outline-secondary" data-print-sale-doc type="button"><i class="bi bi-file-earmark-text me-1"></i>Print Invoice</button><a class="btn btn-warning @(Model.CanRefund ? "" : "disabled")" asp-page="/Sales/ReturnsRefunds/Index" asp-route-SearchSaleNo="@sale.SaleNo">Start Refund</a><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Close</button></div></div></div>
+    </div>
+    <div class="modal fade app-modal" id="voidSale-@sale.SalesHeaderId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="VoidSale" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Void Sale</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input type="hidden" asp-for="VoidInput.SalesHeaderId" value="@sale.SalesHeaderId" /><div class="alert alert-danger">Voiding keeps the sale record and reverses inventory through movement logic.</div><label class="form-label required">Void reason</label><textarea asp-for="VoidInput.Reason" class="form-control" rows="3" required></textarea></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-outline-danger" type="submit">Confirm Void</button></div></form></div>
+    </div>
+    <div class="modal fade app-modal" id="shortTax-@sale.SalesHeaderId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="IssueDocument" class="modal-content"><div class="modal-header"><div><h2 class="modal-title h5">Short Tax Invoice</h2><p class="modal-subtitle">@sale.SaleNo</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input type="hidden" name="DocumentInput.SalesHeaderId" value="@sale.SalesHeaderId" /><input type="hidden" name="DocumentInput.DocumentType" value="ShortTaxInvoice" /><p class="mb-0">Issue and record a short tax invoice for this sale.</p></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Issue & Print</button></div></form></div>
+    </div>
+    <div class="modal fade app-modal" id="fullTax-@sale.SalesHeaderId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="IssueDocument" class="modal-content"><div class="modal-header"><div><h2 class="modal-title h5">Full Tax Invoice</h2><p class="modal-subtitle">@sale.SaleNo</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input type="hidden" name="DocumentInput.SalesHeaderId" value="@sale.SalesHeaderId" /><input type="hidden" name="DocumentInput.DocumentType" value="FullTaxInvoice" /><div class="modal-form-grid"><div><label class="form-label required">Customer / Company</label><input class="form-control" name="DocumentInput.CustomerName" value="@(sale.CustomerName ?? "")" required /></div><div><label class="form-label required">Tax ID</label><input class="form-control" name="DocumentInput.CustomerTaxId" required /></div><div><label class="form-label">Branch</label><input class="form-control" name="DocumentInput.CustomerBranch" placeholder="Head office or branch" /></div><div class="span-2"><label class="form-label required">Address</label><textarea class="form-control" name="DocumentInput.CustomerAddress" rows="3" required></textarea></div></div></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Issue & Print</button></div></form></div>
+    </div>
+}
+
+<style>
+.sale-print-preview{background:#f8fafc;border:1px solid #e2e8f0;border-top:0;padding:16px}.print-document{background:#fff;border:1px solid #e2e8f0;box-shadow:0 14px 34px rgba(15,23,42,.08);margin:auto;max-width:820px;padding:22px}.receipt-format{max-width:420px}.invoice-format{max-width:820px}.print-document .summary-line{display:flex;gap:12px;justify-content:space-between;margin:8px 0}.print-document .summary-line.total{border-top:1px dashed #cbd5e1;font-size:1.1rem;font-weight:900;padding-top:10px}@@media print{body *{visibility:hidden!important}.modal.show,.modal.show *{visibility:visible!important}.modal.show{display:block!important;inset:0;position:absolute}.modal-backdrop,.no-print,.app-sidebar,.app-topbar,.page-header,.filter-card,.data-card{display:none!important}.modal-dialog,.modal-content,.modal-body{box-shadow:none!important;margin:0!important;max-width:none!important;padding:0!important;width:auto!important}.print-document{border:0!important;box-shadow:none!important;color:#000!important;margin:0!important;max-width:none!important;padding:0!important;width:190mm}.receipt-format{width:80mm}.print-document .alert{border:1px solid #000!important;color:#000!important;background:#fff!important}}
+</style>
+
+@section Scripts {
+<script>
+(() => {
+  document.querySelectorAll('[data-print-sale-doc]').forEach(button => button.addEventListener('click', () => window.print()));
+  document.querySelectorAll('[data-print-invoice-open]').forEach(button => button.addEventListener('click', () => {
+    const target = document.querySelector(button.dataset.bsTarget);
+    target?.addEventListener('shown.bs.modal', () => {
+      const invoiceTab = target.querySelector('[data-bs-target^="#invoiceTab-"]');
+      if (invoiceTab) bootstrap.Tab.getOrCreateInstance(invoiceTab).show();
+    }, { once: true });
+  }));
+})();
+</script>
+}

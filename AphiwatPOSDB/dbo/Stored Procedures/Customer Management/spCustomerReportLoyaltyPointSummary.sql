@@ -1,0 +1,2 @@
+﻿CREATE PROCEDURE [dbo].[spCustomerReportLoyaltyPointSummary] @DateFrom DATETIME2=NULL,@DateTo DATETIME2=NULL,@MemberLevelId INT=NULL,@IsActive BIT=NULL,@Top INT=20,@NoPurchaseAfterDate DATETIME2=NULL AS
+BEGIN SELECT ISNULL(SUM(LifetimeEarnedPoints),0) TotalEarnedPoints,ISNULL(SUM(LifetimeRedeemedPoints),0) TotalRedeemedPoints,ISNULL(SUM(AvailablePoints),0) TotalAvailablePoints,ISNULL((SELECT SUM(PointsOut) FROM dbo.CustomerPointMovement WHERE MovementType=N'Expire'),0) TotalExpiredPoints FROM dbo.CustomerPointBalance; END

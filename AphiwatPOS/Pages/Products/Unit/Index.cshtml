@@ -1,0 +1,113 @@
+﻿@page
+@model AphiwatPOS.Pages.Products.Unit.IndexModel
+@{
+    ViewData["Title"] = "Unit Management";
+    ViewData["Subtitle"] = "Manage selling units, decimal quantity rules, and unit conversion.";
+    ViewData["NextUnitCode"] = Model.NextUnitCode;
+    var units = Model.Units.Units.ToArray();
+    var totalPages = Math.Max(1, (int)Math.Ceiling(Model.Units.TotalCount / (double)Math.Max(1, Model.Units.PageSize)));
+    var conversionCount = Model.ConversionsByUnitId.Values.SelectMany(x => x).DistinctBy(x => x.UnitConversionId).Count();
+}
+
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div><h1>Unit Management</h1><p>Manage selling units, decimal quantity rules, and unit conversion.</p></div>
+    <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#unitAddModal"><i class="bi bi-plus-lg me-1"></i>Add Unit</button>
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-rulers"></i></span><div><div class="metric-label">Total units</div><div class="metric-value">@Model.Units.TotalCount</div><div class="metric-helper">All unit records</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-check-circle"></i></span><div><div class="metric-label">Active units</div><div class="metric-value">@units.Count(x => x.IsActive)</div><div class="metric-helper">Available for products</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-123"></i></span><div><div class="metric-label">Decimal allowed</div><div class="metric-value">@units.Count(x => x.AllowDecimal)</div><div class="metric-helper">Supports fractional sales</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-arrow-left-right"></i></span><div><div class="metric-label">Unit conversions</div><div class="metric-value">@conversionCount</div><div class="metric-helper">Active conversion rules</div></div></div>
+</div>
+
+<form method="get" class="filter-card mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-5"><label class="form-label">Search unit</label><input asp-for="SearchText" class="form-control" placeholder="Search by unit code, name, or symbol" /></div>
+        <div class="col-md-2"><label class="form-label">Active status</label><select asp-for="IsActive" class="form-select"><option value="">All</option><option value="true">Active</option><option value="false">Inactive</option></select></div>
+        <div class="col-md-2"><label class="form-label">Allow decimal</label><select asp-for="AllowDecimal" class="form-select"><option value="">All</option><option value="true">Allowed</option><option value="false">Not allowed</option></select></div>
+        <div class="col-md-3 d-flex gap-2"><button class="btn btn-primary flex-fill" type="submit"><i class="bi bi-search me-1"></i>Search</button><a class="btn btn-outline-secondary" asp-page="./Index">Clear</a></div>
+    </div>
+</form>
+
+<section class="data-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>Unit Code</th><th>Unit Name</th><th>Symbol</th><th>Allow Decimal</th><th>Base Unit</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            @if (!units.Any())
+            {
+                <tr><td colspan="7"><div class="empty-state"><i class="bi bi-rulers"></i><div class="fw-semibold">No units found</div><div>Try changing filters or add a new selling unit.</div></div></td></tr>
+            }
+            @foreach (var unit in units)
+            {
+                <tr>
+                    <td><span class="code-badge mono">@unit.UnitCode</span></td>
+                    <td class="fw-semibold">@unit.UnitName</td>
+                    <td>@unit.UnitSymbol</td>
+                    <td><span class="badge status-badge @(unit.AllowDecimal ? "badge-success" : "badge-muted")">@(unit.AllowDecimal ? "Allowed" : "No")</span></td>
+                    <td><span class="badge status-badge @(unit.IsBaseUnit ? "badge-success" : "badge-muted")">@(unit.IsBaseUnit ? "Base" : "No")</span></td>
+                    <td><span class="badge status-badge @(unit.IsActive ? "badge-success" : "badge-muted")">@(unit.IsActive ? "Active" : "Inactive")</span></td>
+                    <td class="text-end">
+                        <div class="action-group">
+                            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#unitView-@unit.UnitId" type="button"><i class="bi bi-eye me-1"></i>View</button>
+                            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#unitEdit-@unit.UnitId" type="button"><i class="bi bi-pencil me-1"></i>Edit</button>
+                            <div class="dropdown"><button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" type="button">More</button><div class="dropdown-menu dropdown-menu-end action-menu"><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#conversionManage-@unit.UnitId" type="button"><i class="bi bi-arrow-left-right"></i>Manage Conversion</button><button class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#unitDeactivate-@unit.UnitId" type="button"><i class="bi bi-slash-circle"></i>Deactivate</button></div></div>
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-3"><span class="text-muted">Total units: @Model.Units.TotalCount</span><div class="btn-group btn-group-sm"><a class="btn btn-outline-secondary @(Model.Units.PageNumber <= 1 ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-IsActive="@Model.IsActive" asp-route-AllowDecimal="@Model.AllowDecimal" asp-route-PageNumber="@(Model.Units.PageNumber - 1)">Previous</a><span class="btn btn-outline-secondary disabled">@Model.Units.PageNumber / @totalPages</span><a class="btn btn-outline-secondary @(Model.Units.PageNumber >= totalPages ? "disabled" : "")" asp-route-SearchText="@Model.SearchText" asp-route-IsActive="@Model.IsActive" asp-route-AllowDecimal="@Model.AllowDecimal" asp-route-PageNumber="@(Model.Units.PageNumber + 1)">Next</a></div></div>
+</section>
+
+<div class="modal fade app-modal" id="unitAddModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="Create" class="modal-content"><div class="modal-header"><div><h2 class="modal-title h5">Add Unit</h2><p class="modal-subtitle">Create a selling or inventory unit.</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><partial name="_UnitFields" model="null" /></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save Unit</button></div></form></div>
+</div>
+
+@foreach (var unit in units)
+{
+    var conversions = Model.ConversionsByUnitId.GetValueOrDefault(unit.UnitId, Array.Empty<ProductEngine.Models.ProductUnitConversionModel>());
+    <div class="modal fade app-modal" id="unitView-@unit.UnitId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Unit Detail</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><dl class="row detail-list mb-0"><dt class="col-4">Code</dt><dd class="col-8">@unit.UnitCode</dd><dt class="col-4">Name</dt><dd class="col-8">@unit.UnitName</dd><dt class="col-4">Symbol</dt><dd class="col-8">@unit.UnitSymbol</dd><dt class="col-4">Allow Decimal</dt><dd class="col-8">@(unit.AllowDecimal ? "Yes" : "No")</dd><dt class="col-4">Base Unit</dt><dd class="col-8">@(unit.IsBaseUnit ? "Yes" : "No")</dd><dt class="col-4">Description</dt><dd class="col-8">@unit.Description</dd></dl></div></div></div>
+    </div>
+    <div class="modal fade app-modal" id="unitEdit-@unit.UnitId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="Update" class="modal-content"><div class="modal-header"><div><h2 class="modal-title h5">Edit Unit</h2><p class="modal-subtitle">@unit.UnitCode</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><partial name="_UnitFields" model="unit" /></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save Changes</button></div></form></div>
+    </div>
+    <div class="modal fade app-modal" id="conversionManage-@unit.UnitId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header"><div><h2 class="modal-title h5">Manage Unit Conversion</h2><p class="modal-subtitle">Examples: 1 box = 12 pcs, 1 kg = 1000 gram.</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+                <div class="modal-body">
+                    <form method="post" asp-page-handler="CreateConversion" class="filter-card mb-3">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-3"><label class="form-label">From Unit</label><select class="form-select" name="ConversionInput.FromUnitId">@foreach (var option in Model.ActiveUnits) { <option value="@option.UnitId" selected="@(option.UnitId == unit.UnitId)">@option.UnitName (@option.UnitSymbol)</option> }</select></div>
+                            <div class="col-md-3"><label class="form-label">To Unit</label><select class="form-select" name="ConversionInput.ToUnitId">@foreach (var option in Model.ActiveUnits) { <option value="@option.UnitId">@option.UnitName (@option.UnitSymbol)</option> }</select></div>
+                            <div class="col-md-2"><label class="form-label">Conversion Rate</label><input class="form-control" name="ConversionInput.ConversionRate" type="number" step="0.000001" value="1" /></div>
+                            <div class="col-md-3"><label class="form-label">Description</label><input class="form-control" name="ConversionInput.Description" placeholder="1 box = 12 pcs" /></div>
+                            <div class="col-md-1 d-grid"><button class="btn btn-primary" type="submit">Save</button></div>
+                        </div>
+                    </form>
+                    <div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>From Unit</th><th>To Unit</th><th>Conversion Rate</th><th>Description</th><th>Status</th><th class="text-end">Action</th></tr></thead><tbody>
+                        @if (!conversions.Any()) { <tr><td colspan="6"><div class="empty-state"><i class="bi bi-arrow-left-right"></i><div class="fw-semibold">No conversions found</div><div>Add a conversion rule for related units.</div></div></td></tr> }
+                        @foreach (var conversion in conversions)
+                        {
+                            <tr><td>@conversion.FromUnitName</td><td>@conversion.ToUnitName</td><td class="fw-bold">@conversion.ConversionRate</td><td class="text-muted">@conversion.Description</td><td><span class="badge status-badge @(conversion.IsActive ? "badge-success" : "badge-muted")">@(conversion.IsActive ? "Active" : "Inactive")</span></td><td class="text-end"><form method="post" asp-page-handler="DeactivateConversion" asp-route-unitConversionId="@conversion.UnitConversionId"><button class="btn btn-outline-danger btn-sm" type="submit">Deactivate</button></form></td></tr>
+                        }
+                    </tbody></table></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade app-modal" id="unitDeactivate-@unit.UnitId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="Deactivate" asp-route-unitId="@unit.UnitId" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Deactivate Unit</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><p class="mb-0">Deactivate <strong>@unit.UnitName</strong>? Product history remains safe.</p></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-outline-danger" type="submit">Deactivate</button></div></form></div>
+    </div>
+}
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }
+
+

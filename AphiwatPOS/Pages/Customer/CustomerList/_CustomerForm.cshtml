@@ -1,0 +1,17 @@
+@model CustomerEngine.Models.CustomerSummaryModel?
+@{
+    var levels = ViewData["MemberLevels"] as IReadOnlyCollection<CustomerEngine.Models.MemberLevelModel> ?? Array.Empty<CustomerEngine.Models.MemberLevelModel>();
+}
+<input type="hidden" name="CustomerInput.CustomerId" value="@(Model?.CustomerId ?? 0)" />
+<div class="modal-form-grid">
+    <div><label class="form-label">Customer Code</label><input class="form-control" name="CustomerInput.CustomerCode" value="@Model?.CustomerCode" placeholder="Auto-generate if blank" /></div>
+    <div><label class="form-label">Customer Name</label><input class="form-control" name="CustomerInput.CustomerName" value="@Model?.CustomerName" required /></div>
+    <div><label class="form-label">Phone Number</label><input class="form-control" name="CustomerInput.PhoneNumber" value="@Model?.PhoneNumber" required /></div>
+    <div><label class="form-label">Email</label><input class="form-control" name="CustomerInput.Email" value="@Model?.Email" type="email" /></div>
+    <div><label class="form-label">Member Level</label><select class="form-select" name="CustomerInput.MemberLevelId"><option value="">No level</option>@foreach (var level in levels) { <option value="@level.MemberLevelId" selected="@(Model?.MemberLevelName == level.LevelName)">@level.LevelName</option> }</select></div>
+    <div><label class="form-label">Date of Birth</label><input class="form-control" name="CustomerInput.DateOfBirth" type="date" /></div>
+    <div><label class="form-label">Gender</label><select class="form-select" name="CustomerInput.Gender"><option value="">Unspecified</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+    <div class="d-flex align-items-end"><label class="form-check form-switch"><input class="form-check-input" name="CustomerInput.IsActive" value="true" type="checkbox" checked="@(Model?.IsActive ?? true)" /><input type="hidden" name="CustomerInput.IsActive" value="false" /><span class="form-check-label">Active</span></label></div>
+    <div class="span-2"><label class="form-label">Address</label><textarea class="form-control" name="CustomerInput.Address" rows="3"></textarea></div>
+    <div class="span-2"><label class="form-check"><input class="form-check-input" name="CustomerInput.ApplyMemberLevelCreditDefault" value="true" type="checkbox" /><input type="hidden" name="CustomerInput.ApplyMemberLevelCreditDefault" value="false" /> Apply member level credit defaults</label></div>
+</div>
