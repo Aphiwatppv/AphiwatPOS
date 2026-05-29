@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model AphiwatPOS.Pages.Sales.SalesHistory.IndexModel
 @using AphiwatPOS.Pages.Sales
 @{
@@ -112,7 +112,9 @@
 }
 
 <style>
-.sale-print-preview{background:#f8fafc;border:1px solid #e2e8f0;border-top:0;padding:16px}.print-document{background:#fff;border:1px solid #e2e8f0;box-shadow:0 14px 34px rgba(15,23,42,.08);margin:auto;max-width:820px;padding:22px}.receipt-format{max-width:420px}.invoice-format{max-width:820px}.print-document .summary-line{display:flex;gap:12px;justify-content:space-between;margin:8px 0}.print-document .summary-line.total{border-top:1px dashed #cbd5e1;font-size:1.1rem;font-weight:900;padding-top:10px}@@media print{body *{visibility:hidden!important}.modal.show,.modal.show *{visibility:visible!important}.modal.show{display:block!important;inset:0;position:absolute}.modal-backdrop,.no-print,.app-sidebar,.app-topbar,.page-header,.filter-card,.data-card{display:none!important}.modal-dialog,.modal-content,.modal-body{box-shadow:none!important;margin:0!important;max-width:none!important;padding:0!important;width:auto!important}.print-document{border:0!important;box-shadow:none!important;color:#000!important;margin:0!important;max-width:none!important;padding:0!important;width:190mm}.receipt-format{width:80mm}.print-document .alert{border:1px solid #000!important;color:#000!important;background:#fff!important}}
+.sale-print-preview{background:#f8fafc;border:1px solid #e2e8f0;border-top:0;overflow-x:hidden;padding:16px}.print-document{background:#fff;border:1px solid #e2e8f0;box-shadow:0 14px 34px rgba(15,23,42,.08);box-sizing:border-box;color:#000;margin:auto;padding:18px;overflow-wrap:anywhere}.receipt-format{font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.35;max-width:100%;padding:10px;width:min(58mm,100%)}.receipt-format h3{font-size:18px;line-height:1.1;margin:0 0 8px}.receipt-format hr{border:0;border-top:1px dashed #000;margin:8px 0}.invoice-format{max-width:820px}.print-document .summary-line{align-items:flex-start;display:flex;gap:8px;justify-content:space-between;margin:6px 0}.print-document .summary-line span{min-width:0;overflow-wrap:anywhere}.print-document .summary-line strong{flex:0 0 auto;text-align:right}.print-document .summary-line.total{border-top:1px dashed #cbd5e1;font-size:1.1rem;font-weight:900;padding-top:10px}.receipt-format .alert{font-size:11px;padding:6px}
+@@page{margin:0;size:58mm auto}
+@@media print{html,body{background:#fff!important;margin:0!important;padding:0!important;width:58mm}body *{visibility:hidden!important}.modal.show,.modal.show *{visibility:visible!important}.modal.show{display:block!important;inset:0;position:absolute}.modal-backdrop,.no-print,.app-sidebar,.app-topbar,.page-header,.filter-card,.data-card{display:none!important}.modal-dialog,.modal-content,.modal-body,.tab-content,.tab-pane,.sale-print-preview{background:#fff!important;border:0!important;box-shadow:none!important;margin:0!important;max-width:none!important;overflow:visible!important;padding:0!important;width:auto!important}.print-document{border:0!important;box-shadow:none!important;color:#000!important;margin:0!important;max-width:none!important;padding:0!important}.receipt-format{font-size:10.5px!important;line-height:1.25!important;width:58mm!important}.receipt-format h3{font-size:15px!important}.invoice-format{font-size:13px!important;padding:8mm!important;width:190mm!important}.print-document .alert{border:1px solid #000!important;color:#000!important;background:#fff!important}}
 </style>
 
 @section Scripts {
@@ -129,3 +131,4 @@
 })();
 </script>
 }
+

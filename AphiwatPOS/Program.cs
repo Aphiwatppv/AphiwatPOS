@@ -54,6 +54,7 @@ builder.Services.AddAuthorization(options =>
 });
 
 builder.Services.Configure<PromptPayOptions>(builder.Configuration.GetSection("PromptPay"));
+builder.Services.Configure<ReceiptPrinterOptions>(builder.Configuration.GetSection("ReceiptPrinter"));
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IPromptPayQrService, PromptPayQrService>();
 builder.Services.AddScoped<IAccessService, AccessService>();
@@ -88,6 +89,8 @@ builder.Services.AddScoped<ISalesClosingService, SalesClosingService>();
 builder.Services.AddScoped<IHeldSaleService, HeldSaleService>();
 builder.Services.AddScoped<ISalesReturnService, SalesReturnService>();
 builder.Services.AddScoped<IReceiptService, ReceiptService>();
+builder.Services.AddScoped<IReceiptPrinterService, ReceiptPrinterService>();
+builder.Services.AddScoped<ICashDrawerService, CashDrawerService>();
 builder.Services.AddScoped<IWholesalePosService, WholesalePosService>();
 builder.Services.AddScoped<IManagerDashboardService, ManagerDashboardService>();
 builder.Services.AddScoped<ICashierDashboardService, CashierDashboardService>();

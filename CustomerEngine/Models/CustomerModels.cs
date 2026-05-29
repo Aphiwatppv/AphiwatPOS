@@ -452,6 +452,50 @@ public sealed class CustomerCreditRepaymentPagedResultModel
     public int PageSize { get; init; }
 }
 
+public sealed class CreditRepaymentDisplayModel
+{
+    public string TerminalId { get; init; } = "default";
+    public string DisplayState { get; init; } = "Ready";
+    public int? CustomerId { get; init; }
+    public string CustomerName { get; init; } = string.Empty;
+    public string MemberCode { get; init; } = string.Empty;
+    public string PhoneNumber { get; init; } = string.Empty;
+    public string MemberLevel { get; init; } = string.Empty;
+    public string CustomerType { get; init; } = string.Empty;
+    public decimal OutstandingBalance { get; init; }
+    public decimal AvailableCreditLimit { get; init; }
+    public decimal OverdueAmount { get; init; }
+    public int UnpaidInvoiceCount { get; init; }
+    public DateTime? DueDate { get; init; }
+    public DateTime? LastRepaymentDate { get; init; }
+    public decimal RepaymentAmount { get; init; }
+    public string PaymentMethod { get; init; } = string.Empty;
+    public decimal CashReceived { get; init; }
+    public decimal ChangeAmount { get; init; }
+    public decimal RemainingBalance { get; init; }
+    public string ReceiptNo { get; init; } = string.Empty;
+    public string Message { get; init; } = string.Empty;
+    public string ErrorMessage { get; init; } = string.Empty;
+}
+
+public sealed class CreditRepaymentResponseModel
+{
+    public bool IsSuccess { get; init; }
+    public string Message { get; init; } = string.Empty;
+    public long? RepaymentId { get; init; }
+    public string ReceiptNo { get; init; } = string.Empty;
+    public int CustomerId { get; init; }
+    public string CustomerName { get; init; } = string.Empty;
+    public decimal OutstandingBalanceBefore { get; init; }
+    public decimal RepaymentAmount { get; init; }
+    public decimal RemainingBalance { get; init; }
+    public string PaymentMethod { get; init; } = string.Empty;
+    public decimal CashReceived { get; init; }
+    public decimal ChangeAmount { get; init; }
+    public string ErrorCode { get; init; } = string.Empty;
+    public string ErrorMessage { get; init; } = string.Empty;
+}
+
 public sealed class CustomerCreditPaymentModel
 {
     public int CustomerId { get; init; }

@@ -1,0 +1,43 @@
+@model SalesEngine.Models.PaymentMethodModel?
+@{
+    var method = Model;
+    var isActive = method?.IsActive ?? true;
+    var requireReference = method?.RequireReferenceNo ?? false;
+    var isCash = method?.IsCash ?? false;
+}
+
+<input type="hidden" name="PaymentInput.PaymentMethodId" value="@(method?.PaymentMethodId ?? 0)" />
+<input type="hidden" name="PaymentInput.IsActive" value="@isActive.ToString().ToLowerInvariant()" />
+
+<div class="row g-3">
+    <div class="col-md-5">
+        <label class="form-label required">Code</label>
+        <input name="PaymentInput.PaymentMethodCode" class="form-control mono" maxlength="30" value="@(method?.PaymentMethodCode ?? string.Empty)" required />
+    </div>
+    <div class="col-md-7">
+        <label class="form-label required">Name</label>
+        <input name="PaymentInput.PaymentMethodName" class="form-control" maxlength="100" value="@(method?.PaymentMethodName ?? string.Empty)" required />
+    </div>
+    <div class="col-12">
+        <label class="form-label">Description</label>
+        <textarea name="PaymentInput.Description" class="form-control" rows="2">@(method?.Description ?? string.Empty)</textarea>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Display order</label>
+        <input name="PaymentInput.DisplayOrder" class="form-control" type="number" min="0" value="@(method?.DisplayOrder ?? 0)" />
+    </div>
+    <div class="col-md-4">
+        <input type="hidden" name="PaymentInput.RequireReferenceNo" value="false" />
+        <div class="form-check form-switch payment-field-switch">
+            <input class="form-check-input" type="checkbox" name="PaymentInput.RequireReferenceNo" value="true" checked="@requireReference" />
+            <label class="form-check-label">Require reference</label>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <input type="hidden" name="PaymentInput.IsCash" value="false" />
+        <div class="form-check form-switch payment-field-switch">
+            <input class="form-check-input" type="checkbox" name="PaymentInput.IsCash" value="true" checked="@isCash" />
+            <label class="form-check-label">Cash method</label>
+        </div>
+    </div>
+</div>

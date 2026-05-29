@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using AphiwatPOS.Pages.Customer;
 using CustomerEngine.Models;
 using CustomerEngine.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using SalesEngine.Models;
@@ -71,6 +72,69 @@ public sealed class IndexModel : PageModel
         }
     }
 
+    public async Task<IActionResult> OnPostCreateCreditRepaymentJsonAsync(CancellationToken cancellationToken)
+    {
+        var before = await _creditService.GetCreditInfoAsync(Input.CustomerId, cancellationToken);
+        var methods = (await _paymentMethodService.GetAllActiveAsync(cancellationToken)).ToArray();
+        var method = methods.FirstOrDefault(x => x.PaymentMethodId == Input.PaymentMethodId);
+        try
+        {
+            if (before is null) throw new InvalidOperationException("Customer does not exist or is inactive.");
+            if (Input.PaymentAmount <= 0) throw new InvalidOperationException("Repayment amount must be greater than zero.");
+            if (method is null) throw new InvalidOperationException("Payment method does not exist or is inactive.");
+            if (Input.PaymentAmount > before.UsedCredit) throw new InvalidOperationException("Repayment amount cannot exceed used credit.");
+
+            var cashReceived = method.IsCash ? Math.Max(Input.CashReceived, Input.PaymentAmount) : Input.PaymentAmount;
+            if (method.IsCash && Input.CashReceived > 0 && Input.CashReceived < Input.PaymentAmount)
+                throw new InvalidOperationException("Cash received must cover the repayment amount.");
+
+            var result = await _creditService.CreateRepaymentAsync(new CustomerCreditRepaymentCreateModel
+            {
+                CustomerId = Input.CustomerId,
+                PaymentMethodId = Input.PaymentMethodId,
+                PaymentAmount = Input.PaymentAmount,
+                ReferenceNo = Input.ReferenceNo,
+                Remark = Input.Remark,
+                CreatedByUserId = CustomerPageHelpers.CurrentUserId(User)
+            }, cancellationToken);
+
+            var after = Math.Max(0, before.UsedCredit - Input.PaymentAmount);
+            return new JsonResult(new CreditRepaymentResponseModel
+            {
+                IsSuccess = true,
+                Message = "Credit repayment completed successfully.",
+                RepaymentId = result.CustomerCreditRepaymentId,
+                ReceiptNo = result.RepaymentNo,
+                CustomerId = before.CustomerId,
+                CustomerName = before.CustomerName,
+                OutstandingBalanceBefore = before.UsedCredit,
+                RepaymentAmount = Input.PaymentAmount,
+                RemainingBalance = after,
+                PaymentMethod = method.PaymentMethodName,
+                CashReceived = cashReceived,
+                ChangeAmount = method.IsCash ? Math.Max(0, cashReceived - Input.PaymentAmount) : 0
+            });
+        }
+        catch (Exception ex)
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            return new JsonResult(new CreditRepaymentResponseModel
+            {
+                IsSuccess = false,
+                Message = "Repayment failed",
+                CustomerId = before?.CustomerId ?? Input.CustomerId,
+                CustomerName = before?.CustomerName ?? string.Empty,
+                OutstandingBalanceBefore = before?.UsedCredit ?? 0,
+                RepaymentAmount = Input.PaymentAmount,
+                RemainingBalance = before?.UsedCredit ?? 0,
+                PaymentMethod = method?.PaymentMethodName ?? string.Empty,
+                CashReceived = Input.CashReceived,
+                ErrorCode = ErrorCodeFor(ex),
+                ErrorMessage = ex.Message
+            });
+        }
+    }
+
     public async Task<IActionResult> OnPostVoidCreditRepaymentAsync(CancellationToken cancellationToken)
     {
         try
@@ -106,6 +170,7 @@ public sealed class IndexModel : PageModel
         [Required] public int CustomerId { get; set; }
         [Required] public int PaymentMethodId { get; set; }
         [Range(0.01, double.MaxValue)] public decimal PaymentAmount { get; set; }
+        public decimal CashReceived { get; set; }
         public string? ReferenceNo { get; set; }
         public string? Remark { get; set; }
     }
@@ -114,5 +179,14 @@ public sealed class IndexModel : PageModel
     {
         public long CustomerCreditRepaymentId { get; set; }
         [Required] public string Reason { get; set; } = string.Empty;
+    }
+
+    private static string ErrorCodeFor(Exception ex)
+    {
+        var message = ex.Message.ToLowerInvariant();
+        if (message.Contains("amount") || message.Contains("cash")) return "INVALID_REPAYMENT_AMOUNT";
+        if (message.Contains("customer")) return "CUSTOMER_CREDIT_ERROR";
+        if (message.Contains("payment method")) return "INVALID_PAYMENT_METHOD";
+        return "CREDIT_REPAYMENT_ERROR";
     }
 }

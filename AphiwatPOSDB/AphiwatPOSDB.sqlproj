@@ -146,6 +146,10 @@
     <Build Include="dbo\Table\Sales Management\SalesPayment.sql" />
     <Build Include="dbo\Table\Sales Management\HeldSaleHeader.sql" />
     <Build Include="dbo\Table\Sales Management\HeldSaleItem.sql" />
+    <Build Include="dbo\Table\Sales Management\CashDrawerConfiguration.sql" />
+    <Build Include="dbo\Table\Sales Management\CashDrawerSession.sql" />
+    <Build Include="dbo\Table\Sales Management\CashDrawerTransaction.sql" />
+    <Build Include="dbo\Table\Sales Management\CashDrawerOpenLog.sql" />
     <Build Include="dbo\Table\Sales Management\SalesReturnHeader.sql" />
     <Build Include="dbo\Table\Sales Management\SalesReturnItem.sql" />
     <Build Include="dbo\Table\Sales Management\SalesReturnPayment.sql" />
@@ -167,6 +171,12 @@
     <Build Include="dbo\Stored Procedures\Sales Management\spReceiptPrintHistoryCreate.sql" />
     <Build Include="dbo\Stored Procedures\Sales Management\spReceiptPrintHistoryGetBySalesHeaderId.sql" />
     <Build Include="dbo\Stored Procedures\Sales Management\spReceiptPrintHistoryGetBySalesReturnHeaderId.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spCashDrawerConfigurationGetActive.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spCashDrawerOpenLogCreate.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spCashDrawerSessionClose.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spCashDrawerSessionGetActive.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spCashDrawerSessionOpen.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spCashDrawerTransactionCreate.sql" />
     <Build Include="dbo\Stored Procedures\Sales Management\spSalesCompleteTransaction.sql" />
     <Build Include="dbo\Stored Procedures\Sales Management\spSalesDailyClosingGet.sql" />
     <Build Include="dbo\Stored Procedures\Sales Management\spSalesDailyClosingSave.sql" />

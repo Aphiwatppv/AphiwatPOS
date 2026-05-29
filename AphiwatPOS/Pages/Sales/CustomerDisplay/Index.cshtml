@@ -15,6 +15,7 @@
         html,body{height:100%;overflow:hidden;width:100%}
         body{background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif;margin:0}
         .display-shell{display:grid;gap:14px;grid-template-rows:auto minmax(0,1fr) auto;height:100vh;max-height:100vh;overflow:hidden;padding:18px;width:100vw}
+        .display-shell.is-ready,.display-shell.is-success{display:block;padding:0}
         .topbar{align-items:center;background:var(--brand);color:#fff;display:flex;gap:22px;justify-content:space-between;min-height:82px;padding:16px 22px}
         .brand{font-size:clamp(2rem,3.4vw,3.7rem);font-weight:900;letter-spacing:0;line-height:1}
         .status{background:#e0f2fe;border:1px solid #7dd3fc;color:#075985;font-size:clamp(1.25rem,2.2vw,2rem);font-weight:900;min-width:320px;padding:14px 18px;text-align:center;text-transform:uppercase}
@@ -71,12 +72,106 @@
         .message-bar.success{background:#ecfdf5;border-color:#86efac;color:var(--success)}
         .message-bar.fail{background:#fef2f2;border-color:#fca5a5;color:var(--danger)}
         .message-bar.warning{background:#fffbeb;border-color:#fcd34d;color:#92400e}
+        .full-state{align-items:center;background:linear-gradient(180deg,#ffffff 0%,#f3faf7 100%);display:none;height:100vh;justify-content:center;overflow:hidden;padding:clamp(28px,5vw,72px);text-align:center;width:100vw}
+        .display-shell.is-ready .ready-state,.display-shell.is-success .success-state{display:flex}
+        .display-shell.is-ready .topbar,.display-shell.is-ready .main-grid,.display-shell.is-ready .message-bar,.display-shell.is-success .topbar,.display-shell.is-success .main-grid,.display-shell.is-success .message-bar{display:none}
+        .state-content{display:grid;gap:clamp(14px,2.4vw,28px);justify-items:center;max-width:1100px;width:min(100%,1100px)}
+        .state-logo{align-items:center;background:var(--brand);color:#fff;display:flex;font-size:clamp(2.3rem,5vw,5.8rem);font-weight:900;height:clamp(110px,18vw,210px);justify-content:center;line-height:1;padding:0 clamp(28px,4vw,54px);min-width:min(82vw,620px)}
+        .state-kicker{color:var(--muted);font-size:clamp(1.2rem,2vw,2.1rem);font-weight:900;text-transform:uppercase}
+        .state-title{color:#123026;font-size:clamp(3.2rem,8vw,9rem);font-weight:900;letter-spacing:0;line-height:.95;margin:0}
+        .state-subtitle{color:var(--muted);font-size:clamp(1.5rem,3vw,3.5rem);font-weight:900;line-height:1.1;margin:0}
+        .success-icon{align-items:center;background:#dcfce7;color:var(--success);display:flex;font-size:clamp(4.2rem,9vw,10rem);font-weight:900;height:clamp(130px,18vw,230px);justify-content:center;width:clamp(130px,18vw,230px);border-radius:999px}
+        .success-meta{display:grid;gap:12px;grid-template-columns:repeat(2,minmax(260px,1fr));margin-top:10px;max-width:980px;width:100%}
+        .success-meta div{background:#fff;border:1px solid var(--line);display:flex;gap:18px;justify-content:space-between;padding:18px 22px;text-align:left}
+        .success-meta span{color:var(--muted);font-size:clamp(1rem,1.4vw,1.5rem);font-weight:900}
+        .success-meta strong{color:#0f172a;font-size:clamp(1.2rem,1.8vw,2rem);font-weight:900;text-align:right}
+        .success-meta .full{grid-column:1/-1}
+        .repayment-state{background:#f8fafc;display:none;height:100vh;overflow:hidden;padding:clamp(18px,2.5vw,34px);width:100vw}
+        .display-shell.is-repayment{display:block;padding:0}
+        .display-shell.is-repayment .repayment-state{display:grid}
+        .display-shell.is-repayment .topbar,.display-shell.is-repayment .main-grid,.display-shell.is-repayment .message-bar{display:none}
+        .repayment-layout{display:grid;gap:16px;grid-template-rows:auto minmax(0,1fr) auto;height:100%;min-height:0}
+        .repayment-hero{align-items:center;background:#0f766e;color:#fff;display:flex;gap:18px;justify-content:space-between;padding:20px 24px}
+        .repayment-hero h1{font-size:clamp(2rem,4.4vw,5rem);font-weight:900;line-height:1;margin:0}
+        .repayment-hero p{font-size:clamp(1.1rem,1.8vw,2rem);font-weight:800;margin:6px 0 0;opacity:.9}
+        .repayment-badge{background:#ecfdf5;color:#065f46;font-size:clamp(1rem,1.5vw,1.6rem);font-weight:900;padding:12px 16px;text-align:center;text-transform:uppercase}
+        .repayment-grid{display:grid;gap:16px;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);min-height:0}
+        .repayment-card{background:#fff;border:1px solid var(--line);display:grid;min-height:0;padding:18px}
+        .repayment-card h2{font-size:clamp(1.2rem,1.9vw,2rem);font-weight:900;margin:0 0 14px}
+        .repayment-row{align-items:center;border-bottom:1px solid #e2e8f0;display:flex;gap:12px;justify-content:space-between;padding:11px 0}
+        .repayment-row:last-child{border-bottom:0}
+        .repayment-row span{color:var(--muted);font-size:clamp(.98rem,1.3vw,1.4rem);font-weight:900}
+        .repayment-row strong{font-size:clamp(1.1rem,1.65vw,1.9rem);font-weight:900;text-align:right}
+        .repayment-amount-panel{align-items:center;background:#ecfdf5;border:1px solid #a7f3d0;display:grid;gap:8px;justify-items:center;margin-bottom:14px;padding:22px;text-align:center}
+        .repayment-amount-panel span{color:#065f46;font-size:clamp(1.1rem,1.5vw,1.6rem);font-weight:900;text-transform:uppercase}
+        .repayment-amount-panel strong{color:#047857;font-size:clamp(3rem,6vw,7rem);font-weight:900;line-height:1}
+        .repayment-footer{background:#fff;border:1px solid var(--line);font-size:clamp(1.2rem,2vw,2.2rem);font-weight:900;padding:16px 20px;text-align:center}
+        .repayment-footer.warning{background:#fffbeb;border-color:#fcd34d;color:#92400e}
+        .repayment-footer.fail{background:#fef2f2;border-color:#fca5a5;color:#b91c1c}
         @@media(max-width:1180px){.main-grid{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}.payment-panel{grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr}.payment-panel .panel-head{grid-column:1/-1}.qr-box{margin:14px 16px}.item-row,.item-header{grid-template-columns:minmax(280px,1fr) 90px 135px 115px 145px}}
-        @@media(max-width:800px){.display-shell{gap:10px;padding:10px}.topbar{align-items:stretch;display:grid;min-height:auto}.status{min-width:0}.payment-panel{display:block}.item-header{display:none}.item-row{grid-template-columns:1fr 1fr;gap:8px}.product-cell{grid-column:1/-1}.num{text-align:left}.line.total strong{font-size:2.2rem}}
+        @@media(max-width:800px){.display-shell{gap:10px;padding:10px}.topbar{align-items:stretch;display:grid;min-height:auto}.status{min-width:0}.payment-panel{display:block}.item-header{display:none}.item-row{grid-template-columns:1fr 1fr;gap:8px}.product-cell{grid-column:1/-1}.num{text-align:left}.line.total strong{font-size:2.2rem}.success-meta{grid-template-columns:1fr}.success-meta .full{grid-column:auto}.success-meta div{display:grid;text-align:center}.success-meta strong{text-align:center}.repayment-grid{grid-template-columns:1fr}.repayment-hero{align-items:flex-start;display:grid}.repayment-state{overflow:auto}}
     </style>
 </head>
 <body>
     <main class="display-shell">
+        <section class="full-state ready-state" aria-label="Ready">
+            <div class="state-content">
+                <div class="state-logo">AphiwatPOS</div>
+                <div class="state-kicker" data-ready-terminal>Terminal default</div>
+                <h1 class="state-title">Ready for next customer</h1>
+                <p class="state-subtitle">Welcome</p>
+            </div>
+        </section>
+        <section class="full-state success-state" aria-label="Payment Success">
+            <div class="state-content">
+                <div class="success-icon">&#10003;</div>
+                <h1 class="state-title">Thank you for your purchase</h1>
+                <p class="state-subtitle">Payment completed successfully</p>
+                <div class="success-meta">
+                    <div><span>Invoice No / Sale No</span><strong data-success-sale-no>-</strong></div>
+                    <div><span>Grand Total</span><strong data-success-total>THB 0.00</strong></div>
+                    <div><span>Payment Method</span><strong data-success-method>-</strong></div>
+                    <div data-success-change-row><span>Change Amount</span><strong data-success-change>THB 0.00</strong></div>
+                </div>
+            </div>
+        </section>
+        <section class="repayment-state" aria-label="Credit Repayment">
+            <div class="repayment-layout">
+                <header class="repayment-hero">
+                    <div>
+                        <h1 data-repayment-title>Credit Repayment</h1>
+                        <p data-repayment-subtitle>Please wait while we check your account.</p>
+                    </div>
+                    <div class="repayment-badge" data-repayment-status>Credit Repayment</div>
+                </header>
+                <section class="repayment-grid">
+                    <div class="repayment-card">
+                        <h2>Customer Information</h2>
+                        <div class="repayment-row"><span>Customer name</span><strong data-repay-customer-name>-</strong></div>
+                        <div class="repayment-row"><span>Member code</span><strong data-repay-member-code>-</strong></div>
+                        <div class="repayment-row"><span>Phone number</span><strong data-repay-phone>-</strong></div>
+                        <div class="repayment-row"><span>Member level</span><strong data-repay-level>-</strong></div>
+                        <div class="repayment-row"><span>Customer type</span><strong data-repay-type>-</strong></div>
+                        <div class="repayment-row"><span>Available credit</span><strong data-repay-available>THB 0.00</strong></div>
+                        <div class="repayment-row"><span>Outstanding balance</span><strong data-repay-outstanding>THB 0.00</strong></div>
+                    </div>
+                    <div class="repayment-card">
+                        <h2>Repayment Summary</h2>
+                        <div class="repayment-amount-panel"><span>Repayment amount</span><strong data-repay-amount-large>THB 0.00</strong></div>
+                        <div class="repayment-row"><span>Previous outstanding</span><strong data-repay-before>THB 0.00</strong></div>
+                        <div class="repayment-row"><span>Remaining balance</span><strong data-repay-remaining>THB 0.00</strong></div>
+                        <div class="repayment-row"><span>Payment method</span><strong data-repay-method>-</strong></div>
+                        <div class="repayment-row"><span>Cash received</span><strong data-repay-cash>THB 0.00</strong></div>
+                        <div class="repayment-row"><span>Change amount</span><strong data-repay-change>THB 0.00</strong></div>
+                        <div class="repayment-row"><span>Overdue amount</span><strong data-repay-overdue>THB 0.00</strong></div>
+                        <div class="repayment-row"><span>Unpaid invoices</span><strong data-repay-unpaid>0</strong></div>
+                        <div class="repayment-row"><span>Due date</span><strong data-repay-due>-</strong></div>
+                        <div class="repayment-row"><span>Last repayment</span><strong data-repay-last>-</strong></div>
+                    </div>
+                </section>
+                <footer class="repayment-footer" data-repayment-message>Please confirm your repayment amount with the cashier.</footer>
+            </div>
+        </section>
         <header class="topbar">
             <div class="brand">AphiwatPOS</div>
             <div class="status" data-display-status>Scanning Items</div>
@@ -205,6 +300,12 @@
       const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       let displaySocket = null;
       let invocationId = 0;
+      let successResetTimer = null;
+
+      by('[data-ready-terminal]').textContent = `Terminal ${terminalId}`;
+
+      const emptyTotals = () => ({ subtotal:0, itemDiscount:0, orderDiscount:0, lineTax:0, manualTax:0, tax:0, net:0, paid:0, remaining:0, change:0, creditUsed:0, otherPaid:0 });
+      const readyPayload = () => ({ type:'display-state', displayState:'Ready', event:'SaleReset', status:'Ready for next customer', itemCount:0, customer:{}, payment:{}, totals:emptyTotals(), items:[], updatedAt:new Date().toISOString() });
 
       async function startDisplayHub() {
         if (!('WebSocket' in window) || displaySocket) return;
@@ -248,6 +349,103 @@
         message.className = `message-bar ${state || ''}`.trim();
       }
 
+      function normalizeState(message) {
+        const raw = String(message?.displayState || message?.state || message?.status || '').replace(/\s+/g, '').toLowerCase();
+        if (message?.event === 'SaleReset' || raw === 'reset' || raw === 'ready') return 'Ready';
+        if (message?.event === 'CreditRepaymentCompleted' || raw === 'repaymentsuccess') return 'RepaymentSuccess';
+        if (message?.event === 'CreditRepaymentFailed' || raw === 'repaymentfailed') return 'RepaymentFailed';
+        if (message?.event === 'CreditRepaymentProcessing' || raw === 'processingrepayment') return 'ProcessingRepayment';
+        if (message?.event === 'CreditRepaymentStarted' || raw === 'creditrepaymentstarted') return 'CreditRepaymentStarted';
+        if (message?.event === 'CreditCustomerSelected' || raw === 'customerselected') return 'CustomerSelected';
+        if (message?.event === 'CreditRepaymentAmountUpdated' || raw === 'amountentered') return 'AmountEntered';
+        if (message?.event === 'SaleCompleted' || raw === 'paymentsuccess' || (message?.type === 'payment-result' && message?.status === 'success')) return 'PaymentSuccess';
+        if (message?.event === 'SaleFailed' || raw === 'paymentfailed' || raw === 'fail' || (message?.type === 'payment-result' && message?.status === 'fail')) return 'PaymentFailed';
+        if (message?.event === 'PaymentProcessing' || raw === 'processingpayment' || raw === 'paymentprocessing') return 'ProcessingPayment';
+        if (raw === 'waitingforpayment' || raw === 'waitingforpayment.') return 'WaitingForPayment';
+        if (message?.event === 'SaleStarted' || message?.event === 'CartUpdated' || raw === 'scanning' || raw === 'scanningitems' || raw === 'paymentready') return 'Scanning';
+        return (message?.items || []).length ? 'Scanning' : 'Ready';
+      }
+
+      function setShellState(state) {
+        const shell = by('.display-shell');
+        shell.classList.toggle('is-ready', state === 'Ready');
+        shell.classList.toggle('is-success', state === 'PaymentSuccess');
+        shell.classList.toggle('is-repayment', ['CreditRepaymentStarted', 'CustomerSelected', 'AmountEntered', 'ProcessingRepayment', 'RepaymentFailed'].includes(state));
+      }
+
+      function renderReady() {
+        if (successResetTimer) {
+          clearTimeout(successResetTimer);
+          successResetTimer = null;
+        }
+        setShellState('Ready');
+        setStatus('Ready for next customer');
+        setMessage('Welcome. Your purchase details will appear here.');
+        by('[data-sale-no]').textContent = '-';
+        by('[data-item-count]').textContent = '0 items';
+        by('[data-updated-at]').textContent = '-';
+        by('[data-total]').textContent = thb(0);
+        by('[data-customer-name]').textContent = 'Walk-in Customer';
+        by('[data-payment-method]').textContent = '-';
+        by('[data-paid]').textContent = thb(0);
+        by('[data-change]').textContent = thb(0);
+        by('[data-remaining]').textContent = thb(0);
+        by('[data-items]').innerHTML = '<div class="empty">Waiting for scanned items</div>';
+        by('[data-visual]').innerHTML = '<div class="result-icon idle">POS</div>';
+        try { localStorage.setItem(storageKey, JSON.stringify(readyPayload())); } catch {}
+        window.applyCustomerDisplayLanguage?.();
+      }
+
+      function renderSuccess(message, totals, payment) {
+        setShellState('PaymentSuccess');
+        setStatus('Payment Successful', 'success');
+        const isRepayment = normalizeState(message) === 'RepaymentSuccess';
+        setMessage(message.message || (isRepayment ? 'Thank you for your payment' : 'Thank you for your purchase. Payment successful.'), 'success');
+        by('.success-state .state-title').textContent = isRepayment ? 'Thank you for your payment' : 'Thank you for your purchase';
+        by('.success-state .state-subtitle').textContent = isRepayment ? 'Credit repayment completed successfully' : 'Payment completed successfully';
+        by('.success-meta span').textContent = isRepayment ? 'Repayment receipt number' : 'Invoice No / Sale No';
+        by('[data-success-sale-no]').textContent = message.receiptNo || message.invoiceNo || message.saleNo || '-';
+        by('[data-success-total]').textContent = thb(totals.net || message.amount || 0);
+        by('[data-success-method]').textContent = payment.method || '-';
+        by('[data-success-change]').textContent = thb(payment.changeAmount || totals.change || 0);
+        by('[data-success-change-row]').style.display = Number(payment.changeAmount || totals.change || 0) > 0 ? 'flex' : 'none';
+        window.applyCustomerDisplayLanguage?.();
+        if (successResetTimer) clearTimeout(successResetTimer);
+        successResetTimer = setTimeout(() => render(readyPayload()), Number(message.resetDelayMs || 5000));
+      }
+
+      function renderRepayment(message, state) {
+        const customer = message.customer || {};
+        const summary = message.creditSummary || {};
+        const repayment = message.repayment || {};
+        const footer = by('[data-repayment-message]');
+        const fmtDate = value => value ? new Date(value).toLocaleDateString() : '-';
+        setShellState(state);
+        by('[data-repayment-title]').textContent = 'Credit Repayment';
+        by('[data-repayment-subtitle]').textContent = state === 'CreditRepaymentStarted' ? 'Please wait while we check your account.' : state === 'ProcessingRepayment' ? 'Processing repayment...' : state === 'RepaymentFailed' ? 'Repayment failed' : 'Please confirm your repayment amount with the cashier.';
+        by('[data-repayment-status]').textContent = state === 'ProcessingRepayment' ? 'Processing' : state === 'RepaymentFailed' ? 'Failed' : 'Repayment';
+        by('[data-repay-customer-name]').textContent = customer.customerName || customer.name || '-';
+        by('[data-repay-member-code]').textContent = customer.memberCode || customer.customerCode || '-';
+        by('[data-repay-phone]').textContent = customer.phoneNumber || '-';
+        by('[data-repay-level]').textContent = customer.memberLevel || '-';
+        by('[data-repay-type]').textContent = customer.customerType || '-';
+        by('[data-repay-available]').textContent = thb(customer.availableCreditLimit || customer.availableCredit || 0);
+        by('[data-repay-outstanding]').textContent = thb(repayment.outstandingBalance || summary.totalOutstandingBalance || customer.outstandingBalance || 0);
+        by('[data-repay-amount-large]').textContent = thb(repayment.repaymentAmount || 0);
+        by('[data-repay-before]').textContent = thb(repayment.outstandingBalance || summary.totalOutstandingBalance || customer.outstandingBalance || 0);
+        by('[data-repay-remaining]').textContent = thb(repayment.remainingBalance || 0);
+        by('[data-repay-method]').textContent = repayment.paymentMethod || '-';
+        by('[data-repay-cash]').textContent = thb(repayment.cashReceived || 0);
+        by('[data-repay-change]').textContent = thb(repayment.changeAmount || 0);
+        by('[data-repay-overdue]').textContent = thb(summary.overdueAmount || 0);
+        by('[data-repay-unpaid]').textContent = String(summary.unpaidInvoiceCount || 0);
+        by('[data-repay-due]').textContent = fmtDate(summary.dueDate);
+        by('[data-repay-last]').textContent = fmtDate(summary.lastRepaymentDate);
+        footer.textContent = message.errorMessage || message.warning || message.message || 'Please confirm your repayment amount with the cashier.';
+        footer.className = `repayment-footer ${state === 'RepaymentFailed' ? 'fail' : message.warning || state === 'ProcessingRepayment' ? 'warning' : ''}`.trim();
+        window.applyCustomerDisplayLanguage?.();
+      }
+
       function renderVisual(message, totals) {
         const visual = by('[data-visual]');
         const isResult = message?.type === 'payment-result';
@@ -264,8 +462,9 @@
       }
 
       function render(message) {
-        if (!message || !['sale-update', 'promptpay-qr', 'payment-result'].includes(message.type)) return;
+        if (!message) return;
 
+        const state = normalizeState(message);
         const totals = message.totals || {};
         const items = message.items || [];
         const customer = message.customer || {};
@@ -274,9 +473,36 @@
         const isSuccess = message.status === 'success';
         const isFail = message.status === 'fail';
         const isQr = message.type === 'promptpay-qr';
-        const displayStatus = isResult ? (isSuccess ? 'Payment Successful' : 'Payment Failed') : isQr ? 'Waiting for Payment' : (message.status || 'Scanning Items');
+        const displayStatus = state === 'ProcessingPayment' ? 'Processing payment...' : isResult ? (isSuccess ? 'Payment Successful' : 'Payment Failed') : isQr ? 'Waiting for Payment' : (message.status || 'Scanning Items');
 
-        setStatus(displayStatus, isSuccess ? 'success' : isFail ? 'fail' : isQr ? 'warning' : '');
+        if (state === 'Ready') {
+          renderReady();
+          return;
+        }
+        if (successResetTimer) {
+          clearTimeout(successResetTimer);
+          successResetTimer = null;
+        }
+        if (state === 'RepaymentSuccess') {
+          const repayment = message.repayment || {};
+          renderSuccess({
+            ...message,
+            amount: repayment.repaymentAmount,
+            totals: { net: repayment.repaymentAmount, change: repayment.changeAmount }
+          }, { net: repayment.repaymentAmount, change: repayment.changeAmount }, { method: repayment.paymentMethod, changeAmount: repayment.changeAmount });
+          return;
+        }
+        if (['CreditRepaymentStarted', 'CustomerSelected', 'AmountEntered', 'ProcessingRepayment', 'RepaymentFailed'].includes(state)) {
+          renderRepayment(message, state);
+          return;
+        }
+        if (state === 'PaymentSuccess') {
+          renderSuccess(message, totals, payment);
+          return;
+        }
+
+        setShellState('');
+        setStatus(displayStatus, isSuccess ? 'success' : isFail ? 'fail' : (isQr || state === 'ProcessingPayment') ? 'warning' : '');
         by('[data-sale-no]').textContent = message.saleNo ? `Sale ${message.saleNo}` : '-';
         by('[data-item-count]').textContent = `${message.itemCount || 0} item${message.itemCount === 1 ? '' : 's'}`;
         by('[data-updated-at]').textContent = message.updatedAt ? new Date(message.updatedAt).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '-';
@@ -296,7 +522,9 @@
 
         renderVisual(message, totals);
 
-        if (isResult) {
+        if (state === 'ProcessingPayment') {
+          setMessage('Processing payment...', 'warning');
+        } else if (isResult) {
           setMessage(message.message || (isSuccess ? 'Thank you for your purchase. Payment successful.' : 'Payment failed.'), isSuccess ? 'success' : 'fail');
         } else if (isQr) {
           setMessage('Scan the QR code to pay with mobile banking.', 'warning');
@@ -313,7 +541,8 @@
       try {
         const saved = localStorage.getItem(storageKey);
         if (saved) render(JSON.parse(saved));
-      } catch {}
+        else renderReady();
+      } catch { renderReady(); }
 
       if ('BroadcastChannel' in window) {
         const channel = new BroadcastChannel(channelName);

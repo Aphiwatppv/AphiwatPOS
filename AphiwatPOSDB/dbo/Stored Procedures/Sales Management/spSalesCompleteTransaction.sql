@@ -20,6 +20,7 @@ BEGIN
     INSERT INTO @Payments SELECT paymentMethodId, paymentAmount, referenceNo FROM OPENJSON(@PaymentsJson) WITH (paymentMethodId INT '$.paymentMethodId', paymentAmount DECIMAL(18,4) '$.paymentAmount', referenceNo NVARCHAR(100) '$.referenceNo');
 
     IF NOT EXISTS (SELECT 1 FROM @Items) THROW 52100, 'Sale must have at least one item.', 1;
+    IF NOT EXISTS (SELECT 1 FROM dbo.CashDrawerSession WHERE CashierUserId = @CashierUserId AND Status = N'Open') THROW 52136, 'Cashier must open a cash drawer shift before making sales.', 1;
     IF EXISTS (SELECT 1 FROM @Items WHERE Quantity <= 0 OR ItemDiscountAmount < 0) THROW 52101, 'Invalid sale item amount.', 1;
     IF EXISTS (SELECT 1 FROM @Payments WHERE PaymentAmount <= 0) THROW 52102, 'Invalid payment amount.', 1;
     IF EXISTS (SELECT 1 FROM @Items i JOIN dbo.Product p ON p.ProductId=i.ProductId WHERE p.IsActive = 0 OR p.Status <> N'Active') THROW 52103, 'Product is not active.', 1;
@@ -64,7 +65,7 @@ BEGIN
         DECLARE @SalesHeaderId BIGINT, @SaleNo NVARCHAR(50) = CONCAT(N'SAL', FORMAT(SYSUTCDATETIME(),'yyyyMMddHHmmssfff'));
         INSERT INTO dbo.SalesHeader (SaleNo, CustomerId, CashierUserId, SubtotalAmount, ItemDiscountAmount, OrderDiscountAmount, TotalDiscountAmount, TaxAmount, NetAmount, PaidAmount, ChangeAmount, Status, Remark, CreatedByUserId)
         VALUES (@SaleNo, @CustomerId, @CashierUserId, @Subtotal, @ItemDiscount, ISNULL(@OrderDiscountAmount,0), @TotalDiscount, @TotalTax, @Net, @Paid, @Change, N'Completed', ISNULL(@Remark,N''), NULLIF(@CreatedByUserId,0));
-        SET @SalesHeaderId = SCOPE_IDENTITY();
+        SET @SalesHeaderId = CONVERT(BIGINT, SCOPE_IDENTITY());
 
         IF @UseCustomerCredit = 1
         BEGIN
@@ -103,10 +104,13 @@ BEGIN
         SELECT @SalesHeaderId, PaymentMethodId, PaymentAmount, NULLIF(LTRIM(RTRIM(ReferenceNo)),N''), @CreatedByUserId FROM @Payments;
 
         DECLARE @ProductId INT, @LocationId INT, @Qty DECIMAL(18,4), @Cost DECIMAL(18,4);
+        DECLARE @InventoryMovementResult TABLE (InventoryMovementId BIGINT);
         DECLARE sale_cursor CURSOR LOCAL FAST_FORWARD FOR SELECT i.ProductId, i.LocationId, i.Quantity, p.CostPrice FROM @Items i JOIN dbo.Product p ON p.ProductId=i.ProductId WHERE p.IsStockTracked=1;
         OPEN sale_cursor; FETCH NEXT FROM sale_cursor INTO @ProductId, @LocationId, @Qty, @Cost;
         WHILE @@FETCH_STATUS = 0
         BEGIN
+            DELETE FROM @InventoryMovementResult;
+            INSERT INTO @InventoryMovementResult (InventoryMovementId)
             EXEC dbo.spInventoryMovementCreate @ProductId=@ProductId, @LocationId=@LocationId, @MovementType=N'Sale', @Quantity=@Qty, @UnitCost=@Cost, @ReferenceType=N'Sale', @ReferenceId=@SalesHeaderId, @ReferenceNo=@SaleNo, @Reason=N'Sale completed', @AllowNegativeStock=@AllowNegativeStock, @CreatedByUserId=@CreatedByUserId;
             FETCH NEXT FROM sale_cursor INTO @ProductId, @LocationId, @Qty, @Cost;
         END
@@ -114,7 +118,7 @@ BEGIN
 
         IF @HeldSaleHeaderId IS NOT NULL UPDATE dbo.HeldSaleHeader SET Status=N'Completed', UpdatedByUserId=@CreatedByUserId, UpdatedDate=SYSUTCDATETIME() WHERE HeldSaleHeaderId=@HeldSaleHeaderId AND Status IN (N'Held',N'Resumed');
         COMMIT TRANSACTION;
-        SELECT @SalesHeaderId SalesHeaderId, @SaleNo SaleNo, @Net NetAmount, @Paid PaidAmount, @Change ChangeAmount;
+        SELECT CONVERT(BIGINT, @SalesHeaderId) AS SalesHeaderId, @SaleNo AS SaleNo, @Net AS NetAmount, @Paid AS PaidAmount, @Change AS ChangeAmount;
     END TRY
     BEGIN CATCH
         IF CURSOR_STATUS('local','sale_cursor') >= -1 BEGIN CLOSE sale_cursor; DEALLOCATE sale_cursor; END

@@ -1,18 +1,39 @@
 @page
 @model AphiwatPOS.Pages.Customers.CreditRepayment.IndexModel
 @using AphiwatPOS.Pages.Customer
+@using System.Text.Json
 @{
     ViewData["Title"] = "Credit Repayment";
     ViewData["Subtitle"] = "Receive customer payments to reduce used credit and restore available credit.";
     var selected = Model.SelectedCustomer;
     var rows = Model.Repayments.Repayments.ToArray();
+    var customerDisplayUrl = Url.Page("/Sales/CustomerDisplay/Index");
+    var suppressInitialDisplay = string.Equals(Request.Query["DisplayReady"], "1", StringComparison.OrdinalIgnoreCase);
+    var selectedPayload = selected is null ? null : new
+    {
+        selected.CustomerId,
+        CustomerName = selected.CustomerName,
+        MemberCode = selected.CustomerCode,
+        selected.PhoneNumber,
+        MemberLevel = selected.MemberLevelName ?? "No level",
+        CustomerType = "Member",
+        OutstandingBalance = selected.UsedCredit,
+        AvailableCreditLimit = selected.AvailableCredit,
+        OverdueAmount = 0,
+        UnpaidInvoiceCount = selected.UsedCredit > 0 ? 1 : 0,
+        DueDate = (DateTime?)null,
+        LastRepaymentDate = rows.FirstOrDefault()?.RepaymentDate
+    };
 }
 
 <partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
 
 <div class="page-header d-flex align-items-start justify-content-between gap-3">
     <div><h1>Credit Repayment</h1><p>Receive customer payments to reduce used credit and restore available credit.</p></div>
-    <a class="btn btn-outline-secondary" asp-page="/Customers/Credit/Index"><i class="bi bi-credit-card me-1"></i>Customer Credit</a>
+    <div class="d-flex flex-wrap gap-2 justify-content-end">
+        <button class="btn btn-outline-primary" type="button" data-open-customer-display><i class="bi bi-display me-1"></i>Customer Display</button>
+        <a class="btn btn-outline-secondary" asp-page="/Customers/Credit/Index"><i class="bi bi-credit-card me-1"></i>Customer Credit</a>
+    </div>
 </div>
 
 <div class="credit-repayment-shell">
@@ -68,7 +89,8 @@
             <div class="row g-3">
                 <div class="col-md-6"><label class="form-label required">Payment amount</label><input asp-for="Input.PaymentAmount" class="form-control" type="number" min="0.01" step="0.01" data-repay-amount readonly="@(selected is null || selected.UsedCredit <= 0 ? "readonly" : null)" /></div>
                 <div class="col-md-6 d-flex align-items-end"><button class="btn btn-outline-secondary w-100" type="button" data-full-repayment data-used-credit="@(selected?.UsedCredit ?? 0)" @(selected is null || selected.UsedCredit <= 0 ? "disabled" : "")>Full Repayment</button></div>
-                <div class="col-md-6"><label class="form-label required">Payment method</label><select asp-for="Input.PaymentMethodId" class="form-select" required><option value="">Select method</option>@foreach (var method in Model.PaymentMethods) { <option value="@method.PaymentMethodId" data-require-ref="@method.RequireReferenceNo.ToString().ToLowerInvariant()">@method.PaymentMethodName</option> }</select></div>
+                <div class="col-md-6"><label class="form-label required">Payment method</label><select asp-for="Input.PaymentMethodId" class="form-select" required data-repay-method><option value="">Select method</option>@foreach (var method in Model.PaymentMethods) { <option value="@method.PaymentMethodId" data-require-ref="@method.RequireReferenceNo.ToString().ToLowerInvariant()" data-is-cash="@method.IsCash.ToString().ToLowerInvariant()">@method.PaymentMethodName</option> }</select></div>
+                <div class="col-md-6 d-none" data-cash-received-wrap><label class="form-label">Cash received</label><input asp-for="Input.CashReceived" class="form-control" type="number" min="0" step="0.01" data-cash-received /></div>
                 <div class="col-md-6"><label class="form-label">Reference number</label><input asp-for="Input.ReferenceNo" class="form-control" /></div>
                 <div class="col-12"><label class="form-label">Remark</label><textarea asp-for="Input.Remark" class="form-control" rows="3"></textarea></div>
                 @if (selected is not null && selected.UsedCredit <= 0)
@@ -104,8 +126,216 @@
 
 @section Scripts {
 <script>
-document.querySelector('[data-full-repayment]')?.addEventListener('click', e => {
-  document.querySelector('[data-repay-amount]').value = Number(e.currentTarget.dataset.usedCredit || 0).toFixed(2);
-});
+(() => {
+  const customerDisplayUrl = @Html.Raw(JsonSerializer.Serialize(customerDisplayUrl));
+  const searchText = @Html.Raw(JsonSerializer.Serialize(Model.SearchText ?? string.Empty));
+  const suppressInitialDisplay = @Html.Raw(JsonSerializer.Serialize(suppressInitialDisplay));
+  const selectedCustomer = @Html.Raw(JsonSerializer.Serialize(selectedPayload, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+  const displayChannelName = 'aphiwatpos-customer-display';
+  const displayStorageKey = 'aphiwatpos:customer-display';
+  const terminalStorageKey = 'aphiwatpos:terminal-id';
+  const by = selector => document.querySelector(selector);
+  const money = value => Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const terminalId = (() => {
+    try {
+      let id = localStorage.getItem(terminalStorageKey);
+      if (!id) {
+        id = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+        localStorage.setItem(terminalStorageKey, id);
+      }
+      return id;
+    } catch { return 'default'; }
+  })();
+  const channel = 'BroadcastChannel' in window ? new BroadcastChannel(displayChannelName) : null;
+  let displaySocket = null;
+  let displayInvocationId = 0;
+  let suppressAmountPublish = false;
+  let repaymentCompleted = false;
+
+  function emptyDisplay() {
+    return {
+      type:'credit-repayment',
+      terminalId,
+      event:'CreditRepaymentStarted',
+      displayState:'CreditRepaymentStarted',
+      title:'Credit Repayment',
+      message:'Please wait while we check your account.',
+      customer:{},
+      repayment:{ outstandingBalance:0, repaymentAmount:0, remainingBalance:0, cashReceived:0, changeAmount:0, paymentMethod:'' },
+      creditSummary:{ overdueAmount:0, unpaidInvoiceCount:0 },
+      updatedAt:new Date().toISOString()
+    };
+  }
+
+  function selectedOption() {
+    return by('[data-repay-method]')?.selectedOptions?.[0] || null;
+  }
+
+  function paymentMethodName() {
+    return selectedOption()?.textContent?.trim() || '';
+  }
+
+  function isCashMethod() {
+    return selectedOption()?.dataset.isCash === 'true';
+  }
+
+  function currentDisplayPayload(state = 'AmountEntered', event = 'CreditRepaymentAmountUpdated', message = 'Please confirm your repayment amount with the cashier.') {
+    const customer = selectedCustomer || {};
+    const outstanding = Number(customer.outstandingBalance || 0);
+    const amount = Number(by('[data-repay-amount]')?.value || 0);
+    const cashReceived = isCashMethod() ? Number(by('[data-cash-received]')?.value || amount || 0) : amount;
+    const remaining = Math.max(0, outstanding - amount);
+    const change = isCashMethod() ? Math.max(0, cashReceived - amount) : 0;
+    let warning = '';
+    if (amount <= 0) warning = 'Repayment amount must be greater than zero.';
+    else if (amount > outstanding) warning = 'Repayment amount cannot exceed outstanding balance.';
+    else if (isCashMethod() && cashReceived < amount) warning = 'Cash received must cover the repayment amount.';
+    return {
+      type:'credit-repayment',
+      terminalId,
+      event,
+      displayState:state,
+      title:'Credit Repayment',
+      message: warning || message,
+      warning,
+      customer,
+      creditSummary:{
+        totalOutstandingBalance: outstanding,
+        overdueAmount: Number(customer.overdueAmount || 0),
+        unpaidInvoiceCount: Number(customer.unpaidInvoiceCount || 0),
+        dueDate: customer.dueDate || null,
+        lastRepaymentDate: customer.lastRepaymentDate || null
+      },
+      repayment:{
+        outstandingBalance: outstanding,
+        repaymentAmount: amount,
+        remainingBalance: remaining,
+        paymentMethod: paymentMethodName(),
+        cashReceived,
+        changeAmount: change
+      },
+      updatedAt:new Date().toISOString()
+    };
+  }
+
+  function publishDisplay(payload) {
+    try { localStorage.setItem(displayStorageKey, JSON.stringify(payload)); } catch {}
+    channel?.postMessage(payload);
+    if (displaySocket?.readyState === WebSocket.OPEN) {
+      displaySocket.send(JSON.stringify({ type:1, invocationId:String(++displayInvocationId), target:'SendDisplayUpdate', arguments:[terminalId, payload] }) + '\u001e');
+    }
+  }
+
+  function resetPayload() {
+    return { type:'display-state', terminalId, event:'CustomerDisplayReset', displayState:'Ready', status:'Ready for next customer', itemCount:0, customer:{}, payment:{}, totals:{ subtotal:0, itemDiscount:0, orderDiscount:0, lineTax:0, manualTax:0, tax:0, net:0, paid:0, remaining:0, change:0, creditUsed:0, otherPaid:0 }, items:[], updatedAt:new Date().toISOString() };
+  }
+
+  async function startDisplayHub() {
+    if (!('WebSocket' in window) || displaySocket) return;
+    try {
+      const response = await fetch('/pos-display-hub/negotiate?negotiateVersion=1', { method:'POST', credentials:'same-origin' });
+      const negotiate = await response.json();
+      const token = encodeURIComponent(negotiate.connectionToken || negotiate.connectionId);
+      const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      displaySocket = new WebSocket(`${wsProtocol}//${location.host}/pos-display-hub?id=${token}`);
+      displaySocket.onopen = () => {
+        displaySocket.send('{"protocol":"json","version":1}\u001e');
+        displaySocket.send(JSON.stringify({ type:1, invocationId:String(++displayInvocationId), target:'JoinDisplay', arguments:[terminalId] }) + '\u001e');
+        publishDisplay(suppressInitialDisplay ? resetPayload() : selectedCustomer ? currentDisplayPayload('CustomerSelected', 'CreditCustomerSelected') : emptyDisplay());
+      };
+      displaySocket.onclose = () => { displaySocket = null; setTimeout(startDisplayHub, 1500); };
+    } catch {
+      displaySocket = null;
+    }
+  }
+
+  function openCustomerDisplay(syncCurrent = true) {
+    if (!customerDisplayUrl) return;
+    const separator = customerDisplayUrl.includes('?') ? '&' : '?';
+    window.open(`${customerDisplayUrl}${separator}terminalId=${encodeURIComponent(terminalId)}`, 'aphiwatposCustomerDisplay', 'popup=yes,width=1100,height=820');
+    if (syncCurrent) setTimeout(() => publishDisplay(selectedCustomer ? currentDisplayPayload('CustomerSelected', 'CreditCustomerSelected') : emptyDisplay()), 500);
+  }
+
+  function syncCashUi() {
+    by('[data-cash-received-wrap]')?.classList.toggle('d-none', !isCashMethod());
+    if (!isCashMethod()) by('[data-cash-received]').value = '';
+  }
+
+  function updateAmountDisplay() {
+    if (suppressAmountPublish || !selectedCustomer) return;
+    syncCashUi();
+    publishDisplay(currentDisplayPayload());
+  }
+
+  by('[data-open-customer-display]')?.addEventListener('click', () => openCustomerDisplay());
+  by('[data-full-repayment]')?.addEventListener('click', e => {
+    by('[data-repay-amount]').value = Number(e.currentTarget.dataset.usedCredit || 0).toFixed(2);
+    if (isCashMethod()) by('[data-cash-received]').value = by('[data-repay-amount]').value;
+    updateAmountDisplay();
+  });
+  by('[data-repay-amount]')?.addEventListener('input', updateAmountDisplay);
+  by('[data-cash-received]')?.addEventListener('input', updateAmountDisplay);
+  by('[data-repay-method]')?.addEventListener('change', updateAmountDisplay);
+  by('[data-repayment-form]')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (repaymentCompleted) return;
+    const form = event.currentTarget;
+    const button = form.querySelector('button[type="submit"]');
+    const originalButtonHtml = button?.innerHTML;
+    const processing = currentDisplayPayload('ProcessingRepayment', 'CreditRepaymentProcessing', 'Processing repayment...');
+    publishDisplay(processing);
+    if (button) {
+      button.disabled = true;
+      button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Processing repayment...';
+    }
+    try {
+      const response = await fetch('?handler=CreateCreditRepaymentJson', {
+        method:'POST',
+        body:new FormData(form),
+        credentials:'same-origin',
+        headers:{ 'Accept':'application/json' }
+      });
+      const result = await response.json().catch(() => ({ isSuccess:false, message:'Repayment failed', errorMessage:'Server returned an invalid response.' }));
+      if (response.ok && result.isSuccess) {
+        repaymentCompleted = true;
+        publishDisplay({
+          ...currentDisplayPayload('RepaymentSuccess', 'CreditRepaymentCompleted', 'Credit repayment completed successfully'),
+          message:'Thank you for your payment',
+          receiptNo: result.receiptNo,
+          repayment:{
+            outstandingBalance: result.outstandingBalanceBefore,
+            repaymentAmount: result.repaymentAmount,
+            remainingBalance: result.remainingBalance,
+            paymentMethod: result.paymentMethod,
+            cashReceived: result.cashReceived,
+            changeAmount: result.changeAmount
+          }
+        });
+        suppressAmountPublish = true;
+        by('[data-repay-amount]').value = '';
+        by('[data-cash-received]').value = '';
+        setTimeout(() => {
+          publishDisplay(resetPayload());
+          window.location.href = `?SelectedCustomerId=${encodeURIComponent(result.customerId)}&SearchText=${encodeURIComponent(searchText)}&DisplayReady=1`;
+        }, 5000);
+      } else {
+        publishDisplay({ ...currentDisplayPayload('RepaymentFailed', 'CreditRepaymentFailed', 'Repayment failed'), message:'Repayment failed', errorMessage:result.errorMessage || result.message || 'Repayment failed.' });
+        alert(result.errorMessage || result.message || 'Repayment failed.');
+      }
+    } catch (error) {
+      publishDisplay({ ...currentDisplayPayload('RepaymentFailed', 'CreditRepaymentFailed', 'Repayment failed'), message:'Repayment failed', errorMessage:error.message || 'Network or server error.' });
+      alert(error.message || 'Network or server error.');
+    } finally {
+      if (button && !repaymentCompleted) {
+        button.disabled = false;
+        button.innerHTML = originalButtonHtml;
+      }
+    }
+  });
+
+  syncCashUi();
+  publishDisplay(suppressInitialDisplay ? resetPayload() : selectedCustomer ? currentDisplayPayload('CustomerSelected', 'CreditCustomerSelected') : emptyDisplay());
+  startDisplayHub();
+})();
 </script>
 }

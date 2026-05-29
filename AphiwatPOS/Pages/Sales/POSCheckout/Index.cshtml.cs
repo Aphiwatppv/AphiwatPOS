@@ -4,6 +4,7 @@ using CustomerEngine.Models;
 using CustomerEngine.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Options;
 using ProductEngine.Services;
 using SalesEngine.Models;
 using SalesEngine.Services;
@@ -19,10 +20,13 @@ public sealed class IndexModel : PageModel
     private readonly ICustomerService _customerService;
     private readonly ICustomerCreditService _customerCreditService;
     private readonly IReceiptService _receiptService;
+    private readonly IReceiptPrinterService _receiptPrinterService;
+    private readonly ICashDrawerService _cashDrawerService;
+    private readonly IOptionsMonitor<ReceiptPrinterOptions> _printerOptions;
     private readonly ISalesHistoryService _salesHistoryService;
     private readonly IPromptPayQrService _promptPayQrService;
 
-    public IndexModel(ISalesCheckoutService checkoutService, IPaymentMethodService paymentMethodService, IHeldSaleService heldSaleService, IProductService productService, ICustomerService customerService, ICustomerCreditService customerCreditService, IReceiptService receiptService, ISalesHistoryService salesHistoryService, IPromptPayQrService promptPayQrService)
+    public IndexModel(ISalesCheckoutService checkoutService, IPaymentMethodService paymentMethodService, IHeldSaleService heldSaleService, IProductService productService, ICustomerService customerService, ICustomerCreditService customerCreditService, IReceiptService receiptService, IReceiptPrinterService receiptPrinterService, ICashDrawerService cashDrawerService, IOptionsMonitor<ReceiptPrinterOptions> printerOptions, ISalesHistoryService salesHistoryService, IPromptPayQrService promptPayQrService)
     {
         _checkoutService = checkoutService;
         _paymentMethodService = paymentMethodService;
@@ -31,6 +35,9 @@ public sealed class IndexModel : PageModel
         _customerService = customerService;
         _customerCreditService = customerCreditService;
         _receiptService = receiptService;
+        _receiptPrinterService = receiptPrinterService;
+        _cashDrawerService = cashDrawerService;
+        _printerOptions = printerOptions;
         _salesHistoryService = salesHistoryService;
         _promptPayQrService = promptPayQrService;
     }
@@ -49,6 +56,9 @@ public sealed class IndexModel : PageModel
     public string? StatusMessage { get; private set; }
     public string? ErrorMessage { get; private set; }
     public bool CanDiscount { get; private set; }
+    public CashDrawerStatusModel CashDrawerStatus { get; private set; } = new();
+    public bool CanManualOpenDrawer { get; private set; }
+    public bool CanTestDrawer { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
@@ -122,6 +132,8 @@ public sealed class IndexModel : PageModel
                 throw new InvalidOperationException("Discount approval is required for this sale.");
 
             var activeMethods = (await EnsureCustomerCreditPaymentMethodAsync(userId, cancellationToken)).ToArray();
+            if (await _cashDrawerService.GetActiveSessionAsync(userId, cancellationToken) is null)
+                throw new InvalidOperationException("Cashier must open a cash drawer shift before making sales.");
             var creditMethod = FindCreditPaymentMethod(activeMethods);
             var creditAmount = creditMethod is null ? 0 : payments.Where(payment => payment.PaymentMethodId == creditMethod.PaymentMethodId).Sum(payment => payment.PaymentAmount);
             await ValidateCreditPaymentAsync(Input.CustomerId, creditAmount, cancellationToken);
@@ -144,7 +156,8 @@ public sealed class IndexModel : PageModel
             }, cancellationToken);
 
             await IssueDefaultDocumentsAsync(result, Input.CustomerId, userId, cancellationToken);
-            return new JsonResult(await BuildSaleResponseAsync(result, Input.CustomerId, itemInputs, paymentInputs, activeMethods, creditAmount, userId, cancellationToken));
+            var printResult = await PrintReceiptAndOpenDrawerAsync(result, nonCreditPayments, activeMethods, userId, cancellationToken);
+            return new JsonResult(await BuildSaleResponseAsync(result, Input.CustomerId, itemInputs, paymentInputs, activeMethods, creditAmount, userId, printResult.ReceiptPrinted, printResult.ReceiptMessage, printResult.DrawerResult, cancellationToken));
         }
         catch (Exception ex)
         {
@@ -168,6 +181,8 @@ public sealed class IndexModel : PageModel
                 throw new InvalidOperationException("Discount approval is required for this sale.");
 
             var activeMethods = (await EnsureCustomerCreditPaymentMethodAsync(userId, cancellationToken)).ToArray();
+            if (await _cashDrawerService.GetActiveSessionAsync(userId, cancellationToken) is null)
+                throw new InvalidOperationException("Cashier must open a cash drawer shift before making sales.");
             var creditMethod = FindCreditPaymentMethod(activeMethods);
             var creditAmount = creditMethod is null ? 0 : payments.Where(payment => payment.PaymentMethodId == creditMethod.PaymentMethodId).Sum(payment => payment.PaymentAmount);
             await ValidateCreditPaymentAsync(Input.CustomerId, creditAmount, cancellationToken);
@@ -190,7 +205,11 @@ public sealed class IndexModel : PageModel
             }, cancellationToken);
 
             await IssueDefaultDocumentsAsync(result, Input.CustomerId, userId, cancellationToken);
+            var printResult = await PrintReceiptAndOpenDrawerAsync(result, nonCreditPayments, activeMethods, userId, cancellationToken);
             TempData["LastSaleResultJson"] = await BuildSaleResultJsonAsync(result, Input.CustomerId, itemInputs, paymentInputs, activeMethods, creditAmount, userId, cancellationToken);
+            TempData["StatusMessage"] = printResult.DrawerResult.IsSuccess
+                ? $"Sale completed successfully. {printResult.ReceiptMessage} {printResult.DrawerResult.Message}"
+                : $"Sale completed successfully. {printResult.ReceiptMessage} Sale completed, but cash drawer could not be opened. Please check printer connection.";
 
             TempData["LastSaleNo"] = result.SaleNo;
             return RedirectToPage(new { LocationId });
@@ -234,6 +253,95 @@ public sealed class IndexModel : PageModel
         }
     }
 
+    public async Task<IActionResult> OnPostOpenShiftAsync(decimal startingCash, CancellationToken cancellationToken)
+    {
+        if (!SalesPageHelpers.HasSalesAccess(User)) return RedirectToPage("/Account/AccessDenied");
+        var userId = SalesPageHelpers.CurrentUserId(User);
+        try
+        {
+            await _cashDrawerService.OpenShiftAsync(startingCash, userId, userId, cancellationToken);
+            TempData["StatusMessage"] = "Cash drawer shift opened.";
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = ex.Message;
+        }
+
+        return RedirectToPage(new { LocationId });
+    }
+
+    public async Task<IActionResult> OnPostCloseShiftAsync(decimal actualCash, string? note, CancellationToken cancellationToken)
+    {
+        if (!SalesPageHelpers.HasSalesAccess(User)) return RedirectToPage("/Account/AccessDenied");
+        var userId = SalesPageHelpers.CurrentUserId(User);
+        try
+        {
+            var result = await _cashDrawerService.CloseShiftAsync(actualCash, note, userId, userId, cancellationToken);
+            TempData["StatusMessage"] = result.RequiresManagerReview
+                ? "Cash drawer shift closed with a cash difference. Manager review is required."
+                : "Cash drawer shift closed.";
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = ex.Message;
+        }
+
+        return RedirectToPage(new { LocationId });
+    }
+
+    public async Task<IActionResult> OnPostCashInAsync(decimal amount, string reason, CancellationToken cancellationToken)
+    {
+        if (!SalesPageHelpers.HasSalesAccess(User)) return RedirectToPage("/Account/AccessDenied");
+        var userId = SalesPageHelpers.CurrentUserId(User);
+        try
+        {
+            await _cashDrawerService.RecordCashInAsync(amount, reason, userId, userId, cancellationToken);
+            TempData["StatusMessage"] = "Cash in recorded.";
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = ex.Message;
+        }
+
+        return RedirectToPage(new { LocationId });
+    }
+
+    public async Task<IActionResult> OnPostCashOutAsync(decimal amount, string reason, CancellationToken cancellationToken)
+    {
+        if (!CanManageDrawer(User)) return RedirectToPage("/Account/AccessDenied");
+        var userId = SalesPageHelpers.CurrentUserId(User);
+        try
+        {
+            await _cashDrawerService.RecordCashOutAsync(amount, reason, userId, userId, userId, cancellationToken);
+            TempData["StatusMessage"] = "Cash out recorded.";
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = ex.Message;
+        }
+
+        return RedirectToPage(new { LocationId });
+    }
+
+    public async Task<IActionResult> OnPostOpenDrawerJsonAsync(string reason, CancellationToken cancellationToken)
+    {
+        if (!CanManualDrawer(User)) return new JsonResult(new { isSuccess = false, message = "You do not have permission to open the cash drawer manually." }) { StatusCode = StatusCodes.Status403Forbidden };
+        if (string.IsNullOrWhiteSpace(reason)) return new BadRequestObjectResult(new { isSuccess = false, message = "Reason is required." });
+
+        var result = await _cashDrawerService.OpenDrawerManuallyAsync(reason, SalesPageHelpers.CurrentUserId(User), cancellationToken);
+        Response.StatusCode = result.IsSuccess ? StatusCodes.Status200OK : StatusCodes.Status400BadRequest;
+        return new JsonResult(new { isSuccess = result.IsSuccess, message = result.Message, errorMessage = result.ErrorMessage });
+    }
+
+    public async Task<IActionResult> OnPostTestDrawerJsonAsync(CancellationToken cancellationToken)
+    {
+        if (!CanManageDrawer(User)) return new JsonResult(new { isSuccess = false, message = "Only Admin or Manager can test the cash drawer." }) { StatusCode = StatusCodes.Status403Forbidden };
+
+        var result = await _cashDrawerService.TestOpenDrawerAsync(SalesPageHelpers.CurrentUserId(User), cancellationToken);
+        Response.StatusCode = result.IsSuccess ? StatusCodes.Status200OK : StatusCodes.Status400BadRequest;
+        return new JsonResult(new { isSuccess = result.IsSuccess, message = result.Message, errorMessage = result.ErrorMessage });
+    }
+
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
         PaymentMethods = await EnsureCustomerCreditPaymentMethodAsync(SalesPageHelpers.CurrentUserId(User), cancellationToken);
@@ -249,6 +357,9 @@ public sealed class IndexModel : PageModel
         Customers = (await _customerService.GetPagedAsync(new CustomerPagedRequestModel { PageNumber = 1, PageSize = 100, IsActive = true }, cancellationToken)).Customers;
         if (HeldSaleHeaderId.HasValue) HeldSale = await _heldSaleService.GetByIdAsync(HeldSaleHeaderId.Value, cancellationToken);
         CanDiscount = SalesPageHelpers.HasPermission(User, "SALES_DISCOUNT") || User.IsInRole("Admin");
+        CashDrawerStatus = await _cashDrawerService.GetStatusAsync(SalesPageHelpers.CurrentUserId(User), cancellationToken);
+        CanManualOpenDrawer = CanManualDrawer(User);
+        CanTestDrawer = CanManageDrawer(User);
     }
 
     private static IReadOnlyCollection<T> Deserialize<T>(string? json) =>
@@ -304,25 +415,88 @@ public sealed class IndexModel : PageModel
     private bool CanApplyDiscount(int userId) =>
         userId > 0 && (User.IsInRole("Admin") || User.IsInRole("Manager") || SalesPageHelpers.HasPermission(User, "SALES_DISCOUNT"));
 
+    private static bool CanManageDrawer(System.Security.Claims.ClaimsPrincipal user) =>
+        user.IsInRole("Admin") || user.IsInRole("Manager") || SalesPageHelpers.HasPermission(user, "CASH_DRAWER_MANAGE");
+
+    private static bool CanManualDrawer(System.Security.Claims.ClaimsPrincipal user) =>
+        CanManageDrawer(user) || SalesPageHelpers.HasPermission(user, "CASH_DRAWER_OPEN");
+
     private async Task IssueDefaultDocumentsAsync(SalesCompleteResultModel result, int? customerId, int userId, CancellationToken cancellationToken)
     {
-        var salesHeaderId = await ResolveSalesHeaderIdAsync(result, cancellationToken);
+        var salesHeaderId = await ResolveSalesHeaderIdAsync(result, cancellationToken, userId);
         if (salesHeaderId <= 0) return;
 
         await _receiptService.IssueSalesDocumentAsync(new SalesDocumentIssueModel { SalesHeaderId = salesHeaderId, DocumentType = "Receipt", IssuedByUserId = userId }, cancellationToken);
         await _receiptService.IssueSalesDocumentAsync(new SalesDocumentIssueModel { SalesHeaderId = salesHeaderId, DocumentType = "ShortTaxInvoice", IssuedByUserId = userId }, cancellationToken);
     }
 
-    private async Task<long> ResolveSalesHeaderIdAsync(SalesCompleteResultModel result, CancellationToken cancellationToken)
+    private async Task<long> ResolveSalesHeaderIdAsync(SalesCompleteResultModel result, CancellationToken cancellationToken, int? cashierUserId = null)
     {
         if (result.SalesHeaderId > 0) return result.SalesHeaderId;
-        if (string.IsNullOrWhiteSpace(result.SaleNo)) return 0;
+        if (!string.IsNullOrWhiteSpace(result.SaleNo))
+        {
+            var sale = await _salesHistoryService.GetBySaleNoAsync(result.SaleNo, cancellationToken);
+            if (sale?.SalesHeaderId > 0) return sale.SalesHeaderId;
+        }
 
-        var sale = await _salesHistoryService.GetBySaleNoAsync(result.SaleNo, cancellationToken);
-        return sale?.SalesHeaderId ?? 0;
+        if (cashierUserId.HasValue)
+        {
+            var recentSales = await _salesHistoryService.GetPagedAsync(new SalesPagedRequestModel
+            {
+                PageNumber = 1,
+                PageSize = 1,
+                CashierUserId = cashierUserId,
+                Status = "Completed",
+                FromDate = DateTime.Today.AddDays(-1),
+                ToDate = DateTime.Today.AddDays(1)
+            }, cancellationToken);
+            return recentSales.Sales.FirstOrDefault()?.SalesHeaderId ?? 0;
+        }
+
+        return 0;
     }
 
-    private async Task<SaleResponseModel> BuildSaleResponseAsync(SalesCompleteResultModel result, int? customerId, IReadOnlyCollection<SalesCartItemInput> items, IReadOnlyCollection<SalesPaymentInput> payments, IReadOnlyCollection<PaymentMethodModel> paymentMethods, decimal creditAmount, int userId, CancellationToken cancellationToken)
+    private async Task<(bool ReceiptPrinted, string ReceiptMessage, CashDrawerOpenResult DrawerResult)> PrintReceiptAndOpenDrawerAsync(SalesCompleteResultModel result, IReadOnlyCollection<SalesPaymentInputModel> payments, IReadOnlyCollection<PaymentMethodModel> paymentMethods, int userId, CancellationToken cancellationToken)
+    {
+        var salesHeaderId = await ResolveSalesHeaderIdAsync(result, cancellationToken, userId);
+        var printableResult = new SalesCompleteResultModel
+        {
+            SalesHeaderId = salesHeaderId,
+            SaleNo = result.SaleNo,
+            NetAmount = result.NetAmount,
+            PaidAmount = result.PaidAmount,
+            ChangeAmount = result.ChangeAmount
+        };
+        var receiptPrinted = false;
+        var receiptMessage = "Receipt print was not attempted.";
+        var drawerResult = CashDrawerOpenResult.Success("Cash drawer was not opened because payment did not include cash.");
+
+        if (!_printerOptions.CurrentValue.OpenDrawerAfterReceiptPrint)
+        {
+            drawerResult = await _cashDrawerService.OpenDrawerForSaleAsync(printableResult, payments, paymentMethods, userId, cancellationToken);
+        }
+
+        try
+        {
+            if (salesHeaderId <= 0) throw new InvalidOperationException("Sale was saved, but its database id could not be resolved for receipt printing.");
+            await _receiptPrinterService.PrintReceiptAsync(salesHeaderId, userId, cancellationToken);
+            receiptPrinted = true;
+            receiptMessage = "Receipt printed successfully.";
+        }
+        catch (Exception ex)
+        {
+            receiptMessage = $"Receipt could not be printed. {ex.Message}";
+        }
+
+        if (_printerOptions.CurrentValue.OpenDrawerAfterReceiptPrint)
+        {
+            drawerResult = await _cashDrawerService.OpenDrawerForSaleAsync(printableResult, payments, paymentMethods, userId, cancellationToken);
+        }
+
+        return (receiptPrinted, receiptMessage, drawerResult);
+    }
+
+    private async Task<SaleResponseModel> BuildSaleResponseAsync(SalesCompleteResultModel result, int? customerId, IReadOnlyCollection<SalesCartItemInput> items, IReadOnlyCollection<SalesPaymentInput> payments, IReadOnlyCollection<PaymentMethodModel> paymentMethods, decimal creditAmount, int userId, bool receiptPrinted, string receiptMessage, CashDrawerOpenResult drawerResult, CancellationToken cancellationToken)
     {
         var customer = customerId.HasValue ? await _customerService.GetByIdAsync(customerId.Value, cancellationToken) : null;
         var creditInfo = customerId.HasValue ? await _customerCreditService.GetCreditInfoAsync(customerId.Value, cancellationToken) : null;
@@ -333,7 +507,9 @@ public sealed class IndexModel : PageModel
         return new SaleResponseModel
         {
             IsSuccess = true,
-            Message = "Sale completed successfully.",
+            Message = drawerResult.IsSuccess
+                ? "Sale completed successfully."
+                : "Sale completed, but cash drawer could not be opened. Please check printer connection.",
             SaleId = result.SalesHeaderId > 0 ? result.SalesHeaderId : null,
             SaleNo = result.SaleNo,
             InvoiceNo = result.SaleNo,
@@ -351,7 +527,11 @@ public sealed class IndexModel : PageModel
             PaidAmount = payments.Sum(payment => payment.PaymentAmount),
             ChangeAmount = result.ChangeAmount,
             CreditUsed = creditAmount,
-            RemainingCredit = creditInfo?.AvailableCredit
+            RemainingCredit = creditInfo?.AvailableCredit,
+            ReceiptPrinted = receiptPrinted,
+            ReceiptMessage = receiptMessage,
+            CashDrawerOpened = drawerResult.IsSuccess,
+            CashDrawerMessage = drawerResult.Message
         };
     }
 

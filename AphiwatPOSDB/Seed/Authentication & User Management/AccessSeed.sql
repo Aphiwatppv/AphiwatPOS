@@ -74,6 +74,14 @@ IF NOT EXISTS (SELECT 1 FROM [dbo].[AccessPermission] WHERE [PermissionCode] = N
     INSERT INTO [dbo].[AccessPermission] ([PermissionCode], [PermissionName], [ModuleName], [Description])
     VALUES (N'CASH_CLOSING', N'Close daily sales', N'Sales', N'Allow end-of-day sales closing and counted-cash reconciliation');
 
+IF NOT EXISTS (SELECT 1 FROM [dbo].[AccessPermission] WHERE [PermissionCode] = N'CASH_DRAWER_OPEN')
+    INSERT INTO [dbo].[AccessPermission] ([PermissionCode], [PermissionName], [ModuleName], [Description])
+    VALUES (N'CASH_DRAWER_OPEN', N'Open cash drawer', N'Sales', N'Allow manual cash drawer opening with reason logging');
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[AccessPermission] WHERE [PermissionCode] = N'CASH_DRAWER_MANAGE')
+    INSERT INTO [dbo].[AccessPermission] ([PermissionCode], [PermissionName], [ModuleName], [Description])
+    VALUES (N'CASH_DRAWER_MANAGE', N'Manage cash drawer', N'Sales', N'Allow drawer tests, cash out approval, and shift review');
+
 INSERT INTO [dbo].[AccessRolePermission] ([RoleId], [PermissionId])
 SELECT r.[RoleId], p.[PermissionId]
 FROM [dbo].[AccessRole] r
@@ -92,7 +100,7 @@ SELECT r.[RoleId], p.[PermissionId]
 FROM [dbo].[AccessRole] r
 CROSS JOIN [dbo].[AccessPermission] p
 WHERE r.[RoleName] = N'Manager'
-  AND p.[PermissionCode] IN (N'DISCOUNT_APPROVE', N'REFUND_PROCESS', N'STOCK_ADJUST', N'REPORT_VIEW', N'SALES_CHECKOUT', N'SALES_DISCOUNT', N'SALES_REFUND', N'SALES_VOID', N'INVENTORY_VIEW', N'INVENTORY_ADJUST', N'PRODUCT_MANAGE', N'CUSTOMER_MANAGE', N'CASH_CLOSING')
+  AND p.[PermissionCode] IN (N'DISCOUNT_APPROVE', N'REFUND_PROCESS', N'STOCK_ADJUST', N'REPORT_VIEW', N'SALES_CHECKOUT', N'SALES_DISCOUNT', N'SALES_REFUND', N'SALES_VOID', N'INVENTORY_VIEW', N'INVENTORY_ADJUST', N'PRODUCT_MANAGE', N'CUSTOMER_MANAGE', N'CASH_CLOSING', N'CASH_DRAWER_OPEN', N'CASH_DRAWER_MANAGE')
   AND NOT EXISTS
   (
       SELECT 1
@@ -106,7 +114,7 @@ SELECT r.[RoleId], p.[PermissionId]
 FROM [dbo].[AccessRole] r
 CROSS JOIN [dbo].[AccessPermission] p
 WHERE r.[RoleName] = N'Cashier'
-  AND p.[PermissionCode] IN (N'SALES_CHECKOUT', N'CUSTOMER_MANAGE')
+  AND p.[PermissionCode] IN (N'SALES_CHECKOUT', N'CUSTOMER_MANAGE', N'CASH_DRAWER_OPEN')
   AND NOT EXISTS
   (
       SELECT 1

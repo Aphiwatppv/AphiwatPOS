@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model AphiwatPOS.Pages.Sales.POSCheckout.IndexModel
 @using System.Text.Json
 @{
@@ -14,6 +14,9 @@
     var lastSaleResultJson = TempData["LastSaleResultJson"] as string;
     var cashierName = User.FindFirst("DisplayName")?.Value ?? User.Identity?.Name ?? "Cashier";
     var serverErrorMessage = Model.ErrorMessage;
+    var drawerSession = Model.CashDrawerStatus.Session;
+    var drawerOpenUrl = Url.Page("./Index", "OpenDrawerJson");
+    var drawerTestUrl = Url.Page("./Index", "TestDrawerJson");
 }
 
 <partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
@@ -97,6 +100,31 @@
                 <p>Review items before payment</p>
             </div>
             <div class="cart-total" data-net-total>0.00</div>
+        </div>
+
+        <div class="cart-section cash-drawer-card"
+             data-drawer-open-url="@drawerOpenUrl"
+             data-drawer-test-url="@drawerTestUrl">
+            <div class="d-flex align-items-start justify-content-between gap-2">
+                <div>
+                    <div class="summary-kicker">Cash Drawer</div>
+                    <strong>@(drawerSession is null ? "No active shift" : "Shift open")</strong>
+                    <div class="small text-muted">@Model.CashDrawerStatus.PrinterName</div>
+                </div>
+                <span class="payment-status-pill @(drawerSession is null ? "due" : "paid")">@(drawerSession is null ? "Closed" : "Open")</span>
+            </div>
+            <div class="summary-line"><span>Cashier</span><strong>@cashierName</strong></div>
+            <div class="summary-line"><span>Starting cash</span><strong>@((drawerSession?.StartingCash ?? 0).ToString("N2"))</strong></div>
+            <div class="summary-line"><span>Cash sales</span><strong>@((drawerSession?.CashSales ?? 0).ToString("N2"))</strong></div>
+            <div class="summary-line total"><span>Expected cash</span><strong>@((drawerSession?.ExpectedCash ?? 0).ToString("N2"))</strong></div>
+            <div class="drawer-action-grid">
+                <button class="btn btn-outline-success btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#openShiftModal" @(drawerSession is null ? "" : "disabled")><i class="bi bi-play-circle me-1"></i>Open Shift</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#closeShiftModal" @(drawerSession is null ? "disabled" : "")><i class="bi bi-stop-circle me-1"></i>Close Shift</button>
+                <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#cashInModal" @(drawerSession is null ? "disabled" : "")><i class="bi bi-plus-circle me-1"></i>Cash In</button>
+                <button class="btn btn-outline-warning btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#cashOutModal" @(drawerSession is null || !Model.CanTestDrawer ? "disabled" : "")><i class="bi bi-dash-circle me-1"></i>Cash Out</button>
+                <button class="btn btn-outline-dark btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#manualDrawerModal" @(drawerSession is null || !Model.CanManualOpenDrawer ? "disabled" : "")><i class="bi bi-unlock me-1"></i>Open Cash Drawer</button>
+                <button class="btn btn-outline-danger btn-sm" type="button" data-test-drawer @(Model.CanTestDrawer ? "" : "disabled")><i class="bi bi-lightning-charge me-1"></i>Test Drawer</button>
+            </div>
         </div>
 
         <div class="cart-section">
@@ -270,6 +298,26 @@
     <input type="hidden" asp-for="Input.HoldNote" data-hold-note />
 </form>
 
+<div class="modal fade app-modal" id="openShiftModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="OpenShift" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Open Shift</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><label class="form-label">Starting cash</label><input class="form-control" name="startingCash" type="number" min="0" step="0.01" required /></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-success" type="submit">Open Shift</button></div></form></div>
+</div>
+
+<div class="modal fade app-modal" id="closeShiftModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="CloseShift" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Close Shift</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><div class="summary-line"><span>Expected cash</span><strong>@((drawerSession?.ExpectedCash ?? 0).ToString("N2"))</strong></div><label class="form-label">Actual cash</label><input class="form-control" name="actualCash" type="number" min="0" step="0.01" required /><label class="form-label mt-2">Note</label><textarea class="form-control" name="note" rows="2"></textarea></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Close Shift</button></div></form></div>
+</div>
+
+<div class="modal fade app-modal" id="cashInModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="CashIn" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Cash In</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><label class="form-label">Amount</label><input class="form-control" name="amount" type="number" min="0.01" step="0.01" required /><label class="form-label mt-2">Reason</label><select class="form-select" name="reason" required><option>Cash in</option><option>Change money</option><option>Manager inspection</option><option>Other</option></select></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save Cash In</button></div></form></div>
+</div>
+
+<div class="modal fade app-modal" id="cashOutModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="CashOut" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Cash Out</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><div class="alert alert-warning py-2">Cash out requires Manager or Admin approval.</div><label class="form-label">Amount</label><input class="form-control" name="amount" type="number" min="0.01" step="0.01" required /><label class="form-label mt-2">Reason</label><select class="form-select" name="reason" required><option>Cash out</option><option>Change money</option><option>Drawer check</option><option>Manager inspection</option><option>Other</option></select></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-warning" type="submit">Save Cash Out</button></div></form></div>
+</div>
+
+<div class="modal fade app-modal" id="manualDrawerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Open Cash Drawer</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><label class="form-label">Reason</label><select class="form-select" data-manual-drawer-reason required><option value="">Select reason</option><option>Cash in</option><option>Cash out</option><option>Change money</option><option>Drawer check</option><option>Manager inspection</option><option>Other</option></select><div class="alert alert-warning py-2 mt-3 mb-0">This action sends the ESC/POS drawer kick command to the Xprinter and will be saved in the audit log.</div></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-dark" data-open-drawer-confirm type="button">Open Cash Drawer</button></div></div></div>
+</div>
+
 <div class="modal fade app-modal" id="paymentConfirmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered payment-review-dialog">
         <div class="modal-content payment-review-modal">
@@ -284,7 +332,7 @@
                 <section class="payment-review-hero">
                     <div>
                         <span class="review-label">Net Amount</span>
-                        <strong data-modal-net-large>฿0.00</strong>
+                        <strong data-modal-net-large>THB 0.00</strong>
                         <div class="review-helper" data-modal-status-text>Waiting for payment</div>
                     </div>
                     <span class="review-status-badge due" data-payment-status-badge>Balance Due</span>
@@ -419,9 +467,11 @@
 </div>
 
 <style>
-.pos-shell{display:grid;grid-template-columns:minmax(0,1fr)390px;gap:18px}.pos-products{min-width:0}.pos-scan-card{position:sticky;top:82px;z-index:5}.chip-row{display:flex;flex-wrap:wrap;gap:8px}.filter-chip{background:#fff;border:1px solid var(--pos-border);color:var(--pos-muted);font-weight:800;padding:7px 11px}.filter-chip.active,.filter-chip:hover{background:var(--pos-primary-soft);border-color:#a7f3d0;color:var(--pos-primary-hover)}.product-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}.product-card{background:#fff;border:1px solid var(--pos-border);box-shadow:var(--pos-shadow);color:var(--pos-text);display:grid;gap:6px;min-height:172px;padding:12px;text-align:left;transition:.16s}.product-card:hover{border-color:var(--pos-primary);box-shadow:var(--pos-shadow-hover);transform:translateY(-2px)}.product-card.disabled{opacity:.58;pointer-events:none}.product-art{align-items:center;background:var(--pos-primary-soft);border:1px solid #a7f3d0;color:var(--pos-primary);display:flex;height:54px;justify-content:center;overflow:hidden;width:54px}.product-art img,.cart-item-thumb img{display:block;height:100%;object-fit:cover;object-position:center;width:100%}.product-name{font-weight:800;line-height:1.2}.product-code,.product-meta span{color:var(--pos-muted);font-size:.82rem}.product-meta{align-items:center;display:flex;justify-content:space-between}.product-meta strong{color:var(--pos-primary-hover);font-size:1.05rem}.cart-panel{align-self:start;background:#fff;border:1px solid var(--pos-border);box-shadow:var(--pos-shadow-hover);padding:16px;position:sticky;top:82px}.cart-hero{align-items:center;border-bottom:1px solid var(--pos-border);display:grid;gap:12px;grid-template-columns:64px minmax(0,1fr)auto;padding-bottom:14px}.cart-hero:hover .cart-icon-wrap{transform:translateY(-1px)}.cart-icon-wrap{align-items:center;background:linear-gradient(135deg,#059669,#10b981);box-shadow:0 14px 28px rgba(5,150,105,.25);color:#fff;display:flex;font-size:1.65rem;height:60px;justify-content:center;position:relative;transition:.16s;width:60px;border-radius:999px!important}.cart-count-badge,.floating-cart-btn span{animation:pulseCart 1.5s infinite;background:#dc2626;color:#fff;font-size:.74rem;font-weight:900;min-width:22px;padding:2px 6px;position:absolute;right:-4px;top:-5px;text-align:center;border-radius:999px!important}.cart-hero h2{font-size:1.05rem;font-weight:900;margin:0}.cart-hero p{color:var(--pos-muted);margin:2px 0 0}.cart-total{color:var(--pos-primary-hover);font-size:1.3rem;font-weight:900}.cart-section{border-bottom:1px solid var(--pos-border);padding:13px 0}.customer-credit-panel{background:var(--pos-primary-soft);border:1px solid #a7f3d0;padding:10px}.selected-member-card{align-items:center;background:#f8fafc;border:1px solid var(--pos-border);display:flex;gap:10px;padding:10px}.selected-member-icon{align-items:center;background:var(--pos-primary-soft);color:var(--pos-primary);display:flex;height:34px;justify-content:center;width:34px;border-radius:999px!important}.cart-items{max-height:310px;overflow:auto}.cart-item{border:1px solid var(--pos-border);display:grid;gap:8px;margin-bottom:8px;padding:10px}.cart-item.flash{background:var(--pos-primary-soft)}.cart-item-title{display:grid;gap:8px;grid-template-columns:38px minmax(0,1fr)auto}.cart-item-thumb{align-items:center;background:var(--pos-primary-soft);border:1px solid #a7f3d0;color:var(--pos-primary);display:flex;height:38px;justify-content:center;overflow:hidden;width:38px}.qty-control{display:flex;gap:4px}.qty-control input{max-width:70px;text-align:center}.summary-line{display:flex;gap:10px;justify-content:space-between;margin:8px 0}.summary-line input{max-width:126px}.summary-line.total{border-top:0;font-size:1.08rem;font-weight:900;padding-top:0}.payment-method-grid{display:grid;gap:8px;grid-template-columns:repeat(2,minmax(0,1fr))}.payment-method-card{align-items:center;background:#fff;border:1px solid var(--pos-border);display:flex;gap:8px;min-height:42px;padding:9px;position:relative}.payment-method-card.active,.payment-method-card:hover{background:var(--pos-primary-soft);border-color:var(--pos-primary);color:var(--pos-primary-hover)}.payment-method-card.active:after{align-items:center;background:var(--pos-primary);color:#fff;content:"\F26E";display:flex;font-family:"bootstrap-icons";font-size:.7rem;height:18px;justify-content:center;position:absolute;right:6px;top:6px;width:18px;border-radius:999px}.payment-method-card[data-is-credit=true]{background:#fffbeb;border-color:#fde68a;color:#92400e}.payment-method-card[data-is-credit=true].active{border-color:var(--pos-warning);box-shadow:0 10px 24px rgba(245,158,11,.16)}.payment-row{align-items:center;background:#f8fafc;border:1px solid var(--pos-border);display:flex;gap:8px;justify-content:space-between;margin-top:6px;padding:8px}.payment-row.credit-chip{background:#fffbeb;border-color:#f59e0b;color:#92400e}.cart-actions{display:grid;gap:8px;padding-top:14px}.floating-cart-btn{display:none}.pos-empty{grid-column:1/-1}.payment-summary-card{background:#fff;border:1px solid var(--pos-border);box-shadow:0 12px 28px rgba(15,23,42,.06);margin-top:12px;padding:12px}.payment-summary-head{align-items:center;display:flex;justify-content:space-between;margin-bottom:8px}.summary-kicker{color:var(--pos-muted);font-size:.72rem;font-weight:900;letter-spacing:.02em;text-transform:uppercase}.payment-status-pill,.review-status-badge{border:1px solid transparent;font-size:.75rem;font-weight:900;padding:5px 9px;border-radius:999px}.payment-status-pill.paid,.review-status-badge.paid{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.payment-status-pill.due,.review-status-badge.due{background:#fef2f2;border-color:#fecaca;color:#dc2626}.payment-status-pill.credit,.review-status-badge.credit{background:#fffbeb;border-color:#fde68a;color:#92400e}.summary-divider{border-top:1px dashed var(--pos-border);margin:10px 0}.summary-net-row strong{color:var(--pos-primary-hover);font-size:1.28rem}.credit-summary-row{background:#fffbeb;border:1px solid #fde68a;color:#92400e;margin-inline:-4px;padding:7px}.remaining-row{font-size:1.03rem;font-weight:900}.remaining-row.paid strong{color:#047857}.remaining-row.due strong{color:#dc2626}.change-row.has-change{background:#ecfdf5;border:1px solid #a7f3d0;margin-inline:-4px;padding:7px}.credit-progress{background:#d1fae5;height:8px;overflow:hidden;border-radius:999px}.credit-progress span{background:linear-gradient(90deg,#f59e0b,#dc2626);display:block;height:100%;width:0}.credit-fit-message.enough{color:#047857}.credit-fit-message.not-enough{color:#b45309}.payment-review-dialog{max-width:740px}.payment-review-modal{border:0;box-shadow:0 28px 70px rgba(15,23,42,.22)}.payment-review-hero{align-items:start;background:linear-gradient(135deg,#ecfdf5,#fff);border:1px solid #a7f3d0;display:flex;gap:16px;justify-content:space-between;margin-bottom:12px;padding:18px}.review-label{color:var(--pos-muted);display:block;font-size:.78rem;font-weight:900;text-transform:uppercase}.payment-review-hero strong{color:#047857;display:block;font-size:2.35rem;line-height:1.1}.review-helper{color:var(--pos-muted);font-weight:700;margin-top:4px}.review-meta-grid{display:grid;gap:10px;grid-template-columns:1fr 1fr;margin-bottom:16px}.review-meta-grid div{background:#f8fafc;border:1px solid var(--pos-border);padding:10px}.review-meta-grid span{color:var(--pos-muted);display:block;font-size:.78rem;font-weight:800}.review-meta-grid strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.review-section-title{font-size:.84rem;font-weight:900;margin:0 0 8px;text-transform:uppercase}.payment-breakdown{border:1px solid var(--pos-border)}.breakdown-row{align-items:center;display:flex;gap:14px;justify-content:space-between;padding:12px 14px}.breakdown-row+.breakdown-row{border-top:1px solid var(--pos-border)}.breakdown-row span{color:var(--pos-muted);font-weight:800}.breakdown-row strong{font-size:1.12rem}.breakdown-row.net strong,.breakdown-row.paid strong{color:#0f172a;font-size:1.28rem}.breakdown-row.credit{background:#fffbeb}.breakdown-row.credit strong{color:#92400e}.breakdown-row.remaining.paid{background:#ecfdf5}.breakdown-row.remaining.paid strong{color:#047857}.breakdown-row.remaining.due{background:#fef2f2}.breakdown-row.remaining.due strong{color:#dc2626}.breakdown-row.change.has-change{background:#ecfdf5}.review-info{align-items:flex-start;border:1px solid var(--pos-border);display:flex;gap:10px;margin-top:10px;padding:10px}.review-info.success{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.review-info.warning{background:#fffbeb;border-color:#f59e0b;color:#92400e}.review-info.danger{background:#fef2f2;border-color:#fecaca;color:#b91c1c}.review-info.neutral{background:#f8fafc;color:#475569}.receipt-preview-body{background:#f8fafc}.receipt-document{background:#fff;border:1px solid var(--pos-border);box-shadow:0 18px 42px rgba(15,23,42,.08);color:#0f172a;margin:auto;max-width:860px;padding:24px}.receipt-header{align-items:flex-start;border-bottom:2px solid #0f172a;display:flex;justify-content:space-between;margin-bottom:18px;padding-bottom:14px}.receipt-brand{font-size:1.45rem;font-weight:900}.receipt-title{text-align:right;text-transform:uppercase}.receipt-grid{display:grid;gap:14px;grid-template-columns:1fr 1fr;margin-bottom:18px}.receipt-box{border:1px solid #cbd5e1;padding:12px}.receipt-box h4{font-size:.8rem;font-weight:900;margin:0 0 8px;text-transform:uppercase}.receipt-table{font-size:.92rem}.receipt-table th{background:#f8fafc;border-bottom:1px solid #cbd5e1}.receipt-summary{margin-left:auto;max-width:360px}.receipt-summary .summary-line{border-bottom:1px solid #e2e8f0;margin:0;padding:7px 0}.receipt-credit-note{background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-top:14px;padding:10px}.receipt-thanks{text-align:center;font-weight:800;margin-top:18px}@@keyframes pulseCart{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}@@media(max-width:1100px){.pos-shell{grid-template-columns:1fr}.cart-panel{bottom:0;left:0;max-height:84vh;overflow:auto;position:fixed;right:0;top:auto;transform:translateY(calc(100% - 76px));transition:.2s;z-index:2040}.cart-panel.open{transform:translateY(0)}.floating-cart-btn{align-items:center;background:var(--pos-primary);border:0;bottom:22px;box-shadow:0 18px 34px rgba(5,150,105,.28);color:#fff;display:flex;font-size:1.35rem;height:58px;justify-content:center;position:fixed;right:22px;width:58px;z-index:2045;border-radius:999px!important}.floating-cart-btn span{right:-2px;top:-6px}}@@media(max-width:700px){.product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cart-hero{grid-template-columns:58px minmax(0,1fr)}.cart-total{grid-column:1/-1}.payment-method-grid{grid-template-columns:1fr}.payment-review-dialog{margin:.5rem;max-width:none}.payment-review-hero,.receipt-header{display:block}.review-meta-grid,.receipt-grid{grid-template-columns:1fr}.payment-review-hero strong{font-size:1.85rem}}@@media print{body *{visibility:hidden!important}#receiptPreviewModal,#receiptPreviewModal *{visibility:visible!important}#receiptPreviewModal{display:block!important;inset:0;position:absolute}.modal-backdrop,.no-print,.app-sidebar,.app-topbar,.page-header,.pos-shell,.floating-cart-btn{display:none!important}.modal-dialog,.modal-content,.modal-body{box-shadow:none!important;margin:0!important;max-width:none!important;padding:0!important;width:auto!important}.receipt-preview-body{background:#fff!important}.receipt-document{border:0!important;box-shadow:none!important;color:#000!important;margin:0!important;max-width:none!important;padding:0!important}.receipt-table th{background:#fff!important;color:#000!important}body[data-print-mode=receipt] .receipt-document{font-size:11px;width:80mm}body[data-print-mode=receipt] .receipt-header,body[data-print-mode=receipt] .receipt-grid{display:block}body[data-print-mode=receipt] .receipt-box{border:0;border-bottom:1px dashed #000;padding:6px 0}body[data-print-mode=receipt] .receipt-table{font-size:10px}body[data-print-mode=invoice] .receipt-document{font-size:13px;width:190mm}.receipt-table tr{break-inside:avoid;page-break-inside:avoid}}
+.pos-shell{display:grid;grid-template-columns:minmax(0,1fr)390px;gap:18px}.pos-products{min-width:0}.pos-scan-card{position:sticky;top:82px;z-index:5}.chip-row{display:flex;flex-wrap:wrap;gap:8px}.filter-chip{background:#fff;border:1px solid var(--pos-border);color:var(--pos-muted);font-weight:800;padding:7px 11px}.filter-chip.active,.filter-chip:hover{background:var(--pos-primary-soft);border-color:#a7f3d0;color:var(--pos-primary-hover)}.product-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}.product-card{background:#fff;border:1px solid var(--pos-border);box-shadow:var(--pos-shadow);color:var(--pos-text);display:grid;gap:6px;min-height:172px;padding:12px;text-align:left;transition:.16s}.product-card:hover{border-color:var(--pos-primary);box-shadow:var(--pos-shadow-hover);transform:translateY(-2px)}.product-card.disabled{opacity:.58;pointer-events:none}.product-art{align-items:center;background:var(--pos-primary-soft);border:1px solid #a7f3d0;color:var(--pos-primary);display:flex;height:54px;justify-content:center;overflow:hidden;width:54px}.product-art img,.cart-item-thumb img{display:block;height:100%;object-fit:cover;object-position:center;width:100%}.product-name{font-weight:800;line-height:1.2}.product-code,.product-meta span{color:var(--pos-muted);font-size:.82rem}.product-meta{align-items:center;display:flex;justify-content:space-between}.product-meta strong{color:var(--pos-primary-hover);font-size:1.05rem}.cart-panel{align-self:start;background:#fff;border:1px solid var(--pos-border);box-shadow:var(--pos-shadow-hover);padding:16px;position:sticky;top:82px}.cart-hero{align-items:center;border-bottom:1px solid var(--pos-border);display:grid;gap:12px;grid-template-columns:64px minmax(0,1fr)auto;padding-bottom:14px}.cart-hero:hover .cart-icon-wrap{transform:translateY(-1px)}.cart-icon-wrap{align-items:center;background:linear-gradient(135deg,#059669,#10b981);box-shadow:0 14px 28px rgba(5,150,105,.25);color:#fff;display:flex;font-size:1.65rem;height:60px;justify-content:center;position:relative;transition:.16s;width:60px;border-radius:999px!important}.cart-count-badge,.floating-cart-btn span{animation:pulseCart 1.5s infinite;background:#dc2626;color:#fff;font-size:.74rem;font-weight:900;min-width:22px;padding:2px 6px;position:absolute;right:-4px;top:-5px;text-align:center;border-radius:999px!important}.cart-hero h2{font-size:1.05rem;font-weight:900;margin:0}.cart-hero p{color:var(--pos-muted);margin:2px 0 0}.cart-total{color:var(--pos-primary-hover);font-size:1.3rem;font-weight:900}.cart-section{border-bottom:1px solid var(--pos-border);padding:13px 0}.customer-credit-panel{background:var(--pos-primary-soft);border:1px solid #a7f3d0;padding:10px}.selected-member-card{align-items:center;background:#f8fafc;border:1px solid var(--pos-border);display:flex;gap:10px;padding:10px}.selected-member-icon{align-items:center;background:var(--pos-primary-soft);color:var(--pos-primary);display:flex;height:34px;justify-content:center;width:34px;border-radius:999px!important}.cart-items{max-height:310px;overflow:auto}.cart-item{border:1px solid var(--pos-border);display:grid;gap:8px;margin-bottom:8px;padding:10px}.cart-item.flash{background:var(--pos-primary-soft)}.cart-item-title{display:grid;gap:8px;grid-template-columns:38px minmax(0,1fr)auto}.cart-item-thumb{align-items:center;background:var(--pos-primary-soft);border:1px solid #a7f3d0;color:var(--pos-primary);display:flex;height:38px;justify-content:center;overflow:hidden;width:38px}.qty-control{display:flex;gap:4px}.qty-control input{max-width:70px;text-align:center}.summary-line{display:flex;gap:10px;justify-content:space-between;margin:8px 0}.summary-line input{max-width:126px}.summary-line.total{border-top:0;font-size:1.08rem;font-weight:900;padding-top:0}.payment-method-grid{display:grid;gap:8px;grid-template-columns:repeat(2,minmax(0,1fr))}.payment-method-card{align-items:center;background:#fff;border:1px solid var(--pos-border);display:flex;gap:8px;min-height:42px;padding:9px;position:relative}.payment-method-card.active,.payment-method-card:hover{background:var(--pos-primary-soft);border-color:var(--pos-primary);color:var(--pos-primary-hover)}.payment-method-card.active:after{align-items:center;background:var(--pos-primary);color:#fff;content:"\F26E";display:flex;font-family:"bootstrap-icons";font-size:.7rem;height:18px;justify-content:center;position:absolute;right:6px;top:6px;width:18px;border-radius:999px}.payment-method-card[data-is-credit=true]{background:#fffbeb;border-color:#fde68a;color:#92400e}.payment-method-card[data-is-credit=true].active{border-color:var(--pos-warning);box-shadow:0 10px 24px rgba(245,158,11,.16)}.payment-row{align-items:center;background:#f8fafc;border:1px solid var(--pos-border);display:flex;gap:8px;justify-content:space-between;margin-top:6px;padding:8px}.payment-row.credit-chip{background:#fffbeb;border-color:#f59e0b;color:#92400e}.cart-actions{display:grid;gap:8px;padding-top:14px}.floating-cart-btn{display:none}.pos-empty{grid-column:1/-1}.payment-summary-card{background:#fff;border:1px solid var(--pos-border);box-shadow:0 12px 28px rgba(15,23,42,.06);margin-top:12px;padding:12px}.payment-summary-head{align-items:center;display:flex;justify-content:space-between;margin-bottom:8px}.summary-kicker{color:var(--pos-muted);font-size:.72rem;font-weight:900;letter-spacing:.02em;text-transform:uppercase}.payment-status-pill,.review-status-badge{border:1px solid transparent;font-size:.75rem;font-weight:900;padding:5px 9px;border-radius:999px}.payment-status-pill.paid,.review-status-badge.paid{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.payment-status-pill.due,.review-status-badge.due{background:#fef2f2;border-color:#fecaca;color:#dc2626}.payment-status-pill.credit,.review-status-badge.credit{background:#fffbeb;border-color:#fde68a;color:#92400e}.summary-divider{border-top:1px dashed var(--pos-border);margin:10px 0}.summary-net-row strong{color:var(--pos-primary-hover);font-size:1.28rem}.credit-summary-row{background:#fffbeb;border:1px solid #fde68a;color:#92400e;margin-inline:-4px;padding:7px}.remaining-row{font-size:1.03rem;font-weight:900}.remaining-row.paid strong{color:#047857}.remaining-row.due strong{color:#dc2626}.change-row.has-change{background:#ecfdf5;border:1px solid #a7f3d0;margin-inline:-4px;padding:7px}.credit-progress{background:#d1fae5;height:8px;overflow:hidden;border-radius:999px}.credit-progress span{background:linear-gradient(90deg,#f59e0b,#dc2626);display:block;height:100%;width:0}.credit-fit-message.enough{color:#047857}.credit-fit-message.not-enough{color:#b45309}.payment-review-dialog{max-width:740px}.payment-review-modal{border:0;box-shadow:0 28px 70px rgba(15,23,42,.22)}.payment-review-hero{align-items:start;background:linear-gradient(135deg,#ecfdf5,#fff);border:1px solid #a7f3d0;display:flex;gap:16px;justify-content:space-between;margin-bottom:12px;padding:18px}.review-label{color:var(--pos-muted);display:block;font-size:.78rem;font-weight:900;text-transform:uppercase}.payment-review-hero strong{color:#047857;display:block;font-size:2.35rem;line-height:1.1}.review-helper{color:var(--pos-muted);font-weight:700;margin-top:4px}.review-meta-grid{display:grid;gap:10px;grid-template-columns:1fr 1fr;margin-bottom:16px}.review-meta-grid div{background:#f8fafc;border:1px solid var(--pos-border);padding:10px}.review-meta-grid span{color:var(--pos-muted);display:block;font-size:.78rem;font-weight:800}.review-meta-grid strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.review-section-title{font-size:.84rem;font-weight:900;margin:0 0 8px;text-transform:uppercase}.payment-breakdown{border:1px solid var(--pos-border)}.breakdown-row{align-items:center;display:flex;gap:14px;justify-content:space-between;padding:12px 14px}.breakdown-row+.breakdown-row{border-top:1px solid var(--pos-border)}.breakdown-row span{color:var(--pos-muted);font-weight:800}.breakdown-row strong{font-size:1.12rem}.breakdown-row.net strong,.breakdown-row.paid strong{color:#0f172a;font-size:1.28rem}.breakdown-row.credit{background:#fffbeb}.breakdown-row.credit strong{color:#92400e}.breakdown-row.remaining.paid{background:#ecfdf5}.breakdown-row.remaining.paid strong{color:#047857}.breakdown-row.remaining.due{background:#fef2f2}.breakdown-row.remaining.due strong{color:#dc2626}.breakdown-row.change.has-change{background:#ecfdf5}.review-info{align-items:flex-start;border:1px solid var(--pos-border);display:flex;gap:10px;margin-top:10px;padding:10px}.review-info.success{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.review-info.warning{background:#fffbeb;border-color:#f59e0b;color:#92400e}.review-info.danger{background:#fef2f2;border-color:#fecaca;color:#b91c1c}.review-info.neutral{background:#f8fafc;color:#475569}.receipt-preview-body{background:#f8fafc}.receipt-document{background:#fff;border:1px solid var(--pos-border);box-shadow:0 18px 42px rgba(15,23,42,.08);color:#0f172a;margin:auto;max-width:860px;padding:24px}.receipt-header{align-items:flex-start;border-bottom:2px solid #0f172a;display:flex;justify-content:space-between;margin-bottom:18px;padding-bottom:14px}.receipt-brand{font-size:1.45rem;font-weight:900}.receipt-title{text-align:right;text-transform:uppercase}.receipt-grid{display:grid;gap:14px;grid-template-columns:1fr 1fr;margin-bottom:18px}.receipt-box{border:1px solid #cbd5e1;padding:12px}.receipt-box h4{font-size:.8rem;font-weight:900;margin:0 0 8px;text-transform:uppercase}.receipt-table{font-size:.92rem}.receipt-table th{background:#f8fafc;border-bottom:1px solid #cbd5e1}.receipt-summary{margin-left:auto;max-width:360px}.receipt-summary .summary-line{border-bottom:1px solid #e2e8f0;margin:0;padding:7px 0}.receipt-credit-note{background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-top:14px;padding:10px}.receipt-thanks{text-align:center;font-weight:800;margin-top:18px}@@keyframes pulseCart{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}@@media(max-width:1100px){.pos-shell{grid-template-columns:1fr}.cart-panel{bottom:0;left:0;max-height:84vh;overflow:auto;position:fixed;right:0;top:auto;transform:translateY(calc(100% - 76px));transition:.2s;z-index:2040}.cart-panel.open{transform:translateY(0)}.floating-cart-btn{align-items:center;background:var(--pos-primary);border:0;bottom:22px;box-shadow:0 18px 34px rgba(5,150,105,.28);color:#fff;display:flex;font-size:1.35rem;height:58px;justify-content:center;position:fixed;right:22px;width:58px;z-index:2045;border-radius:999px!important}.floating-cart-btn span{right:-2px;top:-6px}}@@media(max-width:700px){.product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cart-hero{grid-template-columns:58px minmax(0,1fr)}.cart-total{grid-column:1/-1}.payment-method-grid{grid-template-columns:1fr}.payment-review-dialog{margin:.5rem;max-width:none}.payment-review-hero,.receipt-header{display:block}.review-meta-grid,.receipt-grid{grid-template-columns:1fr}.payment-review-hero strong{font-size:1.85rem}}@@media print{body *{visibility:hidden!important}#receiptPreviewModal,#receiptPreviewModal *{visibility:visible!important}#receiptPreviewModal{display:block!important;inset:0;position:absolute}.modal-backdrop,.no-print,.app-sidebar,.app-topbar,.page-header,.pos-shell,.floating-cart-btn{display:none!important}.modal-dialog,.modal-content,.modal-body{box-shadow:none!important;margin:0!important;max-width:none!important;padding:0!important;width:auto!important}.receipt-preview-body{background:#fff!important}.receipt-document{border:0!important;box-shadow:none!important;color:#000!important;margin:0!important;max-width:none!important;padding:0!important}.receipt-table th{background:#fff!important;color:#000!important}body[data-print-mode=receipt] .receipt-document{font-size:11px;width:58mm}body[data-print-mode=receipt] .receipt-header,body[data-print-mode=receipt] .receipt-grid{display:block}body[data-print-mode=receipt] .receipt-box{border:0;border-bottom:1px dashed #000;padding:6px 0}body[data-print-mode=receipt] .receipt-table{font-size:10px}body[data-print-mode=invoice] .receipt-document{font-size:13px;width:190mm}.receipt-table tr{break-inside:avoid;page-break-inside:avoid}}
 .payment-method-card[data-is-promptpay=true]{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}.payment-method-card[data-is-promptpay=true].active{border-color:#2563eb;box-shadow:0 10px 24px rgba(37,99,235,.14)}.promptpay-panel{background:#f8fafc;border:1px solid #bfdbfe;padding:10px}.promptpay-preview{align-items:center;display:flex;gap:12px;margin-top:10px}.promptpay-preview img,.promptpay-qr-box{background:#fff;border:1px solid var(--pos-border);height:132px;padding:8px;width:132px}.promptpay-qr-box svg{display:block;height:100%;width:100%}.promptpay-meta{display:grid;gap:4px}.promptpay-meta strong{color:#1d4ed8;font-size:1.35rem}.promptpay-meta span{color:var(--pos-muted);font-size:.85rem}.payment-result-modal.success .modal-header{background:#ecfdf5;border-color:#a7f3d0}.payment-result-modal.fail .modal-header{background:#fef2f2;border-color:#fecaca}.payment-result-icon{align-items:center;display:flex;font-size:2rem;height:62px;justify-content:center;width:62px}.payment-result-modal.success .payment-result-icon{background:#dcfce7;color:#047857}.payment-result-modal.fail .payment-result-icon{background:#fee2e2;color:#dc2626}
 .sale-result-dialog{max-width:min(1120px,96vw)}.payment-result-modal{border:0;border-radius:0!important;box-shadow:0 32px 90px rgba(15,23,42,.28);font-size:1.04rem}.payment-result-modal .modal-header{align-items:center;border-bottom:4px solid #e2e8f0;padding:22px 26px}.payment-result-modal .modal-body{padding:24px 26px}.payment-result-modal .modal-footer{gap:10px;justify-content:flex-end;padding:18px 26px}.payment-result-modal .btn{border-radius:0!important;font-weight:900;min-height:46px;padding-inline:18px}.result-title-block{align-items:center;display:flex;gap:18px}.payment-result-modal .modal-title{font-size:clamp(1.65rem,3vw,2.5rem);font-weight:900;letter-spacing:0}.payment-result-modal .modal-subtitle{font-size:1rem;font-weight:800;margin:3px 0 0}.payment-result-modal .payment-result-icon{font-size:2.35rem;height:76px;min-width:76px;width:76px}.result-highlight-grid{display:grid;gap:12px;grid-template-columns:repeat(4,minmax(0,1fr))}.result-highlight{background:#f8fafc;border:1px solid var(--pos-border);border-left:6px solid #64748b;padding:14px}.result-highlight span{color:var(--pos-muted);display:block;font-size:.78rem;font-weight:900;text-transform:uppercase}.result-highlight strong{color:#0f172a;display:block;font-size:clamp(1.5rem,3vw,2.2rem);line-height:1.05;margin-top:6px}.result-highlight.grand-total{border-left-color:#0f766e}.result-highlight.grand-total strong{color:#0f766e}.result-highlight.paid{border-left-color:#047857}.result-highlight.paid strong{color:#047857}.result-highlight.change{border-left-color:#dc2626}.payment-result-modal.success .result-highlight.change{border-left-color:#047857}.payment-result-modal.success .result-highlight.change strong{color:#047857}.payment-result-modal.fail .result-highlight.change strong{color:#dc2626}.result-highlight.credit{background:#fffbeb;border-color:#fde68a;border-left-color:#f59e0b}.result-highlight.credit strong{color:#92400e}.payment-result-modal .review-meta-grid strong{font-size:1.05rem}.payment-result-modal .breakdown-row{font-size:1.04rem}.payment-result-modal .breakdown-row.net,.payment-result-modal .breakdown-row.paid{background:#f8fafc}.payment-result-modal .breakdown-row.net strong{color:#0f766e;font-size:1.45rem}.payment-result-modal .breakdown-row.paid strong{color:#047857;font-size:1.35rem}.payment-result-modal .fail-only{background:#fff7ed}.payment-result-modal .fail-only strong{color:#c2410c;font-size:1.24rem}.payment-result-modal.fail .breakdown-row.remaining.due strong{font-size:1.35rem}.payment-result-modal [data-sale-result-message]{border-radius:0;font-size:1.05rem;font-weight:800}.payment-result-modal.fail [data-sale-result-message]{background:#fef2f2;border-color:#fecaca;color:#991b1b}.payment-result-modal.success [data-sale-result-message]{background:#ecfdf5;border-color:#a7f3d0;color:#065f46}@@media(max-width:900px){.result-highlight-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-result-modal .modal-footer{justify-content:stretch}.payment-result-modal .modal-footer>*{flex:1 1 170px}.result-title-block{align-items:flex-start}.payment-result-modal .payment-result-icon{height:62px;min-width:62px;width:62px}}@@media(max-width:620px){.result-highlight-grid,.payment-result-modal .review-meta-grid{grid-template-columns:1fr}.payment-result-modal .modal-header,.result-title-block{display:block}.payment-result-modal .payment-result-icon{margin-bottom:12px}.payment-result-modal .modal-body,.payment-result-modal .modal-header,.payment-result-modal .modal-footer{padding:18px}}
+.cash-drawer-card{background:#f8fafc;border:1px solid var(--pos-border);margin-top:12px;padding:12px}.drawer-action-grid{display:grid;gap:8px;grid-template-columns:repeat(2,minmax(0,1fr));margin-top:10px}.drawer-action-grid .btn{align-items:center;display:flex;font-weight:800;justify-content:center;min-height:38px}.cash-drawer-card .summary-line strong{max-width:170px;overflow:hidden;text-align:right;text-overflow:ellipsis;white-space:nowrap}@@media(max-width:700px){.drawer-action-grid{grid-template-columns:1fr}}
+.receipt-items{border-top:1px dashed #cbd5e1;margin-top:10px}.receipt-item{border-bottom:1px dashed #e2e8f0;padding:8px 0}.receipt-item-name span{color:#64748b;display:block;font-size:.85rem}.receipt-item-meta{display:flex;gap:10px;justify-content:space-between}.receipt-item-meta strong{flex:0 0 auto}.receipt-item-discount{color:#64748b;font-size:.85rem;text-align:right}
 </style>
 
 @section Scripts {
@@ -462,6 +512,7 @@
   })();
   let displaySocket = null;
   let displayInvocationId = 0;
+  let suppressCustomerDisplayPublish = false;
   const cartPanel = by('[data-cart-panel]');
   const serverErrorMessage = @Html.Raw(JsonSerializer.Serialize(serverErrorMessage));
   function showPaymentToast(kind, message, detail = '') {
@@ -481,6 +532,56 @@
     container.appendChild(toast);
     applyAppLanguage();
     setTimeout(() => toast.remove(), isSuccess ? 4500 : 7000);
+  }
+  async function postDrawerAction(url, formData) {
+    const token = document.querySelector('[name="__RequestVerificationToken"]')?.value;
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin',
+      headers: token ? { RequestVerificationToken: token, Accept: 'application/json' } : { Accept: 'application/json' }
+    });
+    const result = await response.json().catch(() => ({ isSuccess:false, message:'Cash drawer action failed.', errorMessage:'Server returned an invalid response.' }));
+    if (!response.ok || !result.isSuccess) throw new Error(result.errorMessage || result.message || 'Cash drawer action failed.');
+    return result;
+  }
+  async function openDrawerManually() {
+    const reason = by('[data-manual-drawer-reason]')?.value || '';
+    if (!reason) {
+      showPaymentToast('error', 'Reason is required.', 'Select why the drawer is being opened.');
+      return;
+    }
+    const button = by('[data-open-drawer-confirm]');
+    const original = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Opening...';
+    try {
+      const formData = new FormData();
+      formData.append('reason', reason);
+      const result = await postDrawerAction(by('[data-drawer-open-url]').dataset.drawerOpenUrl, formData);
+      bootstrap.Modal.getOrCreateInstance(by('#manualDrawerModal')).hide();
+      showPaymentToast('success', result.message || 'Cash drawer opened successfully.');
+    } catch (error) {
+      showPaymentToast('error', 'Cash drawer could not be opened.', error.message);
+    } finally {
+      button.disabled = false;
+      button.innerHTML = original;
+    }
+  }
+  async function testDrawer() {
+    const button = by('[data-test-drawer]');
+    const original = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Testing...';
+    try {
+      const result = await postDrawerAction(by('[data-drawer-test-url]').dataset.drawerTestUrl, new FormData());
+      showPaymentToast('success', result.message || 'Cash drawer test completed.');
+    } catch (error) {
+      showPaymentToast('error', 'Cash drawer test failed.', error.message);
+    } finally {
+      button.disabled = false;
+      button.innerHTML = original;
+    }
   }
   function lineTax(item) {
     if (item.taxRate === null || item.taxRate === undefined || Number.isNaN(Number(item.taxRate))) return Number(item.taxAmount || 0);
@@ -548,6 +649,41 @@
     setTimeout(() => publishCustomerDisplay(message), 1500);
     setTimeout(() => publishCustomerDisplay(message), 3000);
   }
+  function readyDisplayPayload() {
+    return { type:'display-state', displayState:'Ready', event:'SaleReset', status:'Ready for next customer', itemCount:0, customer:{}, payment:{}, totals:{ subtotal:0, itemDiscount:0, orderDiscount:0, lineTax:0, manualTax:0, tax:0, net:0, paid:0, remaining:0, change:0, creditUsed:0, otherPaid:0 }, items:[], updatedAt:new Date().toISOString() };
+  }
+  function scheduleCustomerDisplayReset() {
+    setTimeout(() => publishCustomerDisplay(readyDisplayPayload()), 5000);
+  }
+  function resetCashierSaleForNextCustomer() {
+    suppressCustomerDisplayPublish = true;
+    try {
+      cart = [];
+      payments = [];
+      by('[data-payment-amount]').value = '';
+      by('[data-payment-ref]').value = '';
+      by('[data-order-discount]').value = 0;
+      by('[data-tax-amount]').value = 0;
+      by('[data-customer-search]').value = '';
+      by('[data-customer-id]').value = '';
+      by('[data-member-no]').checked = true;
+      by('[data-member-yes]').checked = false;
+      by('[data-member-lookup]').classList.add('d-none');
+      by('[data-customer-id]').classList.add('d-none');
+      by('[data-selected-member]').classList.add('d-none');
+      by('[data-credit-panel]').classList.add('d-none');
+      by('[data-credit-note]')?.classList.add('d-none');
+      clearPromptPay();
+      document.querySelectorAll('[data-payment-method]').forEach(x => x.classList.remove('active'));
+      activeMethod = document.querySelector('[data-payment-method][data-is-cash="true"]') || document.querySelector('[data-payment-method]:not([data-is-credit="true"])') || document.querySelector('[data-payment-method]');
+      activeMethod?.classList.add('active');
+      syncCustomerCredit();
+      render();
+    } finally {
+      suppressCustomerDisplayPublish = false;
+    }
+    by('[data-barcode-input]')?.focus();
+  }
   function customerDisplaySnapshot(t) {
     const customer = selectedCustomerOption();
     const creditInfo = selectedCreditInfo();
@@ -589,11 +725,11 @@
   }
   function publishLiveDisplay(statusText) {
     if (!cart.length) {
-      publishCustomerDisplay({ type:'sale-update', status:'Scanning Items', itemCount:0, customer:{ name:'Walk-in Customer' }, totals:{ subtotal:0, itemDiscount:0, orderDiscount:0, lineTax:0, manualTax:0, tax:0, net:0, paid:0, remaining:0, change:0, creditUsed:0, otherPaid:0 }, payment:{ method:activeMethod?.innerText.trim() || '-', paidAmount:0, changeAmount:0, creditUsed:0, remainingCredit:0 }, items:[], updatedAt:new Date().toISOString() });
+      publishCustomerDisplay(readyDisplayPayload());
       return;
     }
     const t = totals(false);
-    publishCustomerDisplay({ type:'sale-update', status:statusText || (t.paid > 0 ? 'Waiting for Payment' : 'Scanning Items'), ...customerDisplaySnapshot(t), updatedAt:new Date().toISOString() });
+    publishCustomerDisplay({ type:'sale-update', event:statusText ? 'SaleStarted' : 'CartUpdated', displayState:t.paid > 0 ? 'WaitingForPayment' : 'Scanning', status:statusText || (t.paid > 0 ? 'Waiting for Payment' : 'Scanning Items'), ...customerDisplaySnapshot(t), updatedAt:new Date().toISOString() });
   }
   async function generatePromptPayQr() {
     const t = totals();
@@ -627,7 +763,7 @@
         image.src = body.svgDataUri;
         image.classList.remove('d-none');
       }
-      by('[data-promptpay-amount]').textContent = `฿${money(body.amount)}`;
+      by('[data-promptpay-amount]').textContent = `THB ${money(body.amount)}`;
       by('[data-promptpay-name]').textContent = body.payeeDisplayName || 'PromptPay';
       by('[data-payment-amount]').value = Number(body.amount).toFixed(2);
       by('[data-payment-ref]').value = 'PromptPay QR';
@@ -855,7 +991,7 @@
     }
     by('[data-cart-count]').textContent = count; by('[data-cart-count-mobile]').textContent = count;
     by('[data-subtotal]').textContent = money(subtotal); by('[data-item-discount]').textContent = money(itemDiscount); by('[data-line-tax]').textContent = money(lineTax); by('[data-net]').textContent = money(net); by('[data-net-total]').textContent = money(net); by('[data-credit-used-sale]').textContent = money(creditUsed); by('[data-other-paid]').textContent = money(otherPaid); by('[data-remaining]').textContent = money(remaining); by('[data-paid]').textContent = money(paid); by('[data-change]').textContent = money(change);
-    by('[data-modal-net]').textContent = money(net); by('[data-modal-net-large]').textContent = `฿${money(net)}`; by('[data-modal-credit]').textContent = money(creditUsed); by('[data-modal-other-paid]').textContent = money(otherPaid); by('[data-modal-remaining]').textContent = money(remaining); by('[data-modal-paid]').textContent = money(paid); by('[data-modal-change]').textContent = money(change); by('[data-hold-total]').textContent = money(net);
+    by('[data-modal-net]').textContent = money(net); by('[data-modal-net-large]').textContent = `THB ${money(net)}`; by('[data-modal-credit]').textContent = money(creditUsed); by('[data-modal-other-paid]').textContent = money(otherPaid); by('[data-modal-remaining]').textContent = money(remaining); by('[data-modal-paid]').textContent = money(paid); by('[data-modal-change]').textContent = money(change); by('[data-hold-total]').textContent = money(net);
     by('[data-modal-customer]').textContent = customerName;
     by('[data-modal-items]').textContent = `${count} item${count === 1 ? '' : 's'}`;
     by('[data-modal-status-text]').textContent = creditFullyPaid ? 'Fully paid by customer credit' : fullyPaid ? 'Payment covers this sale' : 'Remaining balance must be collected';
@@ -897,8 +1033,8 @@
     }).join('');
     by('[data-payment-list]').querySelectorAll('[data-remove-payment]').forEach(x => x.onclick = () => { payments.splice(+x.dataset.removePayment, 1); totals(); });
     const result = { subtotal, itemDiscount, orderDiscount, lineTax, manualTax, tax, net, paid, change, remaining, creditUsed, otherPaid, count };
-    if (publishDisplay) {
-      publishCustomerDisplay({ type:'sale-update', status:paid > 0 ? (remaining > 0 ? 'Waiting for Payment' : 'Payment Ready') : 'Scanning Items', ...customerDisplaySnapshot(result), updatedAt:new Date().toISOString() });
+    if (publishDisplay && !suppressCustomerDisplayPublish) {
+      publishCustomerDisplay({ type:'sale-update', event:cart.length ? 'CartUpdated' : 'SaleReset', displayState:cart.length ? (paid > 0 ? 'WaitingForPayment' : 'Scanning') : 'Ready', status:cart.length ? (paid > 0 ? (remaining > 0 ? 'Waiting for Payment' : 'Payment Ready') : 'Scanning Items') : 'Ready for next customer', ...customerDisplaySnapshot(result), updatedAt:new Date().toISOString() });
     }
     applyAppLanguage();
     return result;
@@ -990,11 +1126,14 @@
     publishCustomerDisplay({
       type: 'payment-result',
       status,
+      event: status === 'success' ? 'SaleCompleted' : 'SaleFailed',
+      displayState: status === 'success' ? 'PaymentSuccess' : 'PaymentFailed',
       saleNo,
       message,
       ...customerDisplaySnapshot(t),
       updatedAt: new Date().toISOString()
     });
+    if (status === 'success') scheduleCustomerDisplayReset();
   }
   function paymentResultFromSnapshot(status, message, snapshot, saleNo = null) {
     const totals = snapshot?.totals || {};
@@ -1003,6 +1142,8 @@
     return {
       type:'payment-result',
       status,
+      event: status === 'success' ? 'SaleCompleted' : 'SaleFailed',
+      displayState: status === 'success' ? 'PaymentSuccess' : 'PaymentFailed',
       saleNo,
       message,
       itemCount: items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
@@ -1107,13 +1248,13 @@
     const paymentsHtml = (snapshot.payments || []).map(p => `<div class="summary-line"><span>${p.name || 'Payment'}</span><strong>${money(p.paymentAmount)}</strong></div>`).join('') || '<div class="text-muted">No payments recorded.</div>';
     const itemRows = items.map(item => {
       const lineTotal = (Number(item.quantity || 0) * Number(item.unitPrice || 0)) - Number(item.itemDiscountAmount || 0) + Number(item.taxAmount || 0);
-      return `<tr><td><strong>${item.productName || ''}</strong><div class="text-muted small">${item.productCode || ''}</div></td><td class="text-end">${money(item.quantity)}</td><td class="text-end">${money(item.unitPrice)}</td><td class="text-end">${money(item.itemDiscountAmount)}</td><td class="text-end">${money(lineTotal)}</td></tr>`;
+      return `<div class="receipt-item"><div class="receipt-item-name"><strong>${item.productName || ''}</strong><span>${item.productCode || ''}</span></div><div class="receipt-item-meta"><span>${money(item.quantity)} x ${money(item.unitPrice)}</span><strong>${money(lineTotal)}</strong></div>${Number(item.itemDiscountAmount || 0) > 0 ? `<div class="receipt-item-discount">Discount ${money(item.itemDiscountAmount)}</div>` : ''}</div>`;
     }).join('');
     const customer = snapshot.customer;
     by('[data-receipt-body]').innerHTML = `<article class="receipt-document">
       <header class="receipt-header"><div><div class="receipt-brand">AphiwatPOS</div><div class="text-muted">Point of Sale Receipt / Invoice</div></div><div class="receipt-title"><strong>Receipt / Invoice</strong><div>Receipt No: ${snapshot.receiptNo || snapshot.saleNo || '-'}</div><div>Invoice No: ${snapshot.invoiceNo || snapshot.saleNo || '-'}</div><div>Sale No: ${snapshot.saleNo || '-'}</div></div></header>
       <section class="receipt-grid"><div class="receipt-box"><h4>Sale Information</h4><div>Date: ${snapshot.saleDate || '-'}</div><div>Cashier: ${snapshot.cashierName || '-'}</div></div><div class="receipt-box"><h4>Customer</h4><div>Name: ${customer?.name || 'Walk-in'}</div><div>Phone: ${customer?.phone || '-'}</div><div>Code / Level: ${customer?.code || '-'} ${customer?.level ? ` / ${customer.level}` : ''}</div></div></section>
-      <div class="table-responsive"><table class="table receipt-table"><thead><tr><th>Product</th><th class="text-end">Qty</th><th class="text-end">Unit Price</th><th class="text-end">Discount</th><th class="text-end">Total</th></tr></thead><tbody>${itemRows}</tbody></table></div>
+      <section class="receipt-items">${itemRows}</section>
       <section class="receipt-summary"><div class="summary-line"><span>Subtotal</span><strong>${money(totals.subtotal)}</strong></div><div class="summary-line"><span>Item Discount</span><strong>${money(totals.itemDiscount)}</strong></div><div class="summary-line"><span>Order Discount</span><strong>${money(totals.orderDiscount)}</strong></div><div class="summary-line"><span>Tax</span><strong>${money(totals.tax)}</strong></div><div class="summary-line total"><span>Net Amount</span><strong>${money(totals.net)}</strong></div><div class="summary-line"><span>Customer Credit Used</span><strong>${money(totals.creditUsed)}</strong></div><div class="summary-line"><span>Other Payment</span><strong>${money(totals.otherPaid)}</strong></div><div class="summary-line"><span>Paid Amount</span><strong>${money(totals.paid)}</strong></div><div class="summary-line"><span>Change</span><strong>${money(totals.change)}</strong></div><div class="summary-line"><span>Remaining Balance</span><strong>${money(totals.remaining)}</strong></div>${paymentsHtml}</section>
       ${totals.creditUsed > 0 ? `<div class="receipt-credit-note"><strong>Credit Note:</strong> Customer credit used in this sale becomes customer debt and must be repaid later. Remaining available credit after sale: ${money(snapshot.availableCreditAfter)}</div>` : ''}
       <div class="receipt-thanks">Thank you.</div>
@@ -1128,8 +1269,8 @@
       showPaymentToast('error', 'Invoice is not ready to print.', 'Complete the sale first, then print the invoice.');
       return;
     }
-    const width = mode === 'receipt' ? '80mm' : '190mm';
-    const fontSize = mode === 'receipt' ? '11px' : '13px';
+    const width = mode === 'receipt' ? '58mm' : '190mm';
+    const fontSize = mode === 'receipt' ? '10.5px' : '13px';
     const printWindow = window.open('', '_blank', 'popup=yes,width=960,height=720');
     if (!printWindow) {
       document.body.dataset.printMode = mode;
@@ -1140,18 +1281,28 @@
     printWindow.document.title = mode === 'receipt' ? 'Receipt' : 'Invoice';
     const printStyle = printWindow.document.createElement('style');
     printStyle.textContent = `
+      @@page{margin:0;size:${width} auto}
       body{background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;margin:0;padding:18px}
-      .receipt-document{font-size:${fontSize};margin:0 auto;max-width:${width};width:${width}}
+      body.receipt{padding:0}
+      .receipt-document{box-sizing:border-box;font-size:${fontSize};margin:0 auto;max-width:${width};overflow:hidden;overflow-wrap:anywhere;width:${width}}
+      body.receipt .receipt-document{padding:4mm;width:58mm;max-width:58mm}
       .receipt-header{align-items:flex-start;border-bottom:2px solid #000;display:flex;justify-content:space-between;margin-bottom:18px;padding-bottom:14px}
       .receipt-brand{font-size:1.45em;font-weight:900}.receipt-title{text-align:right;text-transform:uppercase}
       .receipt-grid{display:grid;gap:14px;grid-template-columns:1fr 1fr;margin-bottom:18px}.receipt-box{border:1px solid #000;padding:12px}
       .receipt-box h4{font-size:.8em;font-weight:900;margin:0 0 8px;text-transform:uppercase}
+      body.receipt .receipt-header{border-bottom:1px dashed #000;display:block;margin-bottom:7px;padding-bottom:6px}
+      body.receipt .receipt-title{text-align:left;text-transform:none}
+      body.receipt .receipt-grid{display:block;margin-bottom:7px}
+      body.receipt .receipt-box{border:0;margin:5px 0;padding:0}
       table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ddd;padding:7px 5px;text-align:left}th{font-weight:900}.text-end{text-align:right}.text-muted{color:#555}.small{font-size:.85em}
+      .receipt-items{border-top:1px dashed #000;margin-top:8px}.receipt-item{border-bottom:1px dashed #ddd;padding:6px 0}.receipt-item-name span{color:#555;display:block;font-size:.85em}.receipt-item-meta{display:flex;gap:8px;justify-content:space-between}.receipt-item-meta strong{flex:0 0 auto}.receipt-item-discount{color:#555;font-size:.85em;text-align:right}
       .receipt-summary{margin-left:auto;max-width:360px}.summary-line{border-bottom:1px solid #ddd;display:flex;justify-content:space-between;margin:0;padding:7px 0}.summary-line.total{font-weight:900}
+      body.receipt .receipt-summary{max-width:none}.summary-line span{min-width:0}.summary-line strong{flex:0 0 auto;text-align:right}
       .receipt-credit-note{border:1px solid #000;margin-top:14px;padding:10px}.receipt-thanks{font-weight:800;margin-top:18px;text-align:center}
       @@media print{body{padding:0}.receipt-document{max-width:${width};width:${width}}}
     `;
     printWindow.document.head.appendChild(printStyle);
+    printWindow.document.body.className = mode;
     printWindow.document.body.innerHTML = printBody;
     setTimeout(() => {
       printWindow.focus();
@@ -1193,7 +1344,7 @@
     by('[data-post-tax]').value = Number(by('[data-tax-amount]').value || 0);
     by('[data-post-items]').value = JSON.stringify(cart);
     by('[data-post-payments]').value = JSON.stringify(finalPayments.map(({pending, ...p}) => p));
-    publishCustomerDisplay({ type:'sale-update', status:'Payment Processing', ...customerDisplaySnapshot(t), updatedAt:new Date().toISOString() });
+    publishCustomerDisplay({ type:'sale-update', event:'PaymentProcessing', displayState:'ProcessingPayment', status:'Processing payment...', ...customerDisplaySnapshot(t), updatedAt:new Date().toISOString() });
     by('[data-modal-status-text]').textContent = 'Processing payment...';
     button.disabled = true;
     button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Processing payment...';
@@ -1209,6 +1360,8 @@
       if (response.ok && result.isSuccess) {
         const saleText = result.invoiceNo || result.saleNo ? `Invoice ${result.invoiceNo || result.saleNo}` : '';
         showPaymentToast('success', result.message || 'Sale completed successfully.', saleText);
+        if (result.receiptMessage) showPaymentToast(result.receiptPrinted ? 'success' : 'error', result.receiptMessage);
+        if (result.cashDrawerMessage) showPaymentToast(result.cashDrawerOpened ? 'success' : 'error', result.cashDrawerMessage);
         bootstrap.Modal.getOrCreateInstance(by('#paymentConfirmModal')).hide();
         showSaleResponseResult(result);
         renderReceiptPreview({
@@ -1223,6 +1376,7 @@
           totals: { ...t, net: result.grandTotal, paid: result.paidAmount, change: result.changeAmount, creditUsed: result.creditUsed }
         });
         publishPaymentResult('success', result.message || 'Sale completed successfully.', { ...t, net: result.grandTotal, paid: result.paidAmount, change: result.changeAmount, creditUsed: result.creditUsed }, result.saleNo || result.invoiceNo);
+        resetCashierSaleForNextCustomer();
       } else {
         err.textContent = result.errorMessage || result.message || 'Sale failed. Please check payment details.';
         err.classList.remove('d-none');
@@ -1242,7 +1396,7 @@
     } finally {
       button.disabled = false;
       button.innerHTML = originalButtonHtml;
-      totals();
+      totals(false);
     }
   };
   by('[data-confirm-hold]').onclick = () => { const t = totals(); if (!cart.length) return; by('[data-hold-customer]').value = by('[data-customer-id]').value || ''; by('[data-hold-tax]').value = Number(by('[data-tax-amount]').value || 0); by('[data-hold-items]').value = JSON.stringify(cart); by('[data-hold-note]').value = by('[data-hold-note-input]').value; by('[data-hold-form]').submit(); };
@@ -1256,6 +1410,8 @@
   by('[data-print-receipt]').addEventListener('click', () => printDocument('receipt'));
   by('[data-print-invoice]').addEventListener('click', () => printDocument('invoice'));
   by('[data-result-print-invoice]').addEventListener('click', () => printDocument('invoice'));
+  by('[data-open-drawer-confirm]')?.addEventListener('click', openDrawerManually);
+  by('[data-test-drawer]')?.addEventListener('click', testDrawer);
   startDisplayHub();
   syncCustomerCredit();
   render();
@@ -1310,3 +1466,4 @@
 })();
 </script>
 }
+

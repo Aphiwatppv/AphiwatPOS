@@ -3,34 +3,241 @@
 @{
     ViewData["Title"] = "Settings";
     ViewData["TitleI18nKey"] = "settings.title";
-    ViewData["Subtitle"] = "Choose how AphiwatPOS looks and speaks for this browser.";
+    ViewData["Subtitle"] = "Set up store operations, payments, devices, access, and browser preferences.";
     ViewData["SubtitleI18nKey"] = "settings.subtitle";
+    var paymentMethods = Model.PaymentMethods.ToArray();
 }
 
-<section class="settings-grid">
-    <article class="settings-panel">
+<partial name="_ProductToast" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="settings-dashboard">
+    <section class="settings-panel settings-panel-wide">
         <div class="settings-panel-heading">
-            <span class="settings-icon"><i class="bi bi-translate"></i></span>
+            <span class="settings-icon"><i class="bi bi-compass"></i></span>
             <div>
-                <h2 data-i18n="settings.languageTitle">Language</h2>
-                <p data-i18n="settings.languageDescription">Select the display language for menus and shared controls on this device.</p>
+                <h2>Setup Center</h2>
+                <p>Everything that needs setup is grouped here for quick access.</p>
             </div>
         </div>
 
-        <div class="language-choice" role="group" aria-label="Language">
-            <button type="button" class="language-option" data-language-option="en">
-                <span class="language-code">EN</span>
-                <span>English</span>
-            </button>
-            <button type="button" class="language-option" data-language-option="th">
-                <span class="language-code">TH</span>
-                <span>ไทย</span>
-            </button>
+        <div class="settings-group-grid">
+            @foreach (var group in Model.SettingsGroups)
+            {
+                <article class="settings-group">
+                    <h3>@group.Title</h3>
+                    <div class="settings-link-list">
+                        @foreach (var link in group.Links)
+                        {
+                            <a class="settings-link-card" href="@link.Url">
+                                <span><i class="bi @link.Icon"></i></span>
+                                <strong>@link.Title</strong>
+                                <small>@link.Description</small>
+                            </a>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    </section>
+
+    <section class="settings-grid">
+        <article class="settings-panel">
+            <div class="settings-panel-heading">
+                <span class="settings-icon"><i class="bi bi-translate"></i></span>
+                <div>
+                    <h2 data-i18n="settings.languageTitle">Language</h2>
+                    <p data-i18n="settings.languageDescription">Select the display language for menus and shared controls on this device.</p>
+                </div>
+            </div>
+
+            <div class="language-choice" role="group" aria-label="Language">
+                <button type="button" class="language-option" data-language-option="en">
+                    <span class="language-code">EN</span>
+                    <span>English</span>
+                </button>
+                <button type="button" class="language-option" data-language-option="th">
+                    <span class="language-code">TH</span>
+                    <span>Thai</span>
+                </button>
+            </div>
+
+            <div class="settings-note">
+                <i class="bi bi-info-circle"></i>
+                <span data-i18n="settings.languageNote">Your choice is saved in this browser and applies automatically when you return.</span>
+            </div>
+        </article>
+
+        <article class="settings-panel">
+            <div class="settings-panel-heading">
+                <span class="settings-icon"><i class="bi bi-database"></i></span>
+                <div>
+                    <h2>Database Connection</h2>
+                    <p>@Model.ConnectionSummary</p>
+                </div>
+            </div>
+            <div class="settings-note">
+                <i class="bi bi-shield-lock"></i>
+                <span>Connection details are shown for setup checks and are edited in application configuration.</span>
+            </div>
+        </article>
+    </section>
+
+    <section class="settings-panel settings-panel-wide" id="system-settings">
+        <div class="settings-panel-heading settings-panel-heading-action">
+            <span class="settings-icon"><i class="bi bi-sliders"></i></span>
+            <div>
+                <h2>System Configuration</h2>
+                <p>PromptPay, receipt printer, and cash drawer settings.</p>
+            </div>
+            @if (!Model.IsAdmin)
+            {
+                <span class="badge status-badge badge-muted">Admin only</span>
+            }
         </div>
 
-        <div class="settings-note">
-            <i class="bi bi-info-circle"></i>
-            <span data-i18n="settings.languageNote">Your choice is saved in this browser and applies automatically when you return.</span>
+        <form method="post" asp-page-handler="SaveSystemSettings" class="settings-form">
+            <div class="settings-form-section">
+                <h3><i class="bi bi-qr-code"></i>PromptPay</h3>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Payee ID</label>
+                        <input asp-for="SystemInput.PromptPayPayeeId" class="form-control" placeholder="Phone, tax ID, or e-wallet ID" readonly="@(!Model.IsAdmin)" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Display name</label>
+                        <input asp-for="SystemInput.PromptPayDisplayName" class="form-control" readonly="@(!Model.IsAdmin)" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-form-section">
+                <h3><i class="bi bi-printer"></i>Receipt Printer & Cash Drawer</h3>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Printer name</label>
+                        <input asp-for="SystemInput.ReceiptPrinterName" class="form-control" readonly="@(!Model.IsAdmin)" />
+                        <div class="form-text">Status: @(Model.IsPrinterAvailable ? "Available" : "Not detected")</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Drawer kick command</label>
+                        <input asp-for="SystemInput.DrawerKickCommand" class="form-control mono" readonly="@(!Model.IsAdmin)" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Drawer pin</label>
+                        <select asp-for="SystemInput.DrawerPin" class="form-select" disabled="@(!Model.IsAdmin)">
+                            <option value="2">Pin 2</option>
+                            <option value="5">Pin 5</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <input asp-for="SystemInput.CashDrawerEnabled" class="form-check-input" disabled="@(!Model.IsAdmin)" />
+                            <label class="form-check-label">Enable cash drawer</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <input asp-for="SystemInput.OpenDrawerAfterReceiptPrint" class="form-check-input" disabled="@(!Model.IsAdmin)" />
+                            <label class="form-check-label">Open after receipt print</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <input asp-for="SystemInput.AllowManualOpenDrawer" class="form-check-input" disabled="@(!Model.IsAdmin)" />
+                            <label class="form-check-label">Allow manual open</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (Model.IsAdmin)
+            {
+                <div class="settings-form-actions">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-save me-1"></i>Save System Settings</button>
+                </div>
+            }
+        </form>
+    </section>
+
+    <section class="settings-panel settings-panel-wide" id="payment-methods">
+        <div class="settings-panel-heading settings-panel-heading-action">
+            <span class="settings-icon"><i class="bi bi-wallet2"></i></span>
+            <div>
+                <h2>Payment Methods</h2>
+                <p>Configure checkout, refund, PromptPay, cash, transfer, and credit payment options.</p>
+            </div>
+            @if (Model.IsAdmin)
+            {
+                <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#paymentAddModal"><i class="bi bi-plus-lg me-1"></i>Add Method</button>
+            }
         </div>
-    </article>
-</section>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead><tr><th>Order</th><th>Code</th><th>Name</th><th>Rules</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+                <tbody>
+                @if (!paymentMethods.Any())
+                {
+                    <tr><td colspan="6"><div class="empty-state"><i class="bi bi-wallet2"></i><div class="fw-semibold">No payment methods found</div></div></td></tr>
+                }
+                @foreach (var method in paymentMethods)
+                {
+                    <tr>
+                        <td>@method.DisplayOrder</td>
+                        <td><span class="code-badge mono">@method.PaymentMethodCode</span></td>
+                        <td><div class="fw-semibold">@method.PaymentMethodName</div><small class="text-muted">@method.Description</small></td>
+                        <td>
+                            <span class="badge status-badge @(method.IsCash ? "badge-success" : "badge-muted")">@(method.IsCash ? "Cash" : "Non-cash")</span>
+                            <span class="badge status-badge @(method.RequireReferenceNo ? "badge-warning" : "badge-muted")">@(method.RequireReferenceNo ? "Reference required" : "No reference")</span>
+                        </td>
+                        <td><span class="badge status-badge @(method.IsActive ? "badge-success" : "badge-muted")">@(method.IsActive ? "Active" : "Inactive")</span></td>
+                        <td class="text-end">
+                            @if (Model.IsAdmin)
+                            {
+                                <div class="action-group">
+                                    <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#paymentEdit-@method.PaymentMethodId" type="button"><i class="bi bi-pencil me-1"></i>Edit</button>
+                                    <form method="post" asp-page-handler="TogglePaymentMethod" asp-route-paymentMethodId="@method.PaymentMethodId" asp-route-isActive="@(!method.IsActive)">
+                                        <button class="btn btn-outline-secondary btn-sm" type="submit">@(method.IsActive ? "Deactivate" : "Activate")</button>
+                                    </form>
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="text-muted">Admin only</span>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+@if (Model.IsAdmin)
+{
+    <div class="modal fade app-modal" id="paymentAddModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="post" asp-page-handler="CreatePaymentMethod" class="modal-content">
+                <div class="modal-header"><div><h2 class="modal-title h5">Add Payment Method</h2><p class="modal-subtitle">Create a checkout payment option.</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+                <div class="modal-body"><partial name="_PaymentMethodFields" model="null" /></div>
+                <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save Method</button></div>
+            </form>
+        </div>
+    </div>
+
+    @foreach (var method in paymentMethods)
+    {
+        <div class="modal fade app-modal" id="paymentEdit-@method.PaymentMethodId" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <form method="post" asp-page-handler="UpdatePaymentMethod" class="modal-content">
+                    <div class="modal-header"><div><h2 class="modal-title h5">Edit Payment Method</h2><p class="modal-subtitle">@method.PaymentMethodCode</p></div><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+                    <div class="modal-body"><partial name="_PaymentMethodFields" model="method" /></div>
+                    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save Changes</button></div>
+                </form>
+            </div>
+        </div>
+    }
+}
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

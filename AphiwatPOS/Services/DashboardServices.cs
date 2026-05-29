@@ -51,6 +51,21 @@ public sealed class ManagerDashboardService : IManagerDashboardService
         var trendSummary = await _salesHistoryService.GetSummaryByDateRangeAsync(trendFrom, today, null, cancellationToken);
         var recentSales = await _salesHistoryService.GetPagedAsync(new SalesPagedRequestModel { PageNumber = 1, PageSize = 25, FromDate = monthStart, ToDate = today }, cancellationToken);
 
+        var trendByDate = trendSummary
+            .GroupBy(x => x.SaleDate.Date)
+            .ToDictionary(x => x.Key, x => x.Sum(row => row.NetAmount));
+        var salesTrend = Enumerable.Range(0, 14)
+            .Select(offset =>
+            {
+                var date = trendFrom.AddDays(offset).Date;
+                return new DashboardTrendPointModel
+                {
+                    Label = date.ToString("MMM dd"),
+                    Value = trendByDate.TryGetValue(date, out var value) ? value : 0
+                };
+            })
+            .ToArray();
+
         var monthTransactions = monthSummary.Sum(x => x.TransactionCount);
         return new SalesOverviewModel
         {
@@ -59,7 +74,7 @@ public sealed class ManagerDashboardService : IManagerDashboardService
             MonthSales = monthSummary.Sum(x => x.NetAmount),
             TotalTransactions = monthTransactions,
             AverageBillAmount = monthTransactions == 0 ? 0 : monthSummary.Sum(x => x.NetAmount) / monthTransactions,
-            SalesTrend = trendSummary.OrderBy(x => x.SaleDate).Select(x => new DashboardTrendPointModel { Label = x.SaleDate.ToString("MMM dd"), Value = x.NetAmount }).ToArray(),
+            SalesTrend = salesTrend,
             BestSellingProducts = await BestSellingProductsAsync(recentSales.Sales, cancellationToken)
         };
     }
@@ -153,13 +168,17 @@ public sealed class ManagerDashboardService : IManagerDashboardService
         }
 
         decimal SumBy(params string[] tokens) => payments.Where(p => tokens.Any(token => p.PaymentMethodName.Contains(token, StringComparison.OrdinalIgnoreCase))).Sum(p => p.PaymentAmount);
+        var mixedPaymentTotal = sales.Sales
+            .Where(sale => payments.Count(p => p.SalesHeaderId == sale.SalesHeaderId) > 1)
+            .Sum(sale => sale.NetAmount);
+
         return new PaymentSummaryModel
         {
             CashSales = SumBy("cash"),
             QrPaymentSales = SumBy("qr", "promptpay"),
             BankTransferSales = SumBy("bank", "transfer"),
             CreditSales = SumBy("credit"),
-            MixedPaymentSales = sales.Sales.Count(sale => payments.Count(p => p.SalesHeaderId == sale.SalesHeaderId) > 1),
+            MixedPaymentSales = mixedPaymentTotal,
             OutstandingCreditPayment = SumBy("credit")
         };
     }

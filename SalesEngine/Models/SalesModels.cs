@@ -137,6 +137,10 @@ public sealed class SaleResponseModel
     public decimal ChangeAmount { get; init; }
     public decimal CreditUsed { get; init; }
     public decimal? RemainingCredit { get; init; }
+    public bool ReceiptPrinted { get; init; }
+    public bool CashDrawerOpened { get; init; }
+    public string ReceiptMessage { get; init; } = string.Empty;
+    public string CashDrawerMessage { get; init; } = string.Empty;
     public string? ErrorCode { get; init; }
     public string? ErrorMessage { get; init; }
 }
