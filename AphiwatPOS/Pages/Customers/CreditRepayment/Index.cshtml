@@ -151,6 +151,13 @@
   let displayInvocationId = 0;
   let suppressAmountPublish = false;
   let repaymentCompleted = false;
+  function currentDisplayLanguage() {
+    try { return localStorage.getItem('aphiwatpos.language') === 'th' ? 'th' : 'en'; } catch { return 'en'; }
+  }
+  function encodeDisplayPayload(payload) {
+    if (!payload) return '';
+    try { return btoa(unescape(encodeURIComponent(JSON.stringify(payload)))); } catch { return ''; }
+  }
 
   function emptyDisplay() {
     return {
@@ -225,6 +232,10 @@
       displaySocket.send(JSON.stringify({ type:1, invocationId:String(++displayInvocationId), target:'SendDisplayUpdate', arguments:[terminalId, payload] }) + '\u001e');
     }
   }
+  function publishDisplayReliable(payload) {
+    publishDisplay(payload);
+    [500, 1500, 3000, 4500].forEach(delay => setTimeout(() => publishDisplay(payload), delay));
+  }
 
   function resetPayload() {
     return { type:'display-state', terminalId, event:'CustomerDisplayReset', displayState:'Ready', status:'Ready for next customer', itemCount:0, customer:{}, payment:{}, totals:{ subtotal:0, itemDiscount:0, orderDiscount:0, lineTax:0, manualTax:0, tax:0, net:0, paid:0, remaining:0, change:0, creditUsed:0, otherPaid:0 }, items:[], updatedAt:new Date().toISOString() };
@@ -251,9 +262,12 @@
 
   function openCustomerDisplay(syncCurrent = true) {
     if (!customerDisplayUrl) return;
+    const payload = syncCurrent ? (selectedCustomer ? currentDisplayPayload('CustomerSelected', 'CreditCustomerSelected') : emptyDisplay()) : null;
+    const encodedPayload = encodeDisplayPayload(payload);
     const separator = customerDisplayUrl.includes('?') ? '&' : '?';
-    window.open(`${customerDisplayUrl}${separator}terminalId=${encodeURIComponent(terminalId)}`, 'aphiwatposCustomerDisplay', 'popup=yes,width=1100,height=820');
-    if (syncCurrent) setTimeout(() => publishDisplay(selectedCustomer ? currentDisplayPayload('CustomerSelected', 'CreditCustomerSelected') : emptyDisplay()), 500);
+    const url = `${customerDisplayUrl}${separator}terminalId=${encodeURIComponent(terminalId)}&lang=${encodeURIComponent(currentDisplayLanguage())}${encodedPayload ? `&payload=${encodeURIComponent(encodedPayload)}` : ''}`;
+    window.open(url, 'aphiwatposCustomerDisplay', 'popup=yes,width=1100,height=820');
+    if (syncCurrent) [150, 600, 1200, 2500, 4500].forEach(delay => setTimeout(() => publishDisplay(payload), delay));
   }
 
   function syncCashUi() {
@@ -283,7 +297,7 @@
     const button = form.querySelector('button[type="submit"]');
     const originalButtonHtml = button?.innerHTML;
     const processing = currentDisplayPayload('ProcessingRepayment', 'CreditRepaymentProcessing', 'Processing repayment...');
-    publishDisplay(processing);
+    publishDisplayReliable(processing);
     if (button) {
       button.disabled = true;
       button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Processing repayment...';
@@ -298,7 +312,7 @@
       const result = await response.json().catch(() => ({ isSuccess:false, message:'Repayment failed', errorMessage:'Server returned an invalid response.' }));
       if (response.ok && result.isSuccess) {
         repaymentCompleted = true;
-        publishDisplay({
+        publishDisplayReliable({
           ...currentDisplayPayload('RepaymentSuccess', 'CreditRepaymentCompleted', 'Credit repayment completed successfully'),
           message:'Thank you for your payment',
           receiptNo: result.receiptNo,
@@ -319,11 +333,11 @@
           window.location.href = `?SelectedCustomerId=${encodeURIComponent(result.customerId)}&SearchText=${encodeURIComponent(searchText)}&DisplayReady=1`;
         }, 5000);
       } else {
-        publishDisplay({ ...currentDisplayPayload('RepaymentFailed', 'CreditRepaymentFailed', 'Repayment failed'), message:'Repayment failed', errorMessage:result.errorMessage || result.message || 'Repayment failed.' });
+        publishDisplayReliable({ ...currentDisplayPayload('RepaymentFailed', 'CreditRepaymentFailed', 'Repayment failed'), message:'Repayment failed', errorMessage:result.errorMessage || result.message || 'Repayment failed.' });
         alert(result.errorMessage || result.message || 'Repayment failed.');
       }
     } catch (error) {
-      publishDisplay({ ...currentDisplayPayload('RepaymentFailed', 'CreditRepaymentFailed', 'Repayment failed'), message:'Repayment failed', errorMessage:error.message || 'Network or server error.' });
+      publishDisplayReliable({ ...currentDisplayPayload('RepaymentFailed', 'CreditRepaymentFailed', 'Repayment failed'), message:'Repayment failed', errorMessage:error.message || 'Network or server error.' });
       alert(error.message || 'Network or server error.');
     } finally {
       if (button && !repaymentCompleted) {

@@ -3,8 +3,10 @@
 @using AphiwatPOS.Pages.Customer
 @using System.Text.Json
 @{
-    ViewData["Title"] = "à¸ˆà¹ˆà¸²à¸¢à¸šà¸´à¸¥à¸¢à¸²à¸‡à¸žà¸²à¸£à¸²";
-    ViewData["Subtitle"] = "à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™à¸„à¹ˆà¸²à¸£à¸±à¸šà¸‹à¸·à¹‰à¸­à¸¢à¸²à¸‡à¹à¸¥à¸°à¸žà¸´à¸¡à¸žà¹Œà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆ.";
+    ViewData["Title"] = "Pay Rubber Bills";
+    ViewData["Subtitle"] = "Select a rubber purchase bill, record payment, and print the receipt.";
+    ViewData["TitleI18nKey"] = "rubberPay.title";
+    ViewData["SubtitleI18nKey"] = "rubberPay.subtitle";
     var selected = Model.SelectedPurchase;
     var receipt = Model.Receipt;
     var fullPaymentAmount = selected?.TotalAmount ?? 0;
@@ -49,10 +51,10 @@
 
 <div class="page-header d-flex align-items-start justify-content-between gap-3 no-print">
     <div>
-        <h1>à¸ˆà¹ˆà¸²à¸¢à¸šà¸´à¸¥à¸¢à¸²à¸‡à¸žà¸²à¸£à¸²</h1>
-        <p>à¹€à¸¥à¸·à¸­à¸à¸šà¸´à¸¥à¸£à¸±à¸šà¸‹à¸·à¹‰à¸­à¸¢à¸²à¸‡ à¸šà¸±à¸™à¸—à¸¶à¸à¸à¸²à¸£à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™ à¹à¸¥à¸°à¸žà¸´à¸¡à¸žà¹Œà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆà¸£à¸±à¸šà¹€à¸‡à¸´à¸™.</p>
+        <h1 data-i18n="rubberPay.title">Pay Rubber Bills</h1>
+        <p data-i18n="rubberPay.subtitle">Select a rubber purchase bill, record payment, and print the receipt.</p>
     </div>
-    <a class="btn btn-outline-secondary" asp-page="/RubberPlantation/RubberPurchase/Index"><i class="bi bi-box-arrow-in-down me-1"></i>à¸£à¸²à¸¢à¸à¸²à¸£à¸£à¸±à¸šà¸‹à¸·à¹‰à¸­</a>
+    <a class="btn btn-outline-secondary" asp-page="/RubberPlantation/RubberPurchase/Index"><i class="bi bi-box-arrow-in-down me-1"></i><span data-i18n="nav.rubberPurchases">Rubber Purchases</span></a>
 </div>
 
 <div class="no-print mb-3">
@@ -60,35 +62,35 @@
 </div>
 
 <div class="summary-grid no-print">
-    <div class="summary-card"><span class="metric-icon"><i class="bi bi-receipt"></i></span><div><div class="metric-label">à¸šà¸´à¸¥à¸£à¸­à¸ˆà¹ˆà¸²à¸¢</div><div class="metric-value">@Model.DuePurchases.Count</div></div></div>
-    <div class="summary-card"><span class="metric-icon"><i class="bi bi-cash-stack"></i></span><div><div class="metric-label">à¸¢à¸­à¸”à¸„à¹‰à¸²à¸‡à¸£à¸§à¸¡</div><div class="metric-value">@money(Model.TotalDueAmount)</div></div></div>
-    <div class="summary-card"><span class="metric-icon"><i class="bi bi-printer"></i></span><div><div class="metric-label">à¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆà¸¥à¹ˆà¸²à¸ªà¸¸à¸”</div><div class="metric-value">@(receipt?.ReceiptNo ?? "-")</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-receipt"></i></span><div><div class="metric-label" data-i18n="rubberPay.dueBills">Due bills</div><div class="metric-value">@Model.DuePurchases.Count</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-cash-stack"></i></span><div><div class="metric-label" data-i18n="rubberPay.outstandingTotal">Total outstanding</div><div class="metric-value">@money(Model.TotalDueAmount)</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-printer"></i></span><div><div class="metric-label" data-i18n="rubberPay.latestReceipt">Latest receipt</div><div class="metric-value">@(receipt?.ReceiptNo ?? "-")</div></div></div>
 </div>
 
 <div class="rubber-pay-layout no-print">
     <section class="data-card">
         <div class="card-heading">
             <div>
-                <h2>à¸šà¸´à¸¥à¸—à¸µà¹ˆà¸£à¸­à¸Šà¸³à¸£à¸°</h2>
-                <p>à¸„à¹‰à¸™à¸«à¸²à¸ˆà¸²à¸à¸£à¸«à¸±à¸ªà¸ªà¸¡à¸²à¸Šà¸´à¸ à¸Šà¸·à¹ˆà¸­ à¸«à¸£à¸·à¸­à¹€à¸šà¸­à¸£à¹Œà¹‚à¸—à¸£</p>
+                <h2 data-i18n="rubberPay.billList">Bills to pay</h2>
+                <p data-i18n="rubberPay.billListHelp">Search by member code, seller name, or phone number.</p>
             </div>
         </div>
         <form method="get" class="row g-2 mb-3">
-            <div class="col"><input asp-for="SearchText" class="form-control" placeholder="à¸„à¹‰à¸™à¸«à¸²à¸œà¸¹à¹‰à¸‚à¸²à¸¢" /></div>
+            <div class="col"><input asp-for="SearchText" class="form-control" placeholder="Search seller" data-i18n-placeholder="rubberPay.searchSeller" /></div>
             <div class="col-auto"><button class="btn btn-primary" type="submit"><i class="bi bi-search"></i></button></div>
             <div class="col-auto"><a class="btn btn-outline-secondary" asp-page="./Index"><i class="bi bi-arrow-counterclockwise"></i></a></div>
         </form>
         <div class="rubber-bill-list">
             @if (!Model.DuePurchases.Any())
             {
-                <div class="empty-state"><i class="bi bi-check2-circle"></i><div class="fw-semibold">à¹„à¸¡à¹ˆà¸¡à¸µà¸šà¸´à¸¥à¸„à¹‰à¸²à¸‡à¸Šà¸³à¸£à¸°</div></div>
+                <div class="empty-state"><i class="bi bi-check2-circle"></i><div class="fw-semibold" data-i18n="rubberPay.noDueBills">No due rubber bills.</div></div>
             }
             @foreach (var item in Model.DuePurchases)
             {
                 <a class="rubber-bill-card @(selected?.RubberPurchaseHeaderId == item.RubberPurchaseHeaderId ? "active" : "")" asp-page="./Index" asp-route-SearchText="@Model.SearchText" asp-route-HistorySearchText="@Model.HistorySearchText" asp-route-HistoryPaymentMethod="@Model.HistoryPaymentMethod" asp-route-HistoryDateFrom="@Model.HistoryDateFrom?.ToString("yyyy-MM-dd")" asp-route-HistoryDateTo="@Model.HistoryDateTo?.ToString("yyyy-MM-dd")" asp-route-SelectedPurchaseId="@item.RubberPurchaseHeaderId">
                     <span>
                         <strong>@item.CustomerName</strong>
-                        <small>@item.CustomerCode Â· @CustomerPageHelpers.Date(item.TransactionDate) Â· @(item.RubberAuctionLocationName ?? item.LocationName)</small>
+                        <small>@item.CustomerCode &middot; @CustomerPageHelpers.Date(item.TransactionDate) &middot; @(item.RubberAuctionLocationName ?? item.LocationName)</small>
                     </span>
                     <span class="text-end">
                         <strong>@money(AphiwatPOS.Pages.RubberPlantation.PayBill.IndexModel.GetRemainingAmount(item))</strong>
@@ -102,36 +104,36 @@
     <section class="data-card">
         <div class="card-heading">
             <div>
-                <h2>à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™</h2>
-                <p>à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸¢à¸­à¸”à¸à¹ˆà¸­à¸™à¸šà¸±à¸™à¸—à¸¶à¸à¹à¸¥à¸°à¸žà¸´à¸¡à¸žà¹Œà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆ</p>
+                <h2 data-i18n="rubberPay.payment">Payment</h2>
+                <p data-i18n="rubberPay.paymentHelp">Review the bill amount, take payment, and print the receipt.</p>
             </div>
         </div>
         @if (selected is null)
         {
-            <div class="empty-state"><i class="bi bi-receipt"></i><div class="fw-semibold">à¹€à¸¥à¸·à¸­à¸à¸šà¸´à¸¥à¹€à¸žà¸·à¹ˆà¸­à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™</div></div>
+            <div class="empty-state"><i class="bi bi-receipt"></i><div class="fw-semibold" data-i18n="rubberPay.noBillSelected">Select a bill to pay.</div></div>
         }
         else
         {
             <div class="rubber-pay-detail">
                 <div class="rubber-selected-head">
                     <div>
-                        <span>à¸œà¸¹à¹‰à¸‚à¸²à¸¢à¸¢à¸²à¸‡</span>
+                        <span data-i18n="rubberPay.rubberSeller">Rubber seller</span>
                         <strong>@selected.CustomerName</strong>
-                        <small>@selected.CustomerCode Â· @(selected.PhoneNumber ?? "-")</small>
+                        <small>@selected.CustomerCode &middot; @(selected.PhoneNumber ?? "-")</small>
                     </div>
                     <div class="text-end">
-                        <span>à¸¢à¸­à¸”à¸—à¸µà¹ˆà¸•à¹‰à¸­à¸‡à¸ˆà¹ˆà¸²à¸¢à¹€à¸•à¹‡à¸¡à¸ˆà¸³à¸™à¸§à¸™</span>
+                        <span data-i18n="rubberPay.fullAmount">Full amount to pay</span>
                         <strong>@money(fullPaymentAmount)</strong>
-                        <small>à¸šà¸²à¸—</small>
+                        <small data-i18n="rubberPay.baht">baht</small>
                     </div>
                 </div>
                 <dl>
-                    <dt>à¸§à¸±à¸™à¸—à¸µà¹ˆà¸£à¸±à¸šà¸‹à¸·à¹‰à¸­</dt><dd>@CustomerPageHelpers.Date(selected.TransactionDate)</dd>
-                    <dt>à¸ªà¸–à¸²à¸™à¸—à¸µà¹ˆà¸£à¸±à¸šà¸‹à¸·à¹‰à¸­</dt><dd>@(selected.RubberAuctionLocationName ?? selected.LocationName)</dd>
-                    <dt>à¸™à¹‰à¸³à¸«à¸™à¸±à¸</dt><dd>@selected.WeightKg.ToString("N2") à¸à¸´à¹‚à¸¥à¸à¸£à¸±à¸¡</dd>
-                    <dt>à¸£à¸²à¸„à¸²</dt><dd>@((selected.PricePerKgSnapshot ?? 0).ToString("N2")) à¸šà¸²à¸—/à¸à¸.</dd>
-                    <dt>à¸«à¸±à¸</dt><dd>@((selected.PercentageSnapshot ?? 0).ToString("N2"))%</dd>
-                    <dt>à¸¢à¸­à¸”à¸ªà¸¸à¸—à¸˜à¸´</dt><dd>@money(selected.TotalAmount ?? 0) à¸šà¸²à¸—</dd>
+                    <dt data-i18n="rubberPay.billDate">Purchase date</dt><dd>@CustomerPageHelpers.Date(selected.TransactionDate)</dd>
+                    <dt data-i18n="rubberPay.location">Purchase location</dt><dd>@(selected.RubberAuctionLocationName ?? selected.LocationName)</dd>
+                    <dt data-i18n="rubberPay.weight">Weight</dt><dd>@selected.WeightKg.ToString("N2") <span data-i18n="rubberPay.kg">kg</span></dd>
+                    <dt data-i18n="rubberPay.price">Price</dt><dd>@((selected.PricePerKgSnapshot ?? 0).ToString("N2")) <span data-i18n="rubberPay.bahtPerKg">baht/kg</span></dd>
+                    <dt data-i18n="rubberPay.deduction">Deduction</dt><dd>@((selected.PercentageSnapshot ?? 0).ToString("N2"))%</dd>
+                    <dt data-i18n="rubberPay.netAmount">Net amount</dt><dd>@money(selected.TotalAmount ?? 0) <span data-i18n="rubberPay.baht">baht</span></dd>
                 </dl>
             </div>
             <form method="post" asp-page-handler="Pay" class="rubber-payment-form">
@@ -139,72 +141,72 @@
                 <input asp-for="Input.PaidAmount" type="hidden" value="@fullPaymentAmount" />
                 <div class="full-pay-banner">
                     <div>
-                        <span>à¸£à¸°à¸šà¸šà¸™à¸µà¹‰à¸ˆà¹ˆà¸²à¸¢à¹€à¸•à¹‡à¸¡à¸ˆà¸³à¸™à¸§à¸™à¹€à¸—à¹ˆà¸²à¸™à¸±à¹‰à¸™</span>
-                        <strong>@money(fullPaymentAmount) à¸šà¸²à¸—</strong>
+                        <span data-i18n="rubberPay.fullPaymentOnly">This cashier flow accepts full payment only.</span>
+                        <strong>@money(fullPaymentAmount) <span data-i18n="rubberPay.baht">baht</span></strong>
                     </div>
                     <i class="bi bi-shield-check"></i>
                 </div>
                 <div>
-                    <label class="form-label">à¸§à¸´à¸˜à¸µà¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™</label>
-                    <div class="payment-method-grid" role="radiogroup" aria-label="à¸§à¸´à¸˜à¸µà¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™">
+                    <label class="form-label" data-i18n="rubberPay.paymentMethod">Payment method</label>
+                    <div class="payment-method-grid" role="radiogroup" aria-label="Payment method">
                         <label class="payment-method-option">
                             <input asp-for="Input.PaymentMethod" type="radio" value="Cash" checked />
-                            <span><i class="bi bi-cash-stack"></i><strong>à¹€à¸‡à¸´à¸™à¸ªà¸”</strong><small>à¸£à¸±à¸šà¹€à¸‡à¸´à¸™à¸ªà¸”à¹à¸¥à¸°à¸­à¸­à¸à¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆà¸—à¸±à¸™à¸—à¸µ</small></span>
+                            <span><i class="bi bi-cash-stack"></i><strong data-i18n="rubberPay.cash">Cash</strong><small data-i18n="rubberPay.cashHelp">Receive cash and print receipt immediately.</small></span>
                         </label>
                         <label class="payment-method-option">
                             <input asp-for="Input.PaymentMethod" type="radio" value="Transfer" />
-                            <span><i class="bi bi-bank"></i><strong>à¹‚à¸­à¸™à¸šà¸±à¸à¸Šà¸µ</strong><small>à¸šà¸±à¸™à¸—à¸¶à¸à¹€à¸¥à¸‚à¸­à¹‰à¸²à¸‡à¸­à¸´à¸‡à¹ƒà¸™à¸«à¸¡à¸²à¸¢à¹€à¸«à¸•à¸¸</small></span>
+                            <span><i class="bi bi-bank"></i><strong data-i18n="rubberPay.transfer">Bank transfer</strong><small data-i18n="rubberPay.transferHelp">Record the transfer reference in the remark.</small></span>
                         </label>
                     </div>
                 </div>
                 <div>
-                    <label class="form-label">à¸«à¸¡à¸²à¸¢à¹€à¸«à¸•à¸¸</label>
-                    <input asp-for="Input.PaymentRemark" class="form-control" placeholder="à¹€à¸¥à¸‚à¸­à¹‰à¸²à¸‡à¸­à¸´à¸‡à¸«à¸£à¸·à¸­à¸«à¸¡à¸²à¸¢à¹€à¸«à¸•à¸¸à¹€à¸žà¸´à¹ˆà¸¡à¹€à¸•à¸´à¸¡" />
+                    <label class="form-label" data-i18n="rubberPay.remark">Remark</label>
+                    <input asp-for="Input.PaymentRemark" class="form-control" placeholder="Reference number or additional note" data-i18n-placeholder="rubberPay.remarkPlaceholder" />
                 </div>
                 <div class="payment-review">
-                    <div><span>à¸œà¸¹à¹‰à¸‚à¸²à¸¢</span><strong>@selected.CustomerName</strong></div>
-                    <div><span>à¸™à¹‰à¸³à¸«à¸™à¸±à¸</span><strong>@selected.WeightKg.ToString("N2") à¸à¸.</strong></div>
-                    <div><span>à¸¢à¸­à¸”à¸ˆà¹ˆà¸²à¸¢</span><strong>@money(fullPaymentAmount) à¸šà¸²à¸—</strong></div>
+                    <div><span data-i18n="rubberPay.seller">Seller</span><strong>@selected.CustomerName</strong></div>
+                    <div><span data-i18n="rubberPay.weight">Weight</span><strong>@selected.WeightKg.ToString("N2") <span data-i18n="rubberPay.kg">kg</span></strong></div>
+                    <div><span data-i18n="rubberPay.payAmount">Pay amount</span><strong>@money(fullPaymentAmount) <span data-i18n="rubberPay.baht">baht</span></strong></div>
                 </div>
                 @if (Model.SelectedCustomerHasOutstandingCredit)
                 {
                     <div class="credit-due-alert">
                         <i class="bi bi-exclamation-triangle"></i>
                         <div>
-                            <span>à¸¥à¸¹à¸à¸„à¹‰à¸²à¸¡à¸µà¹€à¸„à¸£à¸”à¸´à¸•à¸„à¹‰à¸²à¸‡à¸Šà¸³à¸£à¸°</span>
-                            <strong>@money(Model.SelectedCreditOutstandingAmount) à¸šà¸²à¸—</strong>
+                            <span data-i18n="rubberPay.customerCreditDue">Customer has outstanding credit</span>
+                            <strong>@money(Model.SelectedCreditOutstandingAmount) <span data-i18n="rubberPay.baht">baht</span></strong>
                         </div>
                     </div>
                 }
                 <div class="d-flex justify-content-end gap-2">
                     @if (receipt is not null)
                     {
-                        <button class="btn btn-outline-secondary" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i>à¸žà¸´à¸¡à¸žà¹Œà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆ</button>
+                        <button class="btn btn-outline-secondary" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i><span data-i18n="rubberPay.printReceipt">Print receipt</span></button>
                     }
-                    <button class="btn btn-primary btn-lg" type="button" data-bs-toggle="modal" data-bs-target="#confirmRubberPayment"><i class="bi bi-check2-circle me-1"></i>à¸ˆà¹ˆà¸²à¸¢à¸šà¸´à¸¥à¹€à¸•à¹‡à¸¡à¸ˆà¸³à¸™à¸§à¸™</button>
+                    <button class="btn btn-primary btn-lg" type="button" data-bs-toggle="modal" data-bs-target="#confirmRubberPayment"><i class="bi bi-check2-circle me-1"></i><span data-i18n="rubberPay.payFull">Pay full bill</span></button>
                 </div>
 
                 <div class="modal fade app-modal" id="confirmRubberPayment" tabindex="-1" aria-labelledby="confirmRubberPaymentTitle" aria-hidden="true">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
                             <div class="modal-header">
-                                <h2 class="modal-title h5" id="confirmRubberPaymentTitle">à¸¢à¸·à¸™à¸¢à¸±à¸™à¸à¸²à¸£à¸ˆà¹ˆà¸²à¸¢à¸šà¸´à¸¥</h2>
+                                <h2 class="modal-title h5" id="confirmRubberPaymentTitle" data-i18n="rubberPay.confirm">Confirm payment</h2>
                                 <button class="btn-close" data-bs-dismiss="modal" type="button" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
-                                <div class="confirm-payment-amount">@money(fullPaymentAmount) à¸šà¸²à¸—</div>
+                                <div class="confirm-payment-amount">@money(fullPaymentAmount) <span data-i18n="rubberPay.baht">baht</span></div>
                                 <dl class="confirm-payment-list">
-                                    <dt>à¸œà¸¹à¹‰à¸‚à¸²à¸¢</dt><dd>@selected.CustomerName</dd>
-                                    <dt>à¸§à¸±à¸™à¸—à¸µà¹ˆà¸£à¸±à¸šà¸‹à¸·à¹‰à¸­</dt><dd>@CustomerPageHelpers.Date(selected.TransactionDate)</dd>
-                                    <dt>à¸™à¹‰à¸³à¸«à¸™à¸±à¸</dt><dd>@selected.WeightKg.ToString("N2") à¸à¸.</dd>
+                                    <dt data-i18n="rubberPay.seller">Seller</dt><dd>@selected.CustomerName</dd>
+                                    <dt data-i18n="rubberPay.billDate">Purchase date</dt><dd>@CustomerPageHelpers.Date(selected.TransactionDate)</dd>
+                                    <dt data-i18n="rubberPay.weight">Weight</dt><dd>@selected.WeightKg.ToString("N2") <span data-i18n="rubberPay.kg">kg</span></dd>
                                 </dl>
                                 @if (Model.SelectedCustomerHasOutstandingCredit)
                                 {
                                     <div class="credit-due-modal">
                                         <div class="credit-due-modal-icon"><i class="bi bi-credit-card"></i></div>
                                         <div>
-                                            <h3>à¸¥à¸¹à¸à¸„à¹‰à¸²à¸¡à¸µà¹€à¸„à¸£à¸”à¸´à¸•à¸„à¹‰à¸²à¸‡à¸Šà¸³à¸£à¸° à¸•à¹‰à¸­à¸‡à¸à¸²à¸£à¸Šà¸³à¸£à¸°à¸”à¹‰à¸§à¸¢à¹„à¸«à¸¡?</h3>
-                                            <p>à¸–à¹‰à¸²à¹€à¸¥à¸·à¸­à¸à¸Šà¸³à¸£à¸°à¸”à¹‰à¸§à¸¢ à¸£à¸°à¸šà¸šà¸ˆà¸°à¸šà¸±à¸™à¸—à¸¶à¸à¸Šà¸³à¸£à¸°à¸šà¸´à¸¥à¸¢à¸²à¸‡à¹€à¸•à¹‡à¸¡à¸ˆà¸³à¸™à¸§à¸™ à¹à¸¥à¸°à¸šà¸±à¸™à¸—à¸¶à¸à¸Šà¸³à¸£à¸°à¹€à¸„à¸£à¸”à¸´à¸•à¸„à¹‰à¸²à¸‡à¸­à¸µà¸ @money(Model.SelectedCreditOutstandingAmount) à¸šà¸²à¸—</p>
+                                            <h3 data-i18n="rubberPay.creditQuestion">Customer has outstanding credit. Pay it now?</h3>
+                                            <p><span data-i18n="rubberPay.creditHelp">If selected, the system records the full rubber bill payment and also pays outstanding credit of</span> @money(Model.SelectedCreditOutstandingAmount) <span data-i18n="rubberPay.baht">baht</span></p>
                                         </div>
                                     </div>
                                 }
@@ -212,13 +214,13 @@
                                 {
                                     <label class="credit-due-choice">
                                         <input class="form-check-input" name="Input.PayCustomerCredit" value="true" type="checkbox" />
-                                        <span>à¸Šà¸³à¸£à¸°à¹€à¸„à¸£à¸”à¸´à¸•à¸„à¹‰à¸²à¸‡à¸”à¹‰à¸§à¸¢ @money(Model.SelectedCreditOutstandingAmount) à¸šà¸²à¸—</span>
+                                        <span><span data-i18n="rubberPay.payCreditWithBill">Pay outstanding credit</span> @money(Model.SelectedCreditOutstandingAmount) <span data-i18n="rubberPay.baht">baht</span></span>
                                     </label>
                                 }
                             </div>
                             <div class="modal-footer">
-                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸­à¸µà¸à¸„à¸£à¸±à¹‰à¸‡</button>
-                                <button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle me-1"></i>à¸¢à¸·à¸™à¸¢à¸±à¸™à¸à¸²à¸£à¸ˆà¹ˆà¸²à¸¢à¸šà¸´à¸¥</button>
+                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button" data-i18n="rubberPay.reviewAgain">Review again</button>
+                                <button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle me-1"></i><span data-i18n="rubberPay.confirm">Confirm payment</span></button>
                             </div>
                         </div>
                     </div>
@@ -231,31 +233,31 @@
 <section class="data-card mt-3 no-print">
     <div class="card-heading">
         <div>
-            <h2>à¸›à¸£à¸°à¸§à¸±à¸•à¸´à¸à¸²à¸£à¸ˆà¹ˆà¸²à¸¢à¹€à¸‡à¸´à¸™</h2>
-            <p>à¸”à¸¹à¸£à¸²à¸¢à¸à¸²à¸£à¸—à¸µà¹ˆà¹€à¸„à¸¢à¸Šà¸³à¸£à¸°à¹à¸¥à¹‰à¸§ à¹à¸¥à¸°à¸žà¸´à¸¡à¸žà¹Œà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆà¸¢à¹‰à¸­à¸™à¸«à¸¥à¸±à¸‡</p>
+            <h2 data-i18n="rubberPay.paymentHistory">Payment history</h2>
+            <p data-i18n="rubberPay.paymentHistoryHelp">Review paid rubber bills and reprint receipts.</p>
         </div>
     </div>
     <form method="get" class="history-filter-card">
         <input type="hidden" asp-for="SearchText" />
         <div class="row g-2 align-items-end">
             <div class="col-lg-4">
-                <label class="form-label">à¸„à¹‰à¸™à¸«à¸²à¸›à¸£à¸°à¸§à¸±à¸•à¸´</label>
-                <input asp-for="HistorySearchText" class="form-control" placeholder="à¹€à¸¥à¸‚à¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆ à¸œà¸¹à¹‰à¸‚à¸²à¸¢ à¹€à¸šà¸­à¸£à¹Œà¹‚à¸—à¸£ à¸«à¸£à¸·à¸­à¸ªà¸–à¸²à¸™à¸—à¸µà¹ˆ" />
+                <label class="form-label" data-i18n="rubberPay.searchHistory">Search history</label>
+                <input asp-for="HistorySearchText" class="form-control" placeholder="Receipt no, seller, phone, or location" data-i18n-placeholder="rubberPay.historyPlaceholder" />
             </div>
             <div class="col-lg-2">
-                <label class="form-label">à¸§à¸´à¸˜à¸µà¸Šà¸³à¸£à¸°</label>
+                <label class="form-label" data-i18n="rubberPay.paymentMethod">Payment method</label>
                 <select asp-for="HistoryPaymentMethod" class="form-select">
-                    <option value="">à¸—à¸±à¹‰à¸‡à¸«à¸¡à¸”</option>
-                    <option value="Cash">à¹€à¸‡à¸´à¸™à¸ªà¸”</option>
-                    <option value="Transfer">à¹‚à¸­à¸™à¸šà¸±à¸à¸Šà¸µ</option>
+                    <option value="" data-i18n="rubberPay.all">All</option>
+                    <option value="Cash" data-i18n="rubberPay.cash">Cash</option>
+                    <option value="Transfer" data-i18n="rubberPay.transfer">Bank transfer</option>
                 </select>
             </div>
             <div class="col-lg-2">
-                <label class="form-label">à¸ˆà¸²à¸à¸§à¸±à¸™à¸—à¸µà¹ˆ</label>
+                <label class="form-label" data-i18n="rubberPay.dateFrom">Date from</label>
                 <input asp-for="HistoryDateFrom" class="form-control" type="date" />
             </div>
             <div class="col-lg-2">
-                <label class="form-label">à¸–à¸¶à¸‡à¸§à¸±à¸™à¸—à¸µà¹ˆ</label>
+                <label class="form-label" data-i18n="rubberPay.dateTo">Date to</label>
                 <input asp-for="HistoryDateTo" class="form-control" type="date" />
             </div>
             <div class="col-lg-2 d-flex gap-2">
@@ -266,8 +268,8 @@
         @if (Model.HasHistoryFilter)
         {
             <div class="history-filter-summary">
-                <span>@Model.PaidHistory.Count à¸£à¸²à¸¢à¸à¸²à¸£</span>
-                <a asp-page="./Index" asp-route-SearchText="@Model.SearchText">à¸¥à¹‰à¸²à¸‡à¸•à¸±à¸§à¸à¸£à¸­à¸‡</a>
+                <span>@Model.PaidHistory.Count <span data-i18n="rubberPay.records">records</span></span>
+                <a asp-page="./Index" asp-route-SearchText="@Model.SearchText" data-i18n="rubberPay.clearFilters">Clear filters</a>
             </div>
         }
     </form>
@@ -275,33 +277,33 @@
         <table class="table table-hover align-middle">
             <thead>
                 <tr>
-                    <th>à¹€à¸¥à¸‚à¸—à¸µà¹ˆà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆ</th>
-                    <th>à¸§à¸±à¸™à¸—à¸µà¹ˆà¸ˆà¹ˆà¸²à¸¢</th>
-                    <th>à¸œà¸¹à¹‰à¸‚à¸²à¸¢</th>
-                    <th>à¸™à¹‰à¸³à¸«à¸™à¸±à¸</th>
-                    <th>à¸¢à¸­à¸”à¸ªà¸¸à¸—à¸˜à¸´</th>
-                    <th>à¸Šà¸³à¸£à¸°à¹à¸¥à¹‰à¸§</th>
-                    <th>à¸§à¸´à¸˜à¸µà¸Šà¸³à¸£à¸°</th>
-                    <th class="text-end">à¸žà¸´à¸¡à¸žà¹Œ</th>
+                    <th data-i18n="rubberPay.receiptNo">Receipt no</th>
+                    <th data-i18n="rubberPay.paidDate">Paid date</th>
+                    <th data-i18n="rubberPay.seller">Seller</th>
+                    <th data-i18n="rubberPay.weight">Weight</th>
+                    <th data-i18n="rubberPay.netAmount">Net amount</th>
+                    <th data-i18n="rubberPay.paidAmount">Paid amount</th>
+                    <th data-i18n="rubberPay.paymentMethod">Payment method</th>
+                    <th class="text-end" data-i18n="rubberPay.print">Print</th>
                 </tr>
             </thead>
             <tbody>
             @if (!Model.PaidHistory.Any())
             {
-                <tr><td colspan="8"><div class="empty-state"><i class="bi bi-clock-history"></i><div class="fw-semibold">à¸¢à¸±à¸‡à¹„à¸¡à¹ˆà¸¡à¸µà¸›à¸£à¸°à¸§à¸±à¸•à¸´à¸à¸²à¸£à¸ˆà¹ˆà¸²à¸¢à¹€à¸‡à¸´à¸™</div></div></td></tr>
+                <tr><td colspan="8"><div class="empty-state"><i class="bi bi-clock-history"></i><div class="fw-semibold" data-i18n="rubberPay.noPaymentHistory">No payment history yet.</div></div></td></tr>
             }
             @foreach (var item in Model.PaidHistory)
             {
                 <tr>
                     <td><span class="code-badge mono">@(item.ReceiptNo ?? "-")</span></td>
                     <td>@CustomerPageHelpers.DateTimeText(item.PaidDate)</td>
-                    <td><span class="fw-semibold d-block">@item.CustomerName</span><span class="text-muted small">@item.CustomerCode Â· @(item.RubberAuctionLocationName ?? item.LocationName)</span></td>
+                    <td><span class="fw-semibold d-block">@item.CustomerName</span><span class="text-muted small">@item.CustomerCode &middot; @(item.RubberAuctionLocationName ?? item.LocationName)</span></td>
                     <td>@item.WeightKg.ToString("N2") kg</td>
                     <td>@money(item.TotalAmount ?? 0)</td>
                     <td class="fw-semibold">@money(item.PaidAmount)</td>
                     <td>@PaymentText(item.PaymentMethod)</td>
                     <td class="text-end">
-                        <a class="btn btn-outline-secondary btn-sm" asp-page="./Index" asp-route-SearchText="@Model.SearchText" asp-route-HistorySearchText="@Model.HistorySearchText" asp-route-HistoryPaymentMethod="@Model.HistoryPaymentMethod" asp-route-HistoryDateFrom="@Model.HistoryDateFrom?.ToString("yyyy-MM-dd")" asp-route-HistoryDateTo="@Model.HistoryDateTo?.ToString("yyyy-MM-dd")" asp-route-ReceiptId="@item.RubberPurchaseHeaderId" asp-route-PromptPrint="true"><i class="bi bi-printer me-1"></i>à¸”à¸¹/à¸žà¸´à¸¡à¸žà¹Œ</a>
+                        <a class="btn btn-outline-secondary btn-sm" asp-page="./Index" asp-route-SearchText="@Model.SearchText" asp-route-HistorySearchText="@Model.HistorySearchText" asp-route-HistoryPaymentMethod="@Model.HistoryPaymentMethod" asp-route-HistoryDateFrom="@Model.HistoryDateFrom?.ToString("yyyy-MM-dd")" asp-route-HistoryDateTo="@Model.HistoryDateTo?.ToString("yyyy-MM-dd")" asp-route-ReceiptId="@item.RubberPurchaseHeaderId" asp-route-PromptPrint="true"><i class="bi bi-printer me-1"></i><span data-i18n="rubberPay.viewPrint">View/print</span></a>
                     </td>
                 </tr>
             }
@@ -315,10 +317,10 @@
     <section class="data-card mt-3 no-print">
         <div class="card-heading">
             <div>
-                <h2>à¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆà¸¥à¹ˆà¸²à¸ªà¸¸à¸”</h2>
+                <h2 data-i18n="rubberPay.latestReceipt">Latest receipt</h2>
                 <p>@receipt.ReceiptNo</p>
             </div>
-            <button class="btn btn-primary" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i>à¸žà¸´à¸¡à¸žà¹Œà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆ</button>
+            <button class="btn btn-primary" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i><span data-i18n="rubberPay.printReceipt">Print receipt</span></button>
         </div>
         <div class="rubber-receipt-preview">
             <partial name="_RubberBillReceipt" model="receipt" />
@@ -329,21 +331,21 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content print-prompt-modal">
                 <div class="modal-header">
-                    <h2 class="modal-title h5" id="printReceiptPromptTitle">à¸•à¹‰à¸­à¸‡à¸à¸²à¸£à¸žà¸´à¸¡à¸žà¹Œà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆà¹„à¸«à¸¡?</h2>
+                    <h2 class="modal-title h5" id="printReceiptPromptTitle" data-i18n="rubberPay.receiptQuestion">Print receipt?</h2>
                     <button class="btn-close" data-bs-dismiss="modal" type="button" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <div class="print-prompt-icon"><i class="bi bi-printer"></i></div>
                     <div class="print-prompt-receipt">@(receipt.ReceiptNo ?? "-")</div>
                     <dl class="confirm-payment-list">
-                        <dt>à¸œà¸¹à¹‰à¸‚à¸²à¸¢</dt><dd>@receipt.CustomerName</dd>
-                        <dt>à¸¢à¸­à¸”à¸Šà¸³à¸£à¸°</dt><dd>@money(receipt.PaidAmount) à¸šà¸²à¸—</dd>
-                        <dt>à¸§à¸´à¸˜à¸µà¸Šà¸³à¸£à¸°</dt><dd>@PaymentText(receipt.PaymentMethod)</dd>
+                        <dt data-i18n="rubberPay.seller">Seller</dt><dd>@receipt.CustomerName</dd>
+                        <dt data-i18n="rubberPay.amountPaid">Amount paid</dt><dd>@money(receipt.PaidAmount) <span data-i18n="rubberPay.baht">baht</span></dd>
+                        <dt data-i18n="rubberPay.paymentMethod">Payment method</dt><dd>@PaymentText(receipt.PaymentMethod)</dd>
                     </dl>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">à¸¢à¸±à¸‡à¹„à¸¡à¹ˆà¸žà¸´à¸¡à¸žà¹Œ</button>
-                    <button class="btn btn-primary" type="button" data-bs-dismiss="modal" onclick="window.print()"><i class="bi bi-printer me-1"></i>à¸žà¸´à¸¡à¸žà¹Œà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆ</button>
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button" data-i18n="rubberPay.notNow">Not now</button>
+                    <button class="btn btn-primary" type="button" data-bs-dismiss="modal" onclick="window.print()"><i class="bi bi-printer me-1"></i><span data-i18n="rubberPay.printReceipt">Print receipt</span></button>
                 </div>
             </div>
         </div>
@@ -536,12 +538,23 @@
         }
       }
 
+      function encodeDisplayPayload(payload) {
+        if (!payload) return '';
+        try {
+          return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+        } catch { return ''; }
+      }
+
       function openCustomerDisplay() {
-        const separator = customerDisplayUrl.includes('?') ? '&' : '?';
-        window.open(`${customerDisplayUrl}${separator}terminalId=${encodeURIComponent(terminalId)}`, 'aphiwatposCustomerDisplay', 'popup=yes,width=1200,height=820');
-        setTimeout(() => publishDisplay(receiptBill
+        const payload = receiptBill
           ? currentPayload('RubberPaymentSuccess', 'RubberPaymentCompleted', 'Rubber bill payment completed successfully.')
-          : selectedBill ? currentPayload() : null), 500);
+          : selectedBill ? currentPayload() : null;
+        const separator = customerDisplayUrl.includes('?') ? '&' : '?';
+        const language = localStorage.getItem('aphiwatpos.language') === 'th' ? 'th' : 'en';
+        const encodedPayload = encodeDisplayPayload(payload);
+        const url = `${customerDisplayUrl}${separator}terminalId=${encodeURIComponent(terminalId)}&lang=${encodeURIComponent(language)}${encodedPayload ? `&payload=${encodeURIComponent(encodedPayload)}` : ''}`;
+        window.open(url, 'aphiwatposCustomerDisplay', 'popup=yes,width=1200,height=820');
+        [150, 600, 1200, 2500, 4500].forEach(delay => setTimeout(() => publishDisplay(payload), delay));
       }
 
       by('[data-open-rubber-display]')?.addEventListener('click', openCustomerDisplay);
@@ -577,7 +590,7 @@
 }
 
 @functions {
-    string PaymentText(string? method) => method == "Transfer" ? "à¹‚à¸­à¸™à¸šà¸±à¸à¸Šà¸µ" : "à¹€à¸‡à¸´à¸™à¸ªà¸”";
+    string PaymentText(string? method) => method == "Transfer" ? "Bank transfer" : "Cash";
 }
 
 <style>
@@ -642,7 +655,7 @@
 .receipt-total-panel{background:#f8fcf9;border:1px solid #d7eadc;display:grid;gap:0;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:18px}.receipt-total-panel div{padding:14px}.receipt-total-panel div+div{border-left:1px solid #d7eadc}.receipt-total-panel span{color:#64756a;display:block;font-size:.78rem;font-weight:800}.receipt-total-panel strong{color:#08752e;display:block;font-size:1.08rem;font-weight:900;margin-top:4px}
 .receipt-balance-due{align-items:center;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;display:flex;font-weight:900;justify-content:space-between;margin-top:12px;padding:12px 14px}
 .receipt-payment-row{align-items:center;border:1px solid #d7eadc;display:flex;justify-content:space-between;margin-top:18px;padding:12px 14px}.receipt-payment-row>span{color:#64756a;font-weight:900}.receipt-payment-row label{color:#123524;font-weight:800;margin-left:18px}
-.check-box{border:1.5px solid #08752e;display:inline-block;height:13px;margin:0 5px 0 0;vertical-align:-2px;width:13px;border-radius:3px}.check-box.checked{background:#08752e;color:#fff}.check-box.checked:after{content:"âœ“";display:block;font-size:12px;line-height:12px;text-align:center}
+.check-box{border:1.5px solid #08752e;display:inline-block;height:13px;margin:0 5px 0 0;vertical-align:-2px;width:13px;border-radius:3px}.check-box.checked{background:#08752e;color:#fff}.check-box.checked:after{content:"\2713";display:block;font-size:12px;line-height:12px;text-align:center}
 .receipt-signature-row{display:grid;gap:60px;grid-template-columns:1fr 1fr;margin-top:44px}.receipt-signature-row span{border-bottom:1px solid #123524;display:block;height:24px}.receipt-signature-row p{color:#64756a;font-weight:800;margin:8px 0 0;text-align:center}
 .print-only{display:none}
 @@media(max-width:992px){.rubber-pay-layout{grid-template-columns:1fr}.rubber-pay-detail dl{grid-template-columns:1fr}.rubber-pay-detail dd{text-align:left}}

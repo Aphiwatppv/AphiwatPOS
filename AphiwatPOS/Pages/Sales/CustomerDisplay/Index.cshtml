@@ -281,38 +281,95 @@
     <script>
     (() => {
       const languageKey = 'aphiwatpos.language';
+      const queryLanguage = new URLSearchParams(location.search).get('language') || new URLSearchParams(location.search).get('lang');
       const originalText = new WeakMap();
       let applying = false;
       const phrases = {
         th: {
+          'Amount to seller': '\u0e22\u0e2d\u0e14\u0e08\u0e48\u0e32\u0e22\u0e43\u0e2b\u0e49\u0e1c\u0e39\u0e49\u0e02\u0e32\u0e22',
           'AphiwatPOS': 'AphiwatPOS',
-          'Change Amount': 'à¹€à¸‡à¸´à¸™à¸—à¸­à¸™',
-          'Current Cart': 'à¸•à¸°à¸à¸£à¹‰à¸²à¸›à¸±à¸ˆà¸ˆà¸¸à¸šà¸±à¸™',
-          'Discount': 'à¸ªà¹ˆà¸§à¸™à¸¥à¸”',
-          'Grand Total': 'à¸¢à¸­à¸”à¸£à¸§à¸¡à¸ªà¸¸à¸—à¸˜à¸´',
-          'Line Total': 'à¸¢à¸­à¸”à¸£à¸§à¸¡à¸£à¸²à¸¢à¸à¸²à¸£',
-          'Method': 'à¸§à¸´à¸˜à¸µà¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™',
-          'Paid Amount': 'à¸¢à¸­à¸”à¸—à¸µà¹ˆà¸Šà¸³à¸£à¸°',
-          'Payment': 'à¸à¸²à¸£à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™',
-          'Payment Failed': 'à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™à¹„à¸¡à¹ˆà¸ªà¸³à¹€à¸£à¹‡à¸ˆ',
-          'Payment Successful': 'à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™à¸ªà¸³à¹€à¸£à¹‡à¸ˆ',
+          'Available credit': '\u0e40\u0e04\u0e23\u0e14\u0e34\u0e15\u0e17\u0e35\u0e48\u0e43\u0e0a\u0e49\u0e44\u0e14\u0e49',
+          'Bill selected': '\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e1a\u0e34\u0e25\u0e41\u0e25\u0e49\u0e27',
+          'Cash': '\u0e40\u0e07\u0e34\u0e19\u0e2a\u0e14',
+          'Cash received': '\u0e23\u0e31\u0e1a\u0e40\u0e07\u0e34\u0e19\u0e2a\u0e14',
+          'Change Amount': '\u0e40\u0e07\u0e34\u0e19\u0e17\u0e2d\u0e19',
+          'Change amount': '\u0e40\u0e07\u0e34\u0e19\u0e17\u0e2d\u0e19',
+          'Confirm payment': '\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e01\u0e32\u0e23\u0e08\u0e48\u0e32\u0e22\u0e1a\u0e34\u0e25',
+          'Credit deducted': '\u0e2b\u0e31\u0e01\u0e40\u0e04\u0e23\u0e14\u0e34\u0e15',
+          'Credit repayment completed successfully': '\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e04\u0e23\u0e14\u0e34\u0e15\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08',
+          'Credit Repayment': '\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e04\u0e23\u0e14\u0e34\u0e15',
+          'Current Cart': '\u0e15\u0e30\u0e01\u0e23\u0e49\u0e32\u0e1b\u0e31\u0e08\u0e08\u0e38\u0e1a\u0e31\u0e19',
+          'Customer credit will be deducted from this bill.': '\u0e08\u0e30\u0e2b\u0e31\u0e01\u0e40\u0e04\u0e23\u0e14\u0e34\u0e15\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32\u0e08\u0e32\u0e01\u0e1a\u0e34\u0e25\u0e19\u0e35\u0e49',
+          'Customer Information': '\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32',
+          'Customer name': '\u0e0a\u0e37\u0e48\u0e2d\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32',
+          'Customer type': '\u0e1b\u0e23\u0e30\u0e40\u0e20\u0e17\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32',
+          'Deduction': '\u0e2b\u0e31\u0e01',
+          'Discount': '\u0e2a\u0e48\u0e27\u0e19\u0e25\u0e14',
+          'Due date': '\u0e27\u0e31\u0e19\u0e04\u0e23\u0e1a\u0e01\u0e33\u0e2b\u0e19\u0e14',
+          'Failed': '\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08',
+          'Full bill amount': '\u0e22\u0e2d\u0e14\u0e40\u0e15\u0e47\u0e21\u0e02\u0e2d\u0e07\u0e1a\u0e34\u0e25',
+          'Grand Total': '\u0e22\u0e2d\u0e14\u0e23\u0e27\u0e21\u0e2a\u0e38\u0e17\u0e18\u0e34',
+          'Invoice No / Sale No': '\u0e40\u0e25\u0e02\u0e17\u0e35\u0e48\u0e43\u0e1a\u0e40\u0e2a\u0e23\u0e47\u0e08 / \u0e40\u0e25\u0e02\u0e17\u0e35\u0e48\u0e02\u0e32\u0e22',
+          'Last repayment': '\u0e0a\u0e33\u0e23\u0e30\u0e25\u0e48\u0e32\u0e2a\u0e38\u0e14',
+          'Line Total': '\u0e22\u0e2d\u0e14\u0e23\u0e27\u0e21\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23',
+          'Member code': '\u0e23\u0e2b\u0e31\u0e2a\u0e2a\u0e21\u0e32\u0e0a\u0e34\u0e01',
+          'Member level': '\u0e23\u0e30\u0e14\u0e31\u0e1a\u0e2a\u0e21\u0e32\u0e0a\u0e34\u0e01',
+          'Method': '\u0e27\u0e34\u0e18\u0e35\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19',
+          'Outstanding balance': '\u0e22\u0e2d\u0e14\u0e04\u0e49\u0e32\u0e07\u0e0a\u0e33\u0e23\u0e30',
+          'Overdue amount': '\u0e22\u0e2d\u0e14\u0e40\u0e01\u0e34\u0e19\u0e01\u0e33\u0e2b\u0e19\u0e14',
+          'Paid Amount': '\u0e22\u0e2d\u0e14\u0e17\u0e35\u0e48\u0e0a\u0e33\u0e23\u0e30',
+          'Payment': '\u0e01\u0e32\u0e23\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19',
+          'Payment completed successfully': '\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08',
+          'Payment could not be completed.': '\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19\u0e44\u0e14\u0e49',
+          'Payment Failed': '\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08',
+          'Payment method': '\u0e27\u0e34\u0e18\u0e35\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19',
+          'Payment Method': '\u0e27\u0e34\u0e18\u0e35\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19',
+          'Payment Summary': '\u0e2a\u0e23\u0e38\u0e1b\u0e01\u0e32\u0e23\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19',
+          'Payment Successful': '\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08',
+          'Phone number': '\u0e40\u0e1a\u0e2d\u0e23\u0e4c\u0e42\u0e17\u0e23',
+          'Please confirm the bill with the cashier.': '\u0e01\u0e23\u0e38\u0e13\u0e32\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e1a\u0e34\u0e25\u0e01\u0e31\u0e1a\u0e41\u0e04\u0e0a\u0e40\u0e0a\u0e35\u0e22\u0e23\u0e4c',
+          'Please confirm the rubber bill amount before payment.': '\u0e01\u0e23\u0e38\u0e13\u0e32\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e22\u0e2d\u0e14\u0e1a\u0e34\u0e25\u0e22\u0e32\u0e07\u0e01\u0e48\u0e2d\u0e19\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19',
+          'Please confirm this full payment.': '\u0e01\u0e23\u0e38\u0e13\u0e32\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e01\u0e32\u0e23\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e15\u0e47\u0e21\u0e08\u0e33\u0e19\u0e27\u0e19',
+          'Please confirm your repayment amount with the cashier.': '\u0e01\u0e23\u0e38\u0e13\u0e32\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e22\u0e2d\u0e14\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e04\u0e23\u0e14\u0e34\u0e15\u0e01\u0e31\u0e1a\u0e41\u0e04\u0e0a\u0e40\u0e0a\u0e35\u0e22\u0e23\u0e4c',
+          'Please wait while we check your account.': '\u0e01\u0e23\u0e38\u0e13\u0e32\u0e23\u0e2d\u0e2a\u0e31\u0e01\u0e04\u0e23\u0e39\u0e48 \u0e23\u0e30\u0e1a\u0e1a\u0e01\u0e33\u0e25\u0e31\u0e07\u0e15\u0e23\u0e27\u0e08\u0e2a\u0e2d\u0e1a\u0e1a\u0e31\u0e0d\u0e0a\u0e35',
           'POS': 'POS',
-          'Product': 'à¸ªà¸´à¸™à¸„à¹‰à¸²',
-          'Qty': 'à¸ˆà¸³à¸™à¸§à¸™',
-          'Ready to complete payment.': 'à¸žà¸£à¹‰à¸­à¸¡à¸£à¸±à¸šà¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™',
-          'Remaining': 'à¸„à¸‡à¹€à¸«à¸¥à¸·à¸­',
-          'Scan the QR code to pay with mobile banking.': 'à¸ªà¹à¸à¸™ QR à¹€à¸žà¸·à¹ˆà¸­à¸Šà¸³à¸£à¸°à¸œà¹ˆà¸²à¸™à¹‚à¸¡à¸šà¸²à¸¢à¹à¸šà¸‡à¸à¹Œà¸à¸´à¹‰à¸‡',
-          'Scanning Items': 'à¸à¸³à¸¥à¸±à¸‡à¸ªà¹à¸à¸™à¸ªà¸´à¸™à¸„à¹‰à¸²',
-          'Thank you for your purchase. Payment successful.': 'à¸‚à¸­à¸šà¸„à¸¸à¸“à¸ªà¸³à¸«à¸£à¸±à¸šà¸à¸²à¸£à¸‹à¸·à¹‰à¸­ à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™à¸ªà¸³à¹€à¸£à¹‡à¸ˆ',
-          'Unit Price': 'à¸£à¸²à¸„à¸²à¸•à¹ˆà¸­à¸«à¸™à¹ˆà¸§à¸¢',
-          'Waiting for Payment': 'à¸£à¸­à¸à¸²à¸£à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™',
-          'Waiting for payment.': 'à¸£à¸­à¸à¸²à¸£à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™',
-          'Waiting for scanned items': 'à¸£à¸­à¸£à¸²à¸¢à¸à¸²à¸£à¸ªà¸´à¸™à¸„à¹‰à¸²à¸—à¸µà¹ˆà¸ªà¹à¸à¸™',
-          'Walk-in Customer': 'à¸¥à¸¹à¸à¸„à¹‰à¸²à¸—à¸±à¹ˆà¸§à¹„à¸›',
-          'Welcome. Your purchase details will appear here.': 'à¸¢à¸´à¸™à¸”à¸µà¸•à¹‰à¸­à¸™à¸£à¸±à¸š à¸£à¸²à¸¢à¸¥à¸°à¹€à¸­à¸µà¸¢à¸”à¸à¸²à¸£à¸‹à¸·à¹‰à¸­à¸ˆà¸°à¹à¸ªà¸”à¸‡à¸—à¸µà¹ˆà¸™à¸µà¹ˆ'
+          'Previous outstanding': '\u0e22\u0e2d\u0e14\u0e04\u0e49\u0e32\u0e07\u0e40\u0e14\u0e34\u0e21',
+          'Price per kg': '\u0e23\u0e32\u0e04\u0e32\u0e15\u0e48\u0e2d\u0e01\u0e01.',
+          'Processing': '\u0e01\u0e33\u0e25\u0e31\u0e07\u0e14\u0e33\u0e40\u0e19\u0e34\u0e19\u0e01\u0e32\u0e23',
+          'Processing repayment...': '\u0e01\u0e33\u0e25\u0e31\u0e07\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e04\u0e23\u0e14\u0e34\u0e15...',
+          'Product': '\u0e2a\u0e34\u0e19\u0e04\u0e49\u0e32',
+          'Purchase date': '\u0e27\u0e31\u0e19\u0e17\u0e35\u0e48\u0e23\u0e31\u0e1a\u0e0b\u0e37\u0e49\u0e2d',
+          'Purchase location': '\u0e2a\u0e16\u0e32\u0e19\u0e17\u0e35\u0e48\u0e23\u0e31\u0e1a\u0e0b\u0e37\u0e49\u0e2d',
+          'Qty': '\u0e08\u0e33\u0e19\u0e27\u0e19',
+          'Ready for next customer': '\u0e1e\u0e23\u0e49\u0e2d\u0e21\u0e2a\u0e33\u0e2b\u0e23\u0e31\u0e1a\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32\u0e16\u0e31\u0e14\u0e44\u0e1b',
+          'Ready to complete payment.': '\u0e1e\u0e23\u0e49\u0e2d\u0e21\u0e23\u0e31\u0e1a\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19',
+          'Receipt number': '\u0e40\u0e25\u0e02\u0e17\u0e35\u0e48\u0e43\u0e1a\u0e40\u0e2a\u0e23\u0e47\u0e08',
+          'Remaining': '\u0e04\u0e07\u0e40\u0e2b\u0e25\u0e37\u0e2d',
+          'Remaining balance': '\u0e22\u0e2d\u0e14\u0e04\u0e07\u0e40\u0e2b\u0e25\u0e37\u0e2d',
+          'Repayment': '\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e04\u0e23\u0e14\u0e34\u0e15',
+          'Repayment amount': '\u0e22\u0e2d\u0e14\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e04\u0e23\u0e14\u0e34\u0e15',
+          'Repayment failed': '\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e04\u0e23\u0e14\u0e34\u0e15\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08',
+          'Repayment receipt number': '\u0e40\u0e25\u0e02\u0e17\u0e35\u0e48\u0e43\u0e1a\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e04\u0e23\u0e14\u0e34\u0e15',
+          'Repayment Summary': '\u0e2a\u0e23\u0e38\u0e1b\u0e01\u0e32\u0e23\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e04\u0e23\u0e14\u0e34\u0e15',
+          'Rubber Bill Payment': '\u0e08\u0e48\u0e32\u0e22\u0e1a\u0e34\u0e25\u0e22\u0e32\u0e07\u0e1e\u0e32\u0e23\u0e32',
+          'Saving payment and preparing receipt...': '\u0e01\u0e33\u0e25\u0e31\u0e07\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e01\u0e32\u0e23\u0e0a\u0e33\u0e23\u0e30\u0e41\u0e25\u0e30\u0e40\u0e15\u0e23\u0e35\u0e22\u0e21\u0e43\u0e1a\u0e40\u0e2a\u0e23\u0e47\u0e08...',
+          'Scan the QR code to pay with mobile banking.': '\u0e2a\u0e41\u0e01\u0e19 QR \u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e0a\u0e33\u0e23\u0e30\u0e1c\u0e48\u0e32\u0e19\u0e42\u0e21\u0e1a\u0e32\u0e22\u0e41\u0e1a\u0e07\u0e01\u0e4c\u0e01\u0e34\u0e49\u0e07',
+          'Scanning Items': '\u0e01\u0e33\u0e25\u0e31\u0e07\u0e2a\u0e41\u0e01\u0e19\u0e2a\u0e34\u0e19\u0e04\u0e49\u0e32',
+          'Seller Information': '\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e1c\u0e39\u0e49\u0e02\u0e32\u0e22',
+          'Thank you for your payment': '\u0e02\u0e2d\u0e1a\u0e04\u0e38\u0e13\u0e2a\u0e33\u0e2b\u0e23\u0e31\u0e1a\u0e01\u0e32\u0e23\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19',
+          'Thank you for your purchase': '\u0e02\u0e2d\u0e1a\u0e04\u0e38\u0e13\u0e2a\u0e33\u0e2b\u0e23\u0e31\u0e1a\u0e01\u0e32\u0e23\u0e0b\u0e37\u0e49\u0e2d',
+          'Thank you for your purchase. Payment successful.': '\u0e02\u0e2d\u0e1a\u0e04\u0e38\u0e13\u0e2a\u0e33\u0e2b\u0e23\u0e31\u0e1a\u0e01\u0e32\u0e23\u0e0b\u0e37\u0e49\u0e2d \u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08',
+          'Unit Price': '\u0e23\u0e32\u0e04\u0e32\u0e15\u0e48\u0e2d\u0e2b\u0e19\u0e48\u0e27\u0e22',
+          'Unpaid invoices': '\u0e43\u0e1a\u0e41\u0e08\u0e49\u0e07\u0e2b\u0e19\u0e35\u0e49\u0e04\u0e49\u0e32\u0e07\u0e0a\u0e33\u0e23\u0e30',
+          'Waiting for Payment': '\u0e23\u0e2d\u0e01\u0e32\u0e23\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19',
+          'Waiting for payment.': '\u0e23\u0e2d\u0e01\u0e32\u0e23\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19',
+          'Waiting for scanned items': '\u0e23\u0e2d\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e2a\u0e34\u0e19\u0e04\u0e49\u0e32\u0e17\u0e35\u0e48\u0e2a\u0e41\u0e01\u0e19',
+          'Walk-in Customer': '\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32\u0e17\u0e31\u0e48\u0e27\u0e44\u0e1b',
+          'Welcome. Your purchase details will appear here.': '\u0e22\u0e34\u0e19\u0e14\u0e35\u0e15\u0e49\u0e2d\u0e19\u0e23\u0e31\u0e1a \u0e23\u0e32\u0e22\u0e25\u0e30\u0e40\u0e2d\u0e35\u0e22\u0e14\u0e01\u0e32\u0e23\u0e0b\u0e37\u0e49\u0e2d\u0e08\u0e30\u0e41\u0e2a\u0e14\u0e07\u0e17\u0e35\u0e48\u0e19\u0e35\u0e48',
+          'Weight': '\u0e19\u0e49\u0e33\u0e2b\u0e19\u0e31\u0e01'
         }
       };
-      const language = () => localStorage.getItem(languageKey) === 'th' ? 'th' : 'en';
+      const language = () => queryLanguage ? (queryLanguage === 'th' ? 'th' : 'en') : (localStorage.getItem(languageKey) === 'th' ? 'th' : 'en');
       const translate = (value) => {
         const nextLanguage = language();
         if (nextLanguage === 'en') return value;
@@ -320,9 +377,9 @@
         if (!source) return value;
         if (phrases.th[source]) return value.replace(source, phrases.th[source]);
         const itemMatch = source.match(/^(\d+)\s+items?$/i);
-        if (itemMatch) return value.replace(source, `${itemMatch[1]} à¸£à¸²à¸¢à¸à¸²à¸£`);
+        if (itemMatch) return value.replace(source, `${itemMatch[1]} \u0e23\u0e32\u0e22\u0e01\u0e32\u0e23`);
         const saleMatch = source.match(/^Sale\s+(.+)$/i);
-        if (saleMatch) return value.replace(source, `à¸šà¸´à¸¥ ${saleMatch[1]}`);
+        if (saleMatch) return value.replace(source, `\u0e1a\u0e34\u0e25 ${saleMatch[1]}`);
         return value;
       };
       window.applyCustomerDisplayLanguage = () => {
@@ -360,8 +417,18 @@
       const storageKey = 'aphiwatpos:customer-display';
       const terminalStorageKey = 'aphiwatpos:terminal-id';
       const terminalId = new URLSearchParams(location.search).get('terminalId') || localStorage.getItem(terminalStorageKey) || 'default';
+      const languageKey = 'aphiwatpos.language';
+      const queryLanguage = new URLSearchParams(location.search).get('language') || new URLSearchParams(location.search).get('lang');
+      const language = () => queryLanguage ? (queryLanguage === 'th' ? 'th' : 'en') : (localStorage.getItem(languageKey) === 'th' ? 'th' : 'en');
       const money = value => Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const thb = value => `THB ${money(value)}`;
+      const thb = value => language() === 'th' ? `${money(value)} \u0e1a\u0e32\u0e17` : `THB ${money(value)}`;
+      const kg = () => language() === 'th' ? '\u0e01\u0e01.' : 'kg';
+      const paymentMethodText = value => {
+        const raw = String(value || '').toLowerCase();
+        if (raw.includes('transfer')) return language() === 'th' ? '\u0e42\u0e2d\u0e19\u0e1a\u0e31\u0e0d\u0e0a\u0e35' : 'Bank transfer';
+        if (raw.includes('cash')) return language() === 'th' ? '\u0e40\u0e07\u0e34\u0e19\u0e2a\u0e14' : 'Cash';
+        return value || '-';
+      };
       const by = selector => document.querySelector(selector);
       const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       let displaySocket = null;
@@ -545,17 +612,17 @@
         by('[data-rubber-seller-meta]').textContent = [rubber.sellerCode, rubber.phoneNumber].filter(Boolean).join(' - ') || '-';
         by('[data-rubber-date]').textContent = rubber.purchaseDate || '-';
         by('[data-rubber-location]').textContent = rubber.locationName || '-';
-        by('[data-rubber-weight]').textContent = `${money(rubber.weightKg)} kg`;
-        by('[data-rubber-price]').textContent = `THB ${money(rubber.pricePerKg)} / kg`;
+        by('[data-rubber-weight]').textContent = `${money(rubber.weightKg)} ${kg()}`;
+        by('[data-rubber-price]').textContent = `${thb(rubber.pricePerKg)} / ${kg()}`;
         by('[data-rubber-deduction]').textContent = `${money(rubber.deductionPercent)}%`;
         by('[data-rubber-pay-amount]').textContent = thb(sellerAmount);
         by('[data-rubber-full-amount]').textContent = thb(fullAmount);
         by('[data-rubber-credit-deducted]').textContent = thb(creditDeducted);
-        by('[data-rubber-method]').textContent = payment.method || '-';
+        by('[data-rubber-method]').textContent = paymentMethodText(payment.method);
         by('[data-rubber-receipt]').textContent = message.receiptNo || rubber.receiptNo || '-';
         const note = by('[data-rubber-credit-note]');
         note.hidden = creditDeducted <= 0;
-        note.textContent = creditDeducted > 0 ? `Customer credit deduction: ${thb(creditDeducted)}` : '';
+        note.textContent = creditDeducted > 0 ? `${language() === 'th' ? '\u0e2b\u0e31\u0e01\u0e40\u0e04\u0e23\u0e14\u0e34\u0e15\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32' : 'Customer credit deduction'}: ${thb(creditDeducted)}` : '';
         footer.textContent = message.errorMessage || message.message || 'Please confirm the rubber bill amount before payment.';
         footer.className = `rubber-footer ${state === 'RubberPaymentFailed' ? 'fail' : state === 'RubberPaymentProcessing' || state === 'RubberPaymentConfirming' ? 'warning' : ''}`.trim();
         window.applyCustomerDisplayLanguage?.();
@@ -574,6 +641,14 @@
           return;
         }
         visual.innerHTML = `<div class="result-icon idle">${totals.net > 0 ? thb(totals.net) : 'POS'}</div>`;
+      }
+
+      function readInitialPayload() {
+        const encoded = new URLSearchParams(location.search).get('payload');
+        if (!encoded) return null;
+        try {
+          return JSON.parse(decodeURIComponent(escape(atob(encoded))));
+        } catch { return null; }
       }
 
       function render(message) {
@@ -668,9 +743,13 @@
       }
 
       try {
-        const saved = localStorage.getItem(storageKey);
-        if (saved) render(JSON.parse(saved));
-        else renderReady();
+        const initialPayload = readInitialPayload();
+        if (initialPayload) render(initialPayload);
+        else {
+          const saved = localStorage.getItem(storageKey);
+          if (saved) render(JSON.parse(saved));
+          else renderReady();
+        }
       } catch { renderReady(); }
 
       if ('BroadcastChannel' in window) {

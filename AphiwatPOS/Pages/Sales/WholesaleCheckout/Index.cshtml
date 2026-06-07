@@ -529,6 +529,23 @@
   let displayInvocationId = 0;
   const cartPanel = by('[data-cart-panel]');
   const serverErrorMessage = @Html.Raw(JsonSerializer.Serialize(serverErrorMessage));
+  function currentDisplayLanguage() {
+    try { return localStorage.getItem('aphiwatpos.language') === 'th' ? 'th' : 'en'; } catch { return 'en'; }
+  }
+  function encodeDisplayPayload(payload) {
+    if (!payload) return '';
+    try { return btoa(unescape(encodeURIComponent(JSON.stringify(payload)))); } catch { return ''; }
+  }
+  function currentCustomerDisplayPayload(statusText) {
+    if (!cart.length) {
+      const customer = selectedCustomerOption();
+      const creditInfo = selectedCreditInfo();
+      if (!statusText || statusText === 'Scanning Items') return readyDisplayPayload();
+      return { type:'sale-update', event:'SaleStarted', displayState:'Scanning', status:statusText, itemCount:0, customer:customer?.value ? { name:customer.dataset.name || 'Customer', memberLevel:customer.dataset.level || '', availableCredit:creditInfo.availableCredit || 0, creditUsed:0, remainingCredit:creditInfo.availableCredit || 0 } : { name:'Walk-in Wholesale Customer', memberLevel:'Wholesale' }, totals:{ subtotal:0, itemDiscount:0, orderDiscount:0, lineTax:0, manualTax:0, tax:0, net:0, paid:0, remaining:0, change:0, creditUsed:0, otherPaid:0 }, payment:{ method:activeMethod?.innerText.trim() || '-', paidAmount:0, changeAmount:0, creditUsed:0, remainingCredit:creditInfo.availableCredit || 0 }, items:[], updatedAt:new Date().toISOString() };
+    }
+    const t = totals(false);
+    return { type:'sale-update', event:statusText ? 'SaleStarted' : 'CartUpdated', displayState:t.paid > 0 ? 'WaitingForPayment' : 'Scanning', status:statusText || (t.paid > 0 ? 'Waiting for Payment' : 'Scanning Items'), ...customerDisplaySnapshot(t), updatedAt:new Date().toISOString() };
+  }
   function lineTax(item) {
     if (item.taxRate === null || item.taxRate === undefined || Number.isNaN(Number(item.taxRate))) return Number(item.taxAmount || 0);
     const taxable = Math.max(0, (Number(item.quantity || 0) * Number(item.unitPrice || 0)) - Number(item.itemDiscountAmount || 0));
@@ -681,11 +698,19 @@
     by('[data-promptpay-preview]')?.classList.add('d-none');
     by('[data-promptpay-error]')?.classList.add('d-none');
   }
-  function openCustomerDisplay() {
+  function openCustomerDisplay(syncCurrent = true, initialPayload = null) {
     if (!customerDisplayUrl) return;
+    const payload = initialPayload || (syncCurrent ? currentCustomerDisplayPayload() : null);
+    const encodedPayload = encodeDisplayPayload(payload);
     const separator = customerDisplayUrl.includes('?') ? '&' : '?';
-    window.open(`${customerDisplayUrl}${separator}terminalId=${encodeURIComponent(terminalId)}`, 'aphiwatposCustomerDisplay', 'popup=yes,width=1100,height=820');
+    const url = `${customerDisplayUrl}${separator}terminalId=${encodeURIComponent(terminalId)}&lang=${encodeURIComponent(currentDisplayLanguage())}${encodedPayload ? `&payload=${encodeURIComponent(encodedPayload)}` : ''}`;
+    window.open(url, 'aphiwatposCustomerDisplay', 'popup=yes,width=1100,height=820');
     customerDisplayOpened = true;
+    if (syncCurrent) {
+      [150, 600, 1200, 2500, 4500].forEach(delay => setTimeout(() => publishLiveDisplay(), delay));
+    } else if (payload) {
+      [150, 600, 1200, 2500, 4500].forEach(delay => setTimeout(() => publishCustomerDisplay(payload), delay));
+    }
   }
   function ensureCustomerDisplayOpen(syncCurrent = true) {
     if (customerDisplayOpened) {
@@ -693,8 +718,7 @@
       return;
     }
 
-    openCustomerDisplay();
-    if (syncCurrent) setTimeout(() => publishLiveDisplay(), 500);
+    openCustomerDisplay(syncCurrent);
   }
   async function startDisplayHub() {
     if (!('WebSocket' in window) || displaySocket) return;
@@ -725,6 +749,10 @@
     } catch {}
     customerDisplayChannel?.postMessage(message);
     if (message) sendDisplayInvocation('SendDisplayUpdate', [terminalId, message]);
+  }
+  function publishCustomerDisplayReliable(message) {
+    publishCustomerDisplay(message);
+    [500, 1500, 3000, 4500].forEach(delay => setTimeout(() => publishCustomerDisplay(message), delay));
   }
   function readyDisplayPayload() {
     return { type:'display-state', displayState:'Ready', event:'SaleReset', status:'Ready for next customer', itemCount:0, customer:{}, payment:{}, totals:{ subtotal:0, itemDiscount:0, orderDiscount:0, lineTax:0, manualTax:0, tax:0, net:0, paid:0, remaining:0, change:0, creditUsed:0, otherPaid:0 }, items:[], updatedAt:new Date().toISOString() };
@@ -770,21 +798,9 @@
     };
   }
   function publishLiveDisplay(statusText) {
-    if (!cart.length) {
-      const customer = selectedCustomerOption();
-      const creditInfo = selectedCreditInfo();
-      if (!statusText || statusText === 'Scanning Items') {
-        publishCustomerDisplay(readyDisplayPayload());
-      } else {
-        publishCustomerDisplay({ type:'sale-update', event:'SaleStarted', displayState:'Scanning', status:statusText, itemCount:0, customer:customer?.value ? { name:customer.dataset.name || 'Customer', memberLevel:customer.dataset.level || '', availableCredit:creditInfo.availableCredit || 0, creditUsed:0, remainingCredit:creditInfo.availableCredit || 0 } : { name:'Walk-in Wholesale Customer', memberLevel:'Wholesale' }, totals:{ subtotal:0, itemDiscount:0, orderDiscount:0, lineTax:0, manualTax:0, tax:0, net:0, paid:0, remaining:0, change:0, creditUsed:0, otherPaid:0 }, payment:{ method:activeMethod?.innerText.trim() || '-', paidAmount:0, changeAmount:0, creditUsed:0, remainingCredit:creditInfo.availableCredit || 0 }, items:[], updatedAt:new Date().toISOString() });
-      }
-      return;
-    }
-    const t = totals(false);
-    publishCustomerDisplay({ type:'sale-update', event:statusText ? 'SaleStarted' : 'CartUpdated', displayState:t.paid > 0 ? 'WaitingForPayment' : 'Scanning', status:statusText || (t.paid > 0 ? 'Waiting for Payment' : 'Scanning Items'), ...customerDisplaySnapshot(t), updatedAt:new Date().toISOString() });
+    publishCustomerDisplay(currentCustomerDisplayPayload(statusText));
   }
   async function generatePromptPayQr() {
-    ensureCustomerDisplayOpen(false);
     const t = totals();
     const amount = Number(by('[data-payment-amount]').value || t.remaining || t.net || 0);
     const error = by('[data-promptpay-error]');
@@ -820,7 +836,7 @@
       by('[data-promptpay-name]').textContent = body.payeeDisplayName || 'PromptPay';
       by('[data-payment-amount]').value = Number(body.amount).toFixed(2);
       by('[data-payment-ref]').value = 'PromptPay QR';
-      publishCustomerDisplay({
+      const qrDisplayMessage = {
         type: 'promptpay-qr',
         svg: body.svg,
         svgDataUri: body.svgDataUri,
@@ -828,7 +844,9 @@
         payeeDisplayName: body.payeeDisplayName,
         ...customerDisplaySnapshot(t),
         updatedAt: new Date().toISOString()
-      });
+      };
+      openCustomerDisplay(false, qrDisplayMessage);
+      publishCustomerDisplayReliable(qrDisplayMessage);
       preview?.classList.remove('d-none');
       totals();
     } catch (err) {
