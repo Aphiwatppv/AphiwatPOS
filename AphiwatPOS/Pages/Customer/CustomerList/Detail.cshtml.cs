@@ -9,18 +9,22 @@ namespace AphiwatPOS.Pages.Customer.CustomerList;
 public sealed class DetailModel : PageModel
 {
     private readonly ICustomerService _customerService;
+    private readonly ICustomerRegistrationService _registrationService;
     private readonly IMemberLevelService _memberLevelService;
     private readonly IMemberLevelUpgradeRuleService _upgradeService;
     private readonly ICustomerCreditService _creditService;
     private readonly ICustomerHistoryService _historyService;
+    private readonly ICustomerAuditService _auditService;
 
-    public DetailModel(ICustomerService customerService, IMemberLevelService memberLevelService, IMemberLevelUpgradeRuleService upgradeService, ICustomerCreditService creditService, ICustomerHistoryService historyService)
+    public DetailModel(ICustomerService customerService, ICustomerRegistrationService registrationService, IMemberLevelService memberLevelService, IMemberLevelUpgradeRuleService upgradeService, ICustomerCreditService creditService, ICustomerHistoryService historyService, ICustomerAuditService auditService)
     {
         _customerService = customerService;
+        _registrationService = registrationService;
         _memberLevelService = memberLevelService;
         _upgradeService = upgradeService;
         _creditService = creditService;
         _historyService = historyService;
+        _auditService = auditService;
     }
 
     [BindProperty(SupportsGet = true)] public int CustomerId { get; set; }
@@ -38,6 +42,7 @@ public sealed class DetailModel : PageModel
     public PagedResultModel<CustomerPointHistoryModel> PointHistory { get; private set; } = new();
     public PagedResultModel<CustomerLevelHistoryModel> LevelHistory { get; private set; } = new();
     public CustomerNotePagedResultModel Notes { get; private set; } = new();
+    public CustomerAuditLogPagedResultModel AuditLogs { get; private set; } = new();
     public string? StatusMessage { get; private set; }
     public string? ErrorMessage { get; private set; }
 
@@ -53,7 +58,34 @@ public sealed class DetailModel : PageModel
     public async Task<IActionResult> OnPostUpdateAsync(CancellationToken cancellationToken)
     {
         CustomerId = CustomerInput.CustomerId;
-        await _customerService.UpdateAsync(new CustomerUpdateModel { CustomerId = CustomerInput.CustomerId, CustomerName = CustomerInput.CustomerName, PhoneNumber = CustomerInput.PhoneNumber, Email = CustomerInput.Email, MemberLevelId = CustomerInput.MemberLevelId, DateOfBirth = CustomerInput.DateOfBirth, Gender = CustomerInput.Gender, Address = CustomerInput.Address, ApplyMemberLevelCreditDefault = CustomerInput.ApplyMemberLevelCreditDefault, UpdatedByUserId = CustomerPageHelpers.CurrentUserId(User) }, cancellationToken);
+        NormalizeOptionalEmail();
+        await _registrationService.UpdateMembershipsAsync(new CustomerUpdateModel
+        {
+            CustomerId = CustomerInput.CustomerId,
+            CustomerName = CustomerInput.CustomerName,
+            PhoneNumber = CustomerInput.PhoneNumber,
+            Email = CustomerInput.Email,
+            MemberType = CustomerInput.MemberType,
+            MemberTypeCodes = CustomerInput.ActiveMemberTypeCodes,
+            WholesaleProfile = new WholesaleMemberProfileSaveModel
+            {
+                BusinessName = CustomerInput.WholesaleBusinessName,
+                IsApproved = CustomerInput.WholesaleIsApproved,
+                PaymentTermDays = CustomerInput.WholesalePaymentTermDays,
+                ApprovedByUserId = CustomerInput.WholesaleIsApproved ? CustomerPageHelpers.CurrentUserId(User) : null
+            },
+            RubberSupplierProfile = new RubberSupplierMemberProfileSaveModel
+            {
+                SupplierCode = CustomerInput.RubberSupplierCode,
+                Remark = CustomerInput.RubberSupplierRemark
+            },
+            MemberLevelId = CustomerInput.MemberLevelId,
+            DateOfBirth = CustomerInput.DateOfBirth,
+            Gender = CustomerInput.Gender,
+            Address = CustomerInput.Address,
+            ApplyMemberLevelCreditDefault = CustomerInput.ApplyMemberLevelCreditDefault,
+            UpdatedByUserId = CustomerPageHelpers.CurrentUserId(User)
+        }, cancellationToken);
         await _customerService.ToggleActiveAsync(CustomerInput.CustomerId, CustomerInput.IsActive, CustomerPageHelpers.CurrentUserId(User), cancellationToken);
         TempData["StatusMessage"] = "Customer updated.";
         return RedirectToPage(new { customerId = CustomerInput.CustomerId });
@@ -102,6 +134,20 @@ public sealed class DetailModel : PageModel
         PointHistory = await _historyService.GetPointHistoryAsync(request, cancellationToken);
         LevelHistory = await _historyService.GetLevelHistoryAsync(request, cancellationToken);
         Notes = await _historyService.GetNotesPagedAsync(new CustomerNotePagedRequestModel { CustomerId = CustomerId, PageNumber = 1, PageSize = 20, IsActive = true }, cancellationToken);
+        AuditLogs = await _auditService.GetPagedAsync(new CustomerAuditLogPagedRequestModel { CustomerId = CustomerId, PageNumber = 1, PageSize = 20 }, cancellationToken);
+    }
+
+    private void NormalizeOptionalEmail()
+    {
+        if (string.IsNullOrWhiteSpace(CustomerInput.Email))
+        {
+            CustomerInput.Email = null;
+            ModelState.Remove("CustomerInput.Email");
+        }
+        else
+        {
+            CustomerInput.Email = CustomerInput.Email.Trim();
+        }
     }
 
     public sealed class NoteFormInput

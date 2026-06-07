@@ -8,7 +8,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM @Items i WHERE NOT EXISTS (SELECT 1 FROM dbo.Product p WHERE p.ProductId=i.ProductId AND p.IsActive=1 AND p.Status=N'Active')) THROW 52202, 'Held sale product is not active.', 1;
     UPDATE i
     SET UnitPrice = CASE WHEN i.UnitPrice > 0 THEN i.UnitPrice ELSE p.SellingPrice END,
-        TaxAmount = ROUND(((i.Quantity * CASE WHEN i.UnitPrice > 0 THEN i.UnitPrice ELSE p.SellingPrice END) - i.ItemDiscountAmount) * (p.TaxRate / 100.0), 4)
+        TaxAmount = CASE WHEN p.TaxRate <= 0 THEN 0 ELSE ROUND(((i.Quantity * CASE WHEN i.UnitPrice > 0 THEN i.UnitPrice ELSE p.SellingPrice END) - i.ItemDiscountAmount) * (p.TaxRate / (100.0 + p.TaxRate)), 4) END
     FROM @Items i
     JOIN dbo.Product p ON p.ProductId = i.ProductId;
     IF EXISTS (SELECT 1 FROM @Items i JOIN dbo.Product p ON p.ProductId=i.ProductId WHERE i.ItemDiscountAmount > 0 AND p.DiscountAllowed = 0) THROW 52203, 'Discount is not allowed for one or more products.', 1;
@@ -18,10 +18,10 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
         INSERT dbo.HeldSaleHeader (HeldSaleNo, CustomerId, CashierUserId, Note, EstimatedSubtotalAmount, EstimatedDiscountAmount, EstimatedTaxAmount, EstimatedNetAmount, Status, CreatedByUserId)
-        VALUES (@HeldSaleNo, @CustomerId, @CashierUserId, ISNULL(@Note,N''), @Subtotal, @Discount, @LineTax+ISNULL(@EstimatedTaxAmount,0), @Subtotal-@Discount+@LineTax+ISNULL(@EstimatedTaxAmount,0), N'Held', @CreatedByUserId);
+        VALUES (@HeldSaleNo, @CustomerId, @CashierUserId, ISNULL(@Note,N''), @Subtotal, @Discount, @LineTax+ISNULL(@EstimatedTaxAmount,0), @Subtotal-@Discount+ISNULL(@EstimatedTaxAmount,0), N'Held', @CreatedByUserId);
         SET @Id=SCOPE_IDENTITY();
         INSERT dbo.HeldSaleItem (HeldSaleHeaderId, ProductId, ProductCodeSnapshot, ProductNameSnapshot, BarcodeSnapshot, UnitId, UnitSymbolSnapshot, Quantity, UnitPrice, CostPriceSnapshot, ItemDiscountAmount, TaxAmount, LineSubtotal, LineTotal)
-        SELECT @Id,p.ProductId,p.ProductCode,p.ProductName,p.Barcode,p.UnitId,u.UnitSymbol,i.Quantity,i.UnitPrice,p.CostPrice,i.ItemDiscountAmount,i.TaxAmount,i.Quantity*i.UnitPrice,i.Quantity*i.UnitPrice-i.ItemDiscountAmount+i.TaxAmount FROM @Items i JOIN dbo.Product p ON p.ProductId=i.ProductId JOIN dbo.ProductUnit u ON u.UnitId=p.UnitId;
+        SELECT @Id,p.ProductId,p.ProductCode,p.ProductName,p.Barcode,p.UnitId,u.UnitSymbol,i.Quantity,i.UnitPrice,p.CostPrice,i.ItemDiscountAmount,i.TaxAmount,i.Quantity*i.UnitPrice,i.Quantity*i.UnitPrice-i.ItemDiscountAmount FROM @Items i JOIN dbo.Product p ON p.ProductId=i.ProductId JOIN dbo.ProductUnit u ON u.UnitId=p.UnitId;
         COMMIT; SELECT @Id;
     END TRY BEGIN CATCH IF @@TRANCOUNT>0 ROLLBACK; THROW; END CATCH
 END;

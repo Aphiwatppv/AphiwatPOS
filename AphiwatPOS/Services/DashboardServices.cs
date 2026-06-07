@@ -87,9 +87,11 @@ public sealed class ManagerDashboardService : IManagerDashboardService
         var gross = summary.Sum(x => x.GrossAmount);
         var discount = summary.Sum(x => x.DiscountAmount);
         var net = summary.Sum(x => x.NetAmount);
-        var cogs = summary.Sum(x => x.NetAmount) * 0m;
-        var profit = net - cogs;
-        return new ProfitSummaryModel { GrossSales = gross, DiscountAmount = discount, NetSales = net, CostOfGoodsSold = cogs, EstimatedProfit = profit, ProfitMarginPercent = net == 0 ? 0 : profit / net * 100 };
+        var cogs = summary.Sum(x => x.CostOfGoodsSold);
+        var profit = summary.Sum(x => x.GrossProfitAmount);
+        var vatIn = summary.Sum(x => x.VatInAmount);
+        var vatOut = summary.Sum(x => x.VatOutAmount);
+        return new ProfitSummaryModel { GrossSales = gross, DiscountAmount = discount, NetSales = net, CostOfGoodsSold = cogs, VatInAmount = vatIn, VatOutAmount = vatOut, EstimatedProfit = profit, ProfitMarginPercent = net == 0 ? 0 : profit / net * 100 };
     }
 
     public async Task<InventoryOverviewModel> GetInventoryOverviewAsync(CancellationToken cancellationToken = default)

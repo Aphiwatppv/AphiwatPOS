@@ -6,34 +6,94 @@
     ViewData["MemberLevels"] = Model.MemberLevels;
     var c = Model.Customer!;
 }
+
 <partial name="/Pages/Customer/Shared/_TempDataAlert.cshtml" model="(Model.StatusMessage, Model.ErrorMessage)" />
 <nav class="mb-3 small"><a asp-page="/Customer/CustomerList/Index">Customer</a> / <a asp-page="/Customer/CustomerList/Index">Customer List</a> / Detail</nav>
+
 <div class="page-header d-flex align-items-start justify-content-between gap-3">
-    <div><h1>@c.CustomerName</h1><p>@c.CustomerCode · @c.PhoneNumber · @(c.Email ?? "No email")</p><div class="d-flex gap-2"><partial name="/Pages/Customer/Shared/_MemberLevelBadge.cshtml" model="@(c.MemberLevelName ?? "Normal")" /><partial name="/Pages/Customer/Shared/_CustomerStatusBadge.cshtml" model="c.IsActive" /><partial name="/Pages/Customer/Shared/_CreditStatusBadge.cshtml" model="c.CreditStatus" /></div></div>
-    <div class="d-flex flex-wrap gap-2 justify-content-end"><button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#customerEditModal"><i class="bi bi-pencil"></i> Edit</button><button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#creditModal"><i class="bi bi-credit-card"></i> Set Credit</button><form method="post" asp-page-handler="CheckUpgradeEligibility" asp-route-customerId="@c.CustomerId"><button class="btn btn-outline-secondary"><i class="bi bi-arrow-up-circle"></i> Check Upgrade</button></form><form method="post" asp-page-handler="UpgradeLevel" asp-route-customerId="@c.CustomerId"><button class="btn btn-primary"><i class="bi bi-gem"></i> Upgrade Level</button></form><button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#noteModal"><i class="bi bi-sticky"></i> Add Note</button><a class="btn btn-outline-secondary" asp-page="./Index">Back</a></div>
+    <div>
+        <h1>@c.CustomerName</h1>
+        <p>@c.CustomerCode / @c.PhoneNumber / @(c.Email ?? "No email")</p>
+        <div class="d-flex flex-wrap gap-2">
+            <partial name="/Pages/Customer/Shared/_MembershipTypeBadges.cshtml" model="c.ActiveMembershipCodes" />
+            <partial name="/Pages/Customer/Shared/_MemberLevelBadge.cshtml" model="@(c.MemberLevelName ?? "Normal")" />
+            <partial name="/Pages/Customer/Shared/_CustomerStatusBadge.cshtml" model="c.IsActive" />
+            <partial name="/Pages/Customer/Shared/_CreditStatusBadge.cshtml" model="c.CreditStatus" />
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2 justify-content-end">
+        <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#customerEditModal"><i class="bi bi-pencil"></i> Edit</button>
+        <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#creditModal"><i class="bi bi-credit-card"></i> Set Credit</button>
+        <form method="post" asp-page-handler="CheckUpgradeEligibility" asp-route-customerId="@c.CustomerId"><button class="btn btn-outline-secondary"><i class="bi bi-arrow-up-circle"></i> Check Upgrade</button></form>
+        <form method="post" asp-page-handler="UpgradeLevel" asp-route-customerId="@c.CustomerId"><button class="btn btn-primary"><i class="bi bi-gem"></i> Upgrade Level</button></form>
+        <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#noteModal"><i class="bi bi-sticky"></i> Add Note</button>
+        <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
+    </div>
 </div>
+
 <div class="summary-grid">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-person-badge"></i></span><div><div class="metric-label">Memberships</div><div class="metric-value">@c.ActiveMembershipCodes.Count</div></div></div>
     <div class="summary-card"><span class="metric-icon"><i class="bi bi-cash-stack"></i></span><div><div class="metric-label">Total Spending</div><div class="metric-value">@CustomerPageHelpers.Money(c.TotalSpending)</div></div></div>
     <div class="summary-card"><span class="metric-icon"><i class="bi bi-receipt"></i></span><div><div class="metric-label">Purchase Count</div><div class="metric-value">@c.TotalPurchaseCount</div></div></div>
     <div class="summary-card"><span class="metric-icon"><i class="bi bi-stars"></i></span><div><div class="metric-label">Available Points</div><div class="metric-value">@c.AvailablePoints.ToString("N2")</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-box-arrow-in-down"></i></span><div><div class="metric-label">Rubber Carry Kg</div><div class="metric-value">@c.RubberWeightCarryForwardKg.ToString("N2")</div></div></div>
     <div class="summary-card"><span class="metric-icon"><i class="bi bi-credit-card"></i></span><div><div class="metric-label">Credit Limit</div><div class="metric-value">@c.CreditLimit.ToString("N2")</div></div></div>
     <div class="summary-card"><span class="metric-icon"><i class="bi bi-exclamation-circle"></i></span><div><div class="metric-label">Outstanding</div><div class="metric-value">@c.CurrentOutstandingAmount.ToString("N2")</div></div></div>
     <div class="summary-card"><span class="metric-icon"><i class="bi bi-wallet2"></i></span><div><div class="metric-label">Available Credit</div><div class="metric-value">@c.AvailableCredit.ToString("N2")</div></div></div>
-    <div class="summary-card"><span class="metric-icon"><i class="bi bi-calendar-check"></i></span><div><div class="metric-label">Last Purchase</div><div class="metric-value">@CustomerPageHelpers.Date(c.LastPurchaseDate)</div></div></div>
 </div>
+
 <section class="data-card">
-    <ul class="nav nav-tabs" role="tablist"><li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#overview" type="button">Overview</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#purchase" type="button">Purchase History</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#payment" type="button">Payment History</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#credit" type="button">Credit History</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#points" type="button">Loyalty Points</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#levels" type="button">Member Level History</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#notes" type="button">Notes</button></li></ul>
+    <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#overview" type="button">Overview</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#purchase" type="button">Purchase History</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#payment" type="button">Payment History</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#credit" type="button">Credit History</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#points" type="button">Loyalty Points</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#levels" type="button">Member Level History</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#audit" type="button">Audit Logs</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#notes" type="button">Notes</button></li>
+    </ul>
     <div class="tab-content pt-3">
-        <div class="tab-pane fade show active" id="overview"><div class="row g-3"><div class="col-lg-4"><div class="filter-card h-100"><h2 class="h6">Customer Information</h2><dl class="detail-list mb-0"><dt>Phone</dt><dd>@c.PhoneNumber</dd><dt>Email</dt><dd>@(c.Email ?? "-")</dd><dt>Birthday</dt><dd>@CustomerPageHelpers.Date(c.DateOfBirth)</dd><dt>Gender</dt><dd>@(c.Gender ?? "-")</dd><dt>Address</dt><dd>@(c.Address ?? "-")</dd></dl></div></div><div class="col-lg-4"><div class="filter-card h-100"><h2 class="h6">Credit Information</h2><dl class="detail-list mb-0"><dt>Allow Credit</dt><dd>@(c.AllowCredit ? "Yes" : "No")</dd><dt>Limit</dt><dd>@c.CreditLimit.ToString("N2")</dd><dt>Term Days</dt><dd>@c.CreditTermDays</dd><dt>Outstanding</dt><dd>@c.CurrentOutstandingAmount.ToString("N2")</dd><dt>Manager Approval</dt><dd>@(c.RequireManagerApproval ? "Required" : "Not required")</dd></dl></div></div><div class="col-lg-4"><div class="filter-card h-100"><h2 class="h6">Upgrade Eligibility</h2>@if (Model.Eligibility is null) { <div class="text-muted">Run Check Upgrade Eligibility to calculate requirements.</div> } else { var e = Model.Eligibility; <dl class="detail-list mb-0"><dt>Current</dt><dd>@e.CurrentMemberLevelName</dd><dt>Next</dt><dd>@e.NextMemberLevelName</dd><dt>Required Spending</dt><dd>@e.RequiredTotalSpending.ToString("N2")</dd><dt>Current Spending</dt><dd>@e.CurrentTotalSpending.ToString("N2")</dd><dt>Missing Spending</dt><dd>@e.MissingSpendingAmount.ToString("N2")</dd><dt>Overdue Credit</dt><dd>@(e.HasOverdueCredit ? "Yes" : "No")</dd><dt>Message</dt><dd>@e.Message</dd></dl> }</div></div></div><h2 class="h6 mt-4">Recent Timeline</h2><partial name="_TimelineTable" model="Model.Timeline.Items" /></div>
+        <div class="tab-pane fade show active" id="overview">
+            <div class="row g-3">
+                <div class="col-lg-4"><div class="filter-card h-100"><h2 class="h6">Customer Information</h2><dl class="detail-list mb-0"><dt>Phone</dt><dd>@c.PhoneNumber</dd><dt>Email</dt><dd>@(c.Email ?? "-")</dd><dt>Birthday</dt><dd>@CustomerPageHelpers.Date(c.DateOfBirth)</dd><dt>Gender</dt><dd>@(c.Gender ?? "-")</dd><dt>Address</dt><dd>@(c.Address ?? "-")</dd></dl></div></div>
+                <div class="col-lg-4"><div class="filter-card h-100"><h2 class="h6">Membership Profile</h2><dl class="detail-list mb-0"><dt>Active Types</dt><dd><partial name="/Pages/Customer/Shared/_MembershipTypeBadges.cshtml" model="c.ActiveMembershipCodes" /></dd><dt>Wholesale Business</dt><dd>@(c.WholesaleBusinessName ?? "-")</dd><dt>Wholesale Approved</dt><dd>@(c.WholesaleApproved ? "Yes" : "No")</dd><dt>Supplier Code</dt><dd>@(c.RubberSupplierCode ?? "-")</dd><dt>Rubber Carry Kg</dt><dd>@c.RubberWeightCarryForwardKg.ToString("N2")</dd></dl></div></div>
+                <div class="col-lg-4"><div class="filter-card h-100"><h2 class="h6">Credit Information</h2><dl class="detail-list mb-0"><dt>Allow Credit</dt><dd>@(c.AllowCredit ? "Yes" : "No")</dd><dt>Limit</dt><dd>@c.CreditLimit.ToString("N2")</dd><dt>Term Days</dt><dd>@c.CreditTermDays</dd><dt>Outstanding</dt><dd>@c.CurrentOutstandingAmount.ToString("N2")</dd><dt>Manager Approval</dt><dd>@(c.RequireManagerApproval ? "Required" : "Not required")</dd></dl></div></div>
+            </div>
+            <h2 class="h6 mt-4">Recent Timeline</h2>
+            <partial name="_TimelineTable" model="Model.Timeline.Items" />
+        </div>
         <div class="tab-pane fade" id="purchase"><partial name="_PurchaseTable" model="Model.Purchases.Items" /></div>
         <div class="tab-pane fade" id="payment"><partial name="_PaymentTable" model="Model.Payments.Items" /></div>
         <div class="tab-pane fade" id="credit"><partial name="_CreditTable" model="Model.CreditHistory.Items" /></div>
         <div class="tab-pane fade" id="points"><partial name="_PointTable" model="Model.PointHistory.Items" /></div>
         <div class="tab-pane fade" id="levels"><partial name="_LevelTable" model="Model.LevelHistory.Items" /></div>
+        <div class="tab-pane fade" id="audit">
+            <div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Date</th><th>Action</th><th>Entity</th><th>Old Value</th><th>New Value</th><th>Remark</th><th>User</th></tr></thead><tbody>@if (!Model.AuditLogs.Logs.Any()) { <tr><td colspan="7"><div class="empty-state"><i class="bi bi-shield-check"></i><div class="fw-semibold">No audit logs found</div></div></td></tr> } @foreach (var log in Model.AuditLogs.Logs) { <tr><td>@CustomerPageHelpers.DateTimeText(log.CreatedDate)</td><td><span class="badge status-badge badge-neutral">@log.ActionType</span></td><td>@log.EntityName</td><td class="small text-muted">@log.OldValue</td><td class="small">@log.NewValue</td><td>@log.Remark</td><td>@log.CreatedByUserId</td></tr> }</tbody></table></div>
+        </div>
         <div class="tab-pane fade" id="notes"><partial name="_NotesList" model="Model.Notes.Notes" /></div>
     </div>
 </section>
-<div class="modal fade app-modal" id="customerEditModal" tabindex="-1"><div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><form method="post" asp-page-handler="Update" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Edit Customer</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input type="hidden" name="CustomerInput.CustomerId" value="@c.CustomerId" /><div class="modal-form-grid"><div><label class="form-label">Customer Name</label><input class="form-control" name="CustomerInput.CustomerName" value="@c.CustomerName" required /></div><div><label class="form-label">Phone</label><input class="form-control" name="CustomerInput.PhoneNumber" value="@c.PhoneNumber" required /></div><div><label class="form-label">Email</label><input class="form-control" name="CustomerInput.Email" value="@c.Email" /></div><div><label class="form-label">Member Level</label><select class="form-select" name="CustomerInput.MemberLevelId"><option value="">No level</option>@foreach (var level in Model.MemberLevels) { <option value="@level.MemberLevelId" selected="@(c.MemberLevelId == level.MemberLevelId)">@level.LevelName</option> }</select></div><div><label class="form-label">Date of Birth</label><input class="form-control" name="CustomerInput.DateOfBirth" type="date" value="@(c.DateOfBirth?.ToString("yyyy-MM-dd"))" /></div><div><label class="form-label">Gender</label><input class="form-control" name="CustomerInput.Gender" value="@c.Gender" /></div><div class="span-2"><label class="form-label">Address</label><textarea class="form-control" name="CustomerInput.Address">@c.Address</textarea></div><div><label class="form-check"><input class="form-check-input" name="CustomerInput.IsActive" value="true" type="checkbox" checked="@c.IsActive" /><input type="hidden" name="CustomerInput.IsActive" value="false" /> Active</label></div><div><label class="form-check"><input class="form-check-input" name="CustomerInput.ApplyMemberLevelCreditDefault" value="true" type="checkbox" /><input type="hidden" name="CustomerInput.ApplyMemberLevelCreditDefault" value="false" /> Apply credit defaults</label></div></div></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save</button></div></form></div></div>
+
+<div class="modal fade app-modal" id="customerEditModal" tabindex="-1"><div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><form method="post" asp-page-handler="Update" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Edit Customer</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><partial name="_CustomerForm" model="c" /></div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save</button></div></form></div></div>
 <div class="modal fade app-modal" id="creditModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="SetCredit" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Set Credit</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input type="hidden" name="CreditInput.CustomerId" value="@c.CustomerId" /><label class="form-check form-switch mb-3"><input class="form-check-input" name="CreditInput.AllowCredit" value="true" type="checkbox" checked="@c.AllowCredit" /><input type="hidden" name="CreditInput.AllowCredit" value="false" /> Allow Credit</label><div class="row g-3"><div class="col-6"><label class="form-label">Limit</label><input class="form-control" name="CreditInput.CreditLimit" type="number" step="0.01" value="@c.CreditLimit" /></div><div class="col-6"><label class="form-label">Term Days</label><input class="form-control" name="CreditInput.CreditTermDays" type="number" value="@c.CreditTermDays" /></div><div class="col-6"><label class="form-label">Status</label><select class="form-select" name="CreditInput.CreditStatus"><option selected="@(c.CreditStatus=="Good")">Good</option><option selected="@(c.CreditStatus=="Hold")">Hold</option><option selected="@(c.CreditStatus=="Blocked")">Blocked</option></select></div><div class="col-6 d-flex align-items-end"><label class="form-check"><input class="form-check-input" name="CreditInput.RequireManagerApproval" value="true" type="checkbox" checked="@c.RequireManagerApproval" /><input type="hidden" name="CreditInput.RequireManagerApproval" value="false" /> Manager approval</label></div><div class="col-12"><textarea class="form-control" name="CreditInput.Remark" placeholder="Remark"></textarea></div></div></div><div class="modal-footer"><button class="btn btn-primary">Save Credit</button></div></form></div></div>
 <div class="modal fade app-modal" id="noteModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><form method="post" asp-page-handler="AddNote" class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Add Note</h2><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input type="hidden" name="NoteInput.CustomerId" value="@c.CustomerId" /><label class="form-label">Note Type</label><select class="form-select mb-3" name="NoteInput.NoteType"><option>General</option><option>Warning</option><option>Credit</option><option>Service</option><option>Complaint</option><option>FollowUp</option><option>Other</option></select><label class="form-label">Note Text</label><textarea class="form-control mb-3" name="NoteInput.NoteText" required rows="4"></textarea><label class="form-check"><input class="form-check-input" name="NoteInput.IsImportant" value="true" type="checkbox" /><input type="hidden" name="NoteInput.IsImportant" value="false" /> Important</label></div><div class="modal-footer"><button class="btn btn-primary">Add Note</button></div></form></div></div>
-@section Scripts { <partial name="_ValidationScriptsPartial" /> }
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.querySelectorAll('.app-modal').forEach(modal => {
+            const sync = () => {
+                modal.querySelectorAll('[data-membership-section]').forEach(section => {
+                    const key = section.getAttribute('data-membership-section');
+                    const toggle = modal.querySelector(`[data-membership-toggle="${key}"]`);
+                    section.hidden = !toggle?.checked;
+                });
+            };
+            modal.addEventListener('change', event => {
+                if (event.target?.matches?.('[data-membership-toggle]')) sync();
+            });
+            sync();
+        });
+    </script>
+}

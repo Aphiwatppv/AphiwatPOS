@@ -26,7 +26,8 @@
 
 <form method="get" class="filter-card mb-3">
     <div class="row g-3 align-items-end">
-        <div class="col-lg-4"><label class="form-label">Search customer</label><input asp-for="SearchText" class="form-control" placeholder="Customer code, name, or phone" /></div>
+        <div class="col-lg-3"><label class="form-label">Search customer</label><input asp-for="SearchText" class="form-control" placeholder="Customer code, name, or phone" /></div>
+        <div class="col-lg-2"><label class="form-label">Member type</label><select asp-for="MemberType" class="form-select"><option value="">All</option><option value="Retail">Retail</option><option value="Wholesale">Wholesale</option><option value="RUBBER_SUPPLIER">Rubber Supplier</option></select></div>
         <div class="col-lg-3"><label class="form-label">Member level</label><select asp-for="MemberLevelId" class="form-select"><option value="">All</option>@foreach (var level in Model.MemberLevels) { <option value="@level.MemberLevelId">@level.LevelName</option> }</select></div>
         <div class="col-lg-3"><label class="form-label">Credit status</label><select asp-for="CreditFilter" class="form-select"><option value="">All</option><option value="CreditAllowed">Credit Allowed</option><option value="CreditNotAllowed">Credit Not Allowed</option><option value="HasUsedCredit">Has Used Credit</option><option value="NoAvailableCredit">No Available Credit</option></select></div>
         <div class="col-lg-2 d-flex gap-2"><button class="btn btn-primary flex-fill"><i class="bi bi-search me-1"></i>Search</button><a class="btn btn-outline-secondary" asp-page="./Index">Clear</a></div>
@@ -36,16 +37,17 @@
 <section class="data-card">
     <div class="table-responsive">
         <table class="table table-hover align-middle">
-            <thead><tr><th>Customer</th><th>Phone</th><th>Member Level</th><th>Credit Limit</th><th>Used Credit</th><th>Available Credit</th><th>Credit Status</th><th class="text-end">Action</th></tr></thead>
+            <thead><tr><th>Customer</th><th>Types</th><th>Phone</th><th>Member Level</th><th>Credit Limit</th><th>Used Credit</th><th>Available Credit</th><th>Credit Status</th><th class="text-end">Action</th></tr></thead>
             <tbody>
             @if (!rows.Any())
             {
-                <tr><td colspan="8"><div class="empty-state"><i class="bi bi-credit-card"></i><div class="fw-semibold">No customers found</div><div>Try clearing the filters.</div></div></td></tr>
+                <tr><td colspan="9"><div class="empty-state"><i class="bi bi-credit-card"></i><div class="fw-semibold">No customers found</div><div>Try clearing the filters.</div></div></td></tr>
             }
             @foreach (var c in rows)
             {
                 <tr>
                     <td><span class="fw-semibold d-block">@c.CustomerName</span><span class="text-muted small">@c.CustomerCode</span></td>
+                    <td><partial name="/Pages/Customer/Shared/_MembershipTypeBadges.cshtml" model="c.ActiveMembershipCodes" /></td>
                     <td>@c.PhoneNumber</td>
                     <td>@(c.MemberLevelName ?? "-")</td>
                     <td>@c.CreditLimit.ToString("N2")</td>

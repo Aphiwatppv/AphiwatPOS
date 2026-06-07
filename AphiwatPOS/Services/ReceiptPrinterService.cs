@@ -1,4 +1,7 @@
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text;
 using Microsoft.Extensions.Options;
 using SalesEngine.Models;
@@ -9,10 +12,18 @@ namespace AphiwatPOS.Services;
 public sealed class ReceiptPrinterService : IReceiptPrinterService
 {
     private const int ReceiptColumns = 32;
+    private const int ReceiptImagePadding = 16;
+    private const int DefaultReceiptImageWidth = 384;
+    private const string DefaultReceiptEncodingName = "windows-874";
     private readonly IOptionsMonitor<ReceiptPrinterOptions> _options;
     private readonly ISalesHistoryService _salesHistoryService;
     private readonly IReceiptService _receiptService;
     private readonly ILogger<ReceiptPrinterService> _logger;
+
+    static ReceiptPrinterService()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+    }
 
     public ReceiptPrinterService(IOptionsMonitor<ReceiptPrinterOptions> options, ISalesHistoryService salesHistoryService, IReceiptService receiptService, ILogger<ReceiptPrinterService> logger)
     {
@@ -27,7 +38,7 @@ public sealed class ReceiptPrinterService : IReceiptPrinterService
         var sale = await _salesHistoryService.GetDetailAsync(salesHeaderId, cancellationToken)
             ?? throw new InvalidOperationException("Sale was saved, but receipt data could not be loaded.");
 
-        var bytes = Encoding.ASCII.GetBytes(BuildReceiptText(sale));
+        var bytes = BuildReceiptBytes(sale, _options.CurrentValue);
         await PrintRawBytesAsync(bytes, cancellationToken);
         await _receiptService.CreatePrintHistoryAsync(new()
         {
@@ -59,10 +70,137 @@ public sealed class ReceiptPrinterService : IReceiptPrinterService
         return Task.FromResult(available);
     }
 
-    private static string BuildReceiptText(SalesEngine.Models.SalesDetailModel sale)
+    private static byte[] BuildReceiptBytes(SalesEngine.Models.SalesDetailModel sale, ReceiptPrinterOptions options)
+    {
+        if (options.RenderTextAsImage)
+        {
+            if (!OperatingSystem.IsWindowsVersionAtLeast(6, 1))
+            {
+                throw new PlatformNotSupportedException("Image receipt printing uses Windows font rendering.");
+            }
+
+            return BuildReceiptImageBytes(sale, options);
+        }
+
+        var text = BuildReceiptText(sale, options);
+        return GetReceiptEncoding(options).GetBytes(text);
+    }
+
+    [SupportedOSPlatform("windows6.1")]
+    private static byte[] BuildReceiptImageBytes(SalesEngine.Models.SalesDetailModel sale, ReceiptPrinterOptions options)
+    {
+        var rows = BuildReceiptRows(sale);
+        var imageWidth = options.ReceiptImageWidth > 0 ? options.ReceiptImageWidth : DefaultReceiptImageWidth;
+        using var font = CreateReceiptFont(options, FontStyle.Regular);
+        using var boldFont = CreateReceiptFont(options, FontStyle.Bold);
+        var lineHeight = (int)Math.Ceiling(font.GetHeight()) + 8;
+        var imageHeight = Math.Max(1, ReceiptImagePadding * 2 + rows.Count * lineHeight + lineHeight * 4);
+
+        using var image = new Bitmap(imageWidth, imageHeight, PixelFormat.Format32bppArgb);
+        using (var graphics = Graphics.FromImage(image))
+        {
+            graphics.Clear(Color.White);
+            graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
+
+            using var brush = new SolidBrush(Color.Black);
+            var y = ReceiptImagePadding;
+            foreach (var row in rows)
+            {
+                var rowFont = row.IsEmphasized ? boldFont : font;
+                if (!string.IsNullOrEmpty(row.RightText))
+                {
+                    graphics.DrawString(row.LeftText, rowFont, brush, ReceiptImagePadding, y);
+                    var rightSize = graphics.MeasureString(row.RightText, rowFont);
+                    graphics.DrawString(row.RightText, rowFont, brush, imageWidth - ReceiptImagePadding - rightSize.Width, y);
+                }
+                else if (row.IsCentered)
+                {
+                    var textSize = graphics.MeasureString(row.LeftText, rowFont);
+                    graphics.DrawString(row.LeftText, rowFont, brush, Math.Max(ReceiptImagePadding, (imageWidth - textSize.Width) / 2), y);
+                }
+                else
+                {
+                    graphics.DrawString(row.LeftText, rowFont, brush, ReceiptImagePadding, y);
+                }
+
+                y += lineHeight;
+            }
+        }
+
+        return BuildRasterReceiptBytes(image);
+    }
+
+    [SupportedOSPlatform("windows6.1")]
+    private static Font CreateReceiptFont(ReceiptPrinterOptions options, FontStyle style)
+    {
+        var fontName = string.IsNullOrWhiteSpace(options.ReceiptFontName) ? "Tahoma" : options.ReceiptFontName.Trim();
+        var fontSize = options.ReceiptFontSize > 0 ? options.ReceiptFontSize : 20;
+        return new Font(fontName, fontSize, style, GraphicsUnit.Pixel);
+    }
+
+    [SupportedOSPlatform("windows6.1")]
+    private static byte[] BuildRasterReceiptBytes(Bitmap image)
+    {
+        var widthBytes = (image.Width + 7) / 8;
+        var raster = new byte[widthBytes * image.Height];
+
+        for (var y = 0; y < image.Height; y++)
+        {
+            for (var x = 0; x < image.Width; x++)
+            {
+                var pixel = image.GetPixel(x, y);
+                var luminance = (pixel.R * 299 + pixel.G * 587 + pixel.B * 114) / 1000;
+                if (luminance >= 180)
+                {
+                    continue;
+                }
+
+                raster[y * widthBytes + x / 8] |= (byte)(0x80 >> (x % 8));
+            }
+        }
+
+        using var stream = new MemoryStream();
+        stream.WriteByte(0x1B);
+        stream.WriteByte(0x40);
+        stream.WriteByte(0x1D);
+        stream.WriteByte(0x76);
+        stream.WriteByte(0x30);
+        stream.WriteByte(0x00);
+        stream.WriteByte((byte)(widthBytes & 0xFF));
+        stream.WriteByte((byte)((widthBytes >> 8) & 0xFF));
+        stream.WriteByte((byte)(image.Height & 0xFF));
+        stream.WriteByte((byte)((image.Height >> 8) & 0xFF));
+        stream.Write(raster, 0, raster.Length);
+        stream.WriteByte(0x0A);
+        stream.WriteByte(0x0A);
+        stream.WriteByte(0x0A);
+        stream.WriteByte(0x1D);
+        stream.WriteByte(0x56);
+        stream.WriteByte(0x00);
+        return stream.ToArray();
+    }
+
+    private static Encoding GetReceiptEncoding(ReceiptPrinterOptions options)
+    {
+        var encodingName = string.IsNullOrWhiteSpace(options.TextEncodingName)
+            ? DefaultReceiptEncodingName
+            : options.TextEncodingName.Trim();
+
+        return Encoding.GetEncoding(
+            encodingName,
+            EncoderFallback.ReplacementFallback,
+            DecoderFallback.ReplacementFallback);
+    }
+
+    private static string BuildReceiptText(SalesEngine.Models.SalesDetailModel sale, ReceiptPrinterOptions options)
     {
         var builder = new StringBuilder();
         builder.Append('\x1B').Append('@');
+        if (options.CharacterCodeTable >= 0)
+        {
+            builder.Append('\x1B').Append('t').Append((char)options.CharacterCodeTable);
+        }
+
         builder.AppendLine("AphiwatPOS");
         AppendWrapped(builder, $"Receipt: {sale.SaleNo}");
         AppendWrapped(builder, $"Date: {sale.SaleDate:yyyy-MM-dd HH:mm}");
@@ -92,6 +230,50 @@ public sealed class ReceiptPrinterService : IReceiptPrinterService
         return builder.ToString();
     }
 
+    private static IReadOnlyList<ReceiptRow> BuildReceiptRows(SalesEngine.Models.SalesDetailModel sale)
+    {
+        var rows = new List<ReceiptRow>
+        {
+            ReceiptRow.Center("AphiwatPOS", true),
+            ReceiptRow.Text($"Receipt: {sale.SaleNo}"),
+            ReceiptRow.Text($"Date: {sale.SaleDate:yyyy-MM-dd HH:mm}"),
+            ReceiptRow.Text($"Cashier: {ToPrintable(sale.CashierName, "Cashier")}"),
+            ReceiptRow.Text(new string('-', ReceiptColumns))
+        };
+
+        foreach (var item in sale.Items)
+        {
+            rows.AddRange(WrapRows(PrintableProductName(item)));
+            rows.Add(ReceiptRow.Amount($"{item.Quantity:N2} x {item.UnitPrice:N2}", item.LineTotal));
+        }
+
+        rows.Add(ReceiptRow.Text(new string('-', ReceiptColumns)));
+        rows.Add(ReceiptRow.Amount("Subtotal:", sale.SubtotalAmount));
+        rows.Add(ReceiptRow.Amount("Discount:", sale.TotalDiscountAmount));
+        rows.Add(ReceiptRow.Amount("VAT:", sale.TaxAmount));
+        rows.Add(ReceiptRow.Amount("Total:", sale.NetAmount, true));
+        rows.Add(ReceiptRow.Amount("Paid:", sale.PaidAmount));
+        rows.Add(ReceiptRow.Amount("Change:", sale.ChangeAmount));
+        rows.Add(ReceiptRow.Text(string.Empty));
+        rows.Add(ReceiptRow.Center("Thank you."));
+        return rows;
+    }
+
+    private static IEnumerable<ReceiptRow> WrapRows(string text)
+    {
+        var safeText = ToPrintable(text, string.Empty);
+        if (string.IsNullOrWhiteSpace(safeText))
+        {
+            yield break;
+        }
+
+        for (var index = 0; index < safeText.Length; index += ReceiptColumns)
+        {
+            var length = Math.Min(ReceiptColumns, safeText.Length - index);
+            yield return ReceiptRow.Text(safeText.Substring(index, length));
+        }
+    }
+
     private static void AppendAmountLine(StringBuilder builder, string label, decimal amount)
     {
         var safeLabel = ToPrintable(label, "Item");
@@ -119,7 +301,7 @@ public sealed class ReceiptPrinterService : IReceiptPrinterService
 
     private static string PrintableProductName(SalesItemModel item)
     {
-        if (IsPrintableAscii(item.ProductNameSnapshot))
+        if (!string.IsNullOrWhiteSpace(item.ProductNameSnapshot))
         {
             return item.ProductNameSnapshot.Trim();
         }
@@ -147,21 +329,18 @@ public sealed class ReceiptPrinterService : IReceiptPrinterService
         var builder = new StringBuilder(text.Length);
         foreach (var ch in text.Trim())
         {
-            builder.Append(ch is >= ' ' and <= '~' ? ch : ' ');
+            builder.Append(char.IsControl(ch) ? ' ' : ch);
         }
 
         var value = builder.ToString().Trim();
         return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 
-    private static bool IsPrintableAscii(string? text)
+    private sealed record ReceiptRow(string LeftText, string? RightText = null, bool IsCentered = false, bool IsEmphasized = false)
     {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return false;
-        }
-
-        return text.Trim().All(ch => ch is >= ' ' and <= '~');
+        public static ReceiptRow Text(string text) => new(text);
+        public static ReceiptRow Center(string text, bool isEmphasized = false) => new(text, IsCentered: true, IsEmphasized: isEmphasized);
+        public static ReceiptRow Amount(string label, decimal amount, bool isEmphasized = false) => new(label, amount.ToString("N2"), IsEmphasized: isEmphasized);
     }
 
     private static class RawPrinterHelper

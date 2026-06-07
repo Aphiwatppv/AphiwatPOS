@@ -9,19 +9,22 @@ namespace AphiwatPOS.Pages.Customer.CustomerList;
 public sealed class IndexModel : PageModel
 {
     private readonly ICustomerService _customerService;
+    private readonly ICustomerRegistrationService _registrationService;
     private readonly IMemberLevelService _memberLevelService;
     private readonly ICustomerCreditService _creditService;
     private readonly ICustomerReportService _reportService;
 
-    public IndexModel(ICustomerService customerService, IMemberLevelService memberLevelService, ICustomerCreditService creditService, ICustomerReportService reportService)
+    public IndexModel(ICustomerService customerService, ICustomerRegistrationService registrationService, IMemberLevelService memberLevelService, ICustomerCreditService creditService, ICustomerReportService reportService)
     {
         _customerService = customerService;
+        _registrationService = registrationService;
         _memberLevelService = memberLevelService;
         _creditService = creditService;
         _reportService = reportService;
     }
 
     [BindProperty(SupportsGet = true)] public string? SearchText { get; set; }
+    [BindProperty(SupportsGet = true)] public string? MemberType { get; set; }
     [BindProperty(SupportsGet = true)] public int? MemberLevelId { get; set; }
     [BindProperty(SupportsGet = true)] public string? CreditStatus { get; set; }
     [BindProperty(SupportsGet = true)] public bool? IsActive { get; set; }
@@ -31,6 +34,7 @@ public sealed class IndexModel : PageModel
 
     public CustomerPagedResultModel Customers { get; private set; } = new();
     public IReadOnlyCollection<MemberLevelModel> MemberLevels { get; private set; } = Array.Empty<MemberLevelModel>();
+    public IReadOnlyDictionary<int, CustomerModel> CustomerEditModels { get; private set; } = new Dictionary<int, CustomerModel>();
     public CustomerReportSummaryModel Summary { get; private set; } = new();
     public string? StatusMessage { get; private set; }
     public string? ErrorMessage { get; private set; }
@@ -44,16 +48,31 @@ public sealed class IndexModel : PageModel
 
     public async Task<IActionResult> OnPostCreateAsync(CancellationToken cancellationToken)
     {
+        NormalizeOptionalEmail();
         if (!ModelState.IsValid) return await FailedAsync("Please review the customer form.", cancellationToken);
         if (await _customerService.IsPhoneNumberExistsAsync(CustomerInput.PhoneNumber, null, cancellationToken)) return await FailedAsync("Phone number already exists.", cancellationToken);
         if (!string.IsNullOrWhiteSpace(CustomerInput.Email) && await _customerService.IsEmailExistsAsync(CustomerInput.Email, null, cancellationToken)) return await FailedAsync("Email already exists.", cancellationToken);
 
-        await _customerService.CreateAsync(new CustomerCreateModel
+        await _registrationService.RegisterAsync(new CustomerCreateModel
         {
             CustomerCode = CustomerInput.CustomerCode,
             CustomerName = CustomerInput.CustomerName,
             PhoneNumber = CustomerInput.PhoneNumber,
             Email = CustomerInput.Email,
+            MemberType = CustomerInput.MemberType,
+            MemberTypeCodes = CustomerInput.ActiveMemberTypeCodes,
+            WholesaleProfile = new WholesaleMemberProfileSaveModel
+            {
+                BusinessName = CustomerInput.WholesaleBusinessName,
+                IsApproved = CustomerInput.WholesaleIsApproved,
+                PaymentTermDays = CustomerInput.WholesalePaymentTermDays,
+                ApprovedByUserId = CustomerInput.WholesaleIsApproved ? CustomerPageHelpers.CurrentUserId(User) : null
+            },
+            RubberSupplierProfile = new RubberSupplierMemberProfileSaveModel
+            {
+                SupplierCode = CustomerInput.RubberSupplierCode,
+                Remark = CustomerInput.RubberSupplierRemark
+            },
             MemberLevelId = CustomerInput.MemberLevelId,
             DateOfBirth = CustomerInput.DateOfBirth,
             Gender = CustomerInput.Gender,
@@ -67,16 +86,31 @@ public sealed class IndexModel : PageModel
 
     public async Task<IActionResult> OnPostUpdateAsync(CancellationToken cancellationToken)
     {
+        NormalizeOptionalEmail();
         if (!ModelState.IsValid) return await FailedAsync("Please review the customer form.", cancellationToken);
         if (await _customerService.IsPhoneNumberExistsAsync(CustomerInput.PhoneNumber, CustomerInput.CustomerId, cancellationToken)) return await FailedAsync("Phone number already exists.", cancellationToken);
         if (!string.IsNullOrWhiteSpace(CustomerInput.Email) && await _customerService.IsEmailExistsAsync(CustomerInput.Email, CustomerInput.CustomerId, cancellationToken)) return await FailedAsync("Email already exists.", cancellationToken);
 
-        await _customerService.UpdateAsync(new CustomerUpdateModel
+        await _registrationService.UpdateMembershipsAsync(new CustomerUpdateModel
         {
             CustomerId = CustomerInput.CustomerId,
             CustomerName = CustomerInput.CustomerName,
             PhoneNumber = CustomerInput.PhoneNumber,
             Email = CustomerInput.Email,
+            MemberType = CustomerInput.MemberType,
+            MemberTypeCodes = CustomerInput.ActiveMemberTypeCodes,
+            WholesaleProfile = new WholesaleMemberProfileSaveModel
+            {
+                BusinessName = CustomerInput.WholesaleBusinessName,
+                IsApproved = CustomerInput.WholesaleIsApproved,
+                PaymentTermDays = CustomerInput.WholesalePaymentTermDays,
+                ApprovedByUserId = CustomerInput.WholesaleIsApproved ? CustomerPageHelpers.CurrentUserId(User) : null
+            },
+            RubberSupplierProfile = new RubberSupplierMemberProfileSaveModel
+            {
+                SupplierCode = CustomerInput.RubberSupplierCode,
+                Remark = CustomerInput.RubberSupplierRemark
+            },
             MemberLevelId = CustomerInput.MemberLevelId,
             DateOfBirth = CustomerInput.DateOfBirth,
             Gender = CustomerInput.Gender,
@@ -120,8 +154,9 @@ public sealed class IndexModel : PageModel
         try
         {
             MemberLevels = await _memberLevelService.GetAllActiveAsync(cancellationToken);
-            Customers = await _customerService.GetPagedAsync(new CustomerPagedRequestModel { PageNumber = PageNumber, PageSize = 10, SearchText = SearchText, MemberLevelId = MemberLevelId, IsActive = IsActive, CreditStatus = CreditStatus }, cancellationToken);
-            Summary = await _reportService.GetSummaryAsync(new CustomerReportRequestModel { MemberLevelId = MemberLevelId, IsActive = IsActive }, cancellationToken);
+            Customers = await _customerService.GetPagedAsync(new CustomerPagedRequestModel { PageNumber = PageNumber, PageSize = 10, SearchText = SearchText, MemberType = MemberType, MemberLevelId = MemberLevelId, IsActive = IsActive, CreditStatus = CreditStatus }, cancellationToken);
+            CustomerEditModels = await LoadCustomerEditModelsAsync(Customers.Customers, cancellationToken);
+            Summary = await _reportService.GetSummaryAsync(new CustomerReportRequestModel { MemberType = MemberType, MemberLevelId = MemberLevelId, IsActive = IsActive }, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -136,7 +171,31 @@ public sealed class IndexModel : PageModel
         return Page();
     }
 
-    private IActionResult RedirectToCurrentFilters() => RedirectToPage(new { SearchText, MemberLevelId, CreditStatus, IsActive, PageNumber });
+    private IActionResult RedirectToCurrentFilters() => RedirectToPage(new { SearchText, MemberType, MemberLevelId, CreditStatus, IsActive, PageNumber });
+
+    private void NormalizeOptionalEmail()
+    {
+        if (string.IsNullOrWhiteSpace(CustomerInput.Email))
+        {
+            CustomerInput.Email = null;
+            ModelState.Remove("CustomerInput.Email");
+        }
+        else
+        {
+            CustomerInput.Email = CustomerInput.Email.Trim();
+        }
+    }
+
+    private async Task<IReadOnlyDictionary<int, CustomerModel>> LoadCustomerEditModelsAsync(IReadOnlyCollection<CustomerSummaryModel> rows, CancellationToken cancellationToken)
+    {
+        if (rows.Count == 0) return new Dictionary<int, CustomerModel>();
+
+        var details = await Task.WhenAll(rows.Select(row => _customerService.GetByIdAsync(row.CustomerId, cancellationToken)));
+        return details
+            .Where(customer => customer is not null)
+            .Cast<CustomerModel>()
+            .ToDictionary(customer => customer.CustomerId);
+    }
 
     public sealed class CustomerFormInput
     {
@@ -145,7 +204,14 @@ public sealed class IndexModel : PageModel
         [Required, StringLength(255)] public string CustomerName { get; set; } = string.Empty;
         [Required, StringLength(50)] public string PhoneNumber { get; set; } = string.Empty;
         [EmailAddress, StringLength(255)] public string? Email { get; set; }
+        [Required] public string MemberType { get; set; } = "Retail";
+        public List<string> ActiveMemberTypeCodes { get; set; } = new() { MemberTypeCodes.Retail };
         public int? MemberLevelId { get; set; }
+        public string? WholesaleBusinessName { get; set; }
+        public bool WholesaleIsApproved { get; set; }
+        [Range(0, int.MaxValue)] public int WholesalePaymentTermDays { get; set; }
+        public string? RubberSupplierCode { get; set; }
+        public string? RubberSupplierRemark { get; set; }
         public DateTime? DateOfBirth { get; set; }
         public string? Gender { get; set; }
         public string? Address { get; set; }

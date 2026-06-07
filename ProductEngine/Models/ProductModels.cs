@@ -208,6 +208,10 @@ public class ProductModel
     public int UnitId { get; init; }
     public string UnitName { get; init; } = string.Empty;
     public decimal CostPrice { get; init; }
+    public decimal MinimumCost { get; init; }
+    public decimal VatPercentage { get; init; }
+    public decimal VatAmount { get; init; }
+    public decimal MinimumSellingPrice { get; init; }
     public decimal SellingPrice { get; init; }
     public decimal WholesalePrice { get; init; }
     public decimal WholesaleMinQty { get; init; } = 1;
@@ -236,6 +240,10 @@ public sealed class ProductCreateModel
     public int? BrandId { get; init; }
     public int UnitId { get; init; }
     public decimal CostPrice { get; init; }
+    public decimal MinimumCost { get; init; }
+    public decimal VatPercentage { get; init; }
+    public decimal VatAmount { get; init; }
+    public decimal MinimumSellingPrice { get; init; }
     public decimal SellingPrice { get; init; }
     public decimal WholesalePrice { get; init; }
     public decimal WholesaleMinQty { get; init; } = 1;
@@ -261,6 +269,10 @@ public sealed class ProductUpdateModel
     public int? BrandId { get; init; }
     public int UnitId { get; init; }
     public decimal CostPrice { get; init; }
+    public decimal MinimumCost { get; init; }
+    public decimal VatPercentage { get; init; }
+    public decimal VatAmount { get; init; }
+    public decimal MinimumSellingPrice { get; init; }
     public decimal SellingPrice { get; init; }
     public decimal WholesalePrice { get; init; }
     public decimal WholesaleMinQty { get; init; } = 1;

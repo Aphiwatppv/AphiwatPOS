@@ -1,17 +1,94 @@
-@model CustomerEngine.Models.CustomerSummaryModel?
+@model object?
+@using CustomerEngine.Models
 @{
-    var levels = ViewData["MemberLevels"] as IReadOnlyCollection<CustomerEngine.Models.MemberLevelModel> ?? Array.Empty<CustomerEngine.Models.MemberLevelModel>();
+    var levels = ViewData["MemberLevels"] as IReadOnlyCollection<MemberLevelModel> ?? Array.Empty<MemberLevelModel>();
+    int customerId = 0;
+    string? customerCode = null;
+    string customerName = string.Empty;
+    string phoneNumber = string.Empty;
+    string? email = null;
+    string memberType = "Retail";
+    IReadOnlyCollection<string> activeCodes = new[] { MemberTypeCodes.Retail };
+    int? memberLevelId = null;
+    string? memberLevelName = null;
+    DateTime? dateOfBirth = null;
+    string? gender = null;
+    string? address = null;
+    bool isActive = true;
+    string? wholesaleBusinessName = null;
+    bool wholesaleApproved = false;
+    int wholesalePaymentTermDays = 0;
+    string? rubberSupplierCode = null;
+
+    if (Model is CustomerModel detail)
+    {
+        customerId = detail.CustomerId;
+        customerCode = detail.CustomerCode;
+        customerName = detail.CustomerName;
+        phoneNumber = detail.PhoneNumber;
+        email = detail.Email;
+        memberType = detail.MemberType;
+        activeCodes = detail.ActiveMembershipCodes;
+        memberLevelId = detail.MemberLevelId;
+        memberLevelName = detail.MemberLevelName;
+        dateOfBirth = detail.DateOfBirth;
+        gender = detail.Gender;
+        address = detail.Address;
+        isActive = detail.IsActive;
+        wholesaleBusinessName = detail.WholesaleBusinessName;
+        wholesaleApproved = detail.WholesaleApproved;
+        wholesalePaymentTermDays = detail.WholesalePaymentTermDays;
+        rubberSupplierCode = detail.RubberSupplierCode;
+    }
+    else if (Model is CustomerSummaryModel summary)
+    {
+        customerId = summary.CustomerId;
+        customerCode = summary.CustomerCode;
+        customerName = summary.CustomerName;
+        phoneNumber = summary.PhoneNumber;
+        email = summary.Email;
+        memberType = summary.MemberType;
+        activeCodes = summary.ActiveMembershipCodes;
+        memberLevelName = summary.MemberLevelName;
+        isActive = summary.IsActive;
+    }
+
+    var hasRetail = activeCodes.Contains(MemberTypeCodes.Retail, StringComparer.OrdinalIgnoreCase);
+    var hasWholesale = activeCodes.Contains(MemberTypeCodes.Wholesale, StringComparer.OrdinalIgnoreCase);
+    var hasRubberSupplier = activeCodes.Contains(MemberTypeCodes.RubberSupplier, StringComparer.OrdinalIgnoreCase);
 }
-<input type="hidden" name="CustomerInput.CustomerId" value="@(Model?.CustomerId ?? 0)" />
+<input type="hidden" name="CustomerInput.CustomerId" value="@customerId" />
+<input type="hidden" name="CustomerInput.MemberType" value="@(hasWholesale ? "Wholesale" : "Retail")" />
 <div class="modal-form-grid">
-    <div><label class="form-label">Customer Code</label><input class="form-control" name="CustomerInput.CustomerCode" value="@Model?.CustomerCode" placeholder="Auto-generate if blank" /></div>
-    <div><label class="form-label">Customer Name</label><input class="form-control" name="CustomerInput.CustomerName" value="@Model?.CustomerName" required /></div>
-    <div><label class="form-label">Phone Number</label><input class="form-control" name="CustomerInput.PhoneNumber" value="@Model?.PhoneNumber" required /></div>
-    <div><label class="form-label">Email</label><input class="form-control" name="CustomerInput.Email" value="@Model?.Email" type="email" /></div>
-    <div><label class="form-label">Member Level</label><select class="form-select" name="CustomerInput.MemberLevelId"><option value="">No level</option>@foreach (var level in levels) { <option value="@level.MemberLevelId" selected="@(Model?.MemberLevelName == level.LevelName)">@level.LevelName</option> }</select></div>
-    <div><label class="form-label">Date of Birth</label><input class="form-control" name="CustomerInput.DateOfBirth" type="date" /></div>
-    <div><label class="form-label">Gender</label><select class="form-select" name="CustomerInput.Gender"><option value="">Unspecified</option><option>Male</option><option>Female</option><option>Other</option></select></div>
-    <div class="d-flex align-items-end"><label class="form-check form-switch"><input class="form-check-input" name="CustomerInput.IsActive" value="true" type="checkbox" checked="@(Model?.IsActive ?? true)" /><input type="hidden" name="CustomerInput.IsActive" value="false" /><span class="form-check-label">Active</span></label></div>
-    <div class="span-2"><label class="form-label">Address</label><textarea class="form-control" name="CustomerInput.Address" rows="3"></textarea></div>
+    <div><label class="form-label">Customer Code</label><input class="form-control" name="CustomerInput.CustomerCode" value="@customerCode" placeholder="Auto-generate if blank" /></div>
+    <div><label class="form-label">Customer Name</label><input class="form-control" name="CustomerInput.CustomerName" value="@customerName" required /></div>
+    <div><label class="form-label">Phone Number</label><input class="form-control" name="CustomerInput.PhoneNumber" value="@phoneNumber" required /></div>
+    <div><label class="form-label">Email <span class="text-muted small">(optional)</span></label><input class="form-control" name="CustomerInput.Email" value="@email" type="email" placeholder="Optional" /></div>
+    <div class="span-2">
+        <label class="form-label">Membership Types</label>
+        <div class="d-flex flex-wrap gap-3">
+            <label class="form-check"><input class="form-check-input" name="CustomerInput.ActiveMemberTypeCodes" value="@MemberTypeCodes.Retail" type="checkbox" checked="@hasRetail" /> Retail Member</label>
+            <label class="form-check"><input class="form-check-input" name="CustomerInput.ActiveMemberTypeCodes" value="@MemberTypeCodes.Wholesale" type="checkbox" checked="@hasWholesale" data-membership-toggle="wholesale" /> Wholesale Member</label>
+            <label class="form-check"><input class="form-check-input" name="CustomerInput.ActiveMemberTypeCodes" value="@MemberTypeCodes.RubberSupplier" type="checkbox" checked="@hasRubberSupplier" data-membership-toggle="rubber" /> Rubber Supplier Member</label>
+        </div>
+    </div>
+    <div><label class="form-label">Member Level</label><select class="form-select" name="CustomerInput.MemberLevelId"><option value="">No level</option>@foreach (var level in levels) { <option value="@level.MemberLevelId" selected="@(memberLevelId == level.MemberLevelId || memberLevelName == level.LevelName)">@level.LevelName</option> }</select></div>
+    <div><label class="form-label">Date of Birth</label><input class="form-control" name="CustomerInput.DateOfBirth" type="date" value="@(dateOfBirth?.ToString("yyyy-MM-dd"))" /></div>
+    <div><label class="form-label">Gender</label><select class="form-select" name="CustomerInput.Gender"><option value="">Unspecified</option><option selected="@(gender == "Male")">Male</option><option selected="@(gender == "Female")">Female</option><option selected="@(gender == "Other")">Other</option></select></div>
+    <div class="d-flex align-items-end"><label class="form-check form-switch"><input class="form-check-input" name="CustomerInput.IsActive" value="true" type="checkbox" checked="@isActive" /><input type="hidden" name="CustomerInput.IsActive" value="false" /><span class="form-check-label">Active</span></label></div>
+    <div class="span-2" data-membership-section="wholesale" hidden="@(!hasWholesale)">
+        <div class="row g-3">
+            <div class="col-md-6"><label class="form-label">Wholesale Business Name</label><input class="form-control" name="CustomerInput.WholesaleBusinessName" value="@wholesaleBusinessName" /></div>
+            <div class="col-md-3"><label class="form-label">Payment Term Days</label><input class="form-control" name="CustomerInput.WholesalePaymentTermDays" type="number" min="0" value="@wholesalePaymentTermDays" /></div>
+            <div class="col-md-3 d-flex align-items-end"><label class="form-check"><input class="form-check-input" name="CustomerInput.WholesaleIsApproved" value="true" type="checkbox" checked="@wholesaleApproved" /><input type="hidden" name="CustomerInput.WholesaleIsApproved" value="false" /> Approved</label></div>
+        </div>
+    </div>
+    <div class="span-2" data-membership-section="rubber" hidden="@(!hasRubberSupplier)">
+        <div class="row g-3">
+            <div class="col-md-4"><label class="form-label">Supplier Code</label><input class="form-control" name="CustomerInput.RubberSupplierCode" value="@rubberSupplierCode" placeholder="Auto-generate if blank" /></div>
+            <div class="col-md-8"><label class="form-label">Supplier Remark</label><input class="form-control" name="CustomerInput.RubberSupplierRemark" /></div>
+        </div>
+    </div>
+    <div class="span-2"><label class="form-label">Address</label><textarea class="form-control" name="CustomerInput.Address" rows="3">@address</textarea></div>
     <div class="span-2"><label class="form-check"><input class="form-check-input" name="CustomerInput.ApplyMemberLevelCreditDefault" value="true" type="checkbox" /><input type="hidden" name="CustomerInput.ApplyMemberLevelCreditDefault" value="false" /> Apply member level credit defaults</label></div>
 </div>

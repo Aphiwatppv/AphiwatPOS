@@ -233,7 +233,7 @@ public sealed class IndexModel : PageModel
 
     private async Task ValidateWholesaleSaleAsync(int? customerId, IReadOnlyCollection<SalesCartItemModel> items, CancellationToken cancellationToken)
     {
-        var saleAmount = items.Sum(item => Math.Max(0, item.Quantity * item.UnitPrice - item.ItemDiscountAmount + item.TaxAmount)) + Input.TaxAmount - Input.OrderDiscountAmount;
+        var saleAmount = items.Sum(item => Math.Max(0, item.Quantity * item.UnitPrice - item.ItemDiscountAmount)) + Input.TaxAmount - Input.OrderDiscountAmount;
         var validation = await _wholesalePosService.ValidateCustomerAsync(customerId, saleAmount, AllowWalkInWholesale, cancellationToken);
         if (!validation.IsValid)
         {

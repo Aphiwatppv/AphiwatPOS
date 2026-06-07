@@ -19,6 +19,7 @@ public sealed class CustomerService : ICustomerService
             request.PageNumber,
             request.PageSize,
             SearchText = CustomerValidation.TrimOrNull(request.SearchText),
+            MemberType = CustomerValidation.TrimOrNull(request.MemberType),
             request.MemberLevelId,
             request.IsActive,
             CreditStatus = CustomerValidation.TrimOrNull(request.CreditStatus)
@@ -57,6 +58,7 @@ public sealed class CustomerService : ICustomerService
             CustomerName = model.CustomerName.Trim(),
             PhoneNumber = model.PhoneNumber.Trim(),
             Email = CustomerValidation.TrimOrNull(model.Email),
+            MemberType = ValidateMemberType(model.MemberType),
             model.MemberLevelId,
             model.DateOfBirth,
             Gender = CustomerValidation.TrimOrNull(model.Gender),
@@ -78,6 +80,7 @@ public sealed class CustomerService : ICustomerService
             CustomerName = model.CustomerName.Trim(),
             PhoneNumber = model.PhoneNumber.Trim(),
             Email = CustomerValidation.TrimOrNull(model.Email),
+            MemberType = ValidateMemberType(model.MemberType),
             model.MemberLevelId,
             model.DateOfBirth,
             Gender = CustomerValidation.TrimOrNull(model.Gender),
@@ -112,6 +115,389 @@ public sealed class CustomerService : ICustomerService
         CustomerValidation.RequireNonNegative(saleAmount, nameof(saleAmount));
         return _accessService.ExecuteAsync("dbo.spCustomerUpdatePurchaseSummary", new { CustomerId = customerId, SaleAmount = saleAmount, PurchaseDate = purchaseDate }, cancellationToken);
     }
+
+    private static string ValidateMemberType(string? memberType)
+    {
+        var value = string.IsNullOrWhiteSpace(memberType) ? "Retail" : memberType.Trim();
+        if (value is not ("Retail" or "Wholesale")) throw new ArgumentException("Member type must be Retail or Wholesale.", nameof(memberType));
+        return value;
+    }
+}
+
+public sealed class CustomerMemberTypeService : ICustomerMemberTypeService
+{
+    private readonly IAccessService _accessService;
+
+    public CustomerMemberTypeService(IAccessService accessService) => _accessService = accessService;
+
+    public async Task<IReadOnlyCollection<MemberTypeModel>> GetAllActiveTypesAsync(CancellationToken cancellationToken = default) =>
+        (await _accessService.QueryAsync<MemberTypeModel, object>("dbo.spCustomerMemberTypeGetAllActive", new { }, cancellationToken)).ToArray();
+
+    public async Task<IReadOnlyCollection<CustomerMembershipModel>> GetActiveMembershipsAsync(int customerId, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.RequirePositive(customerId, nameof(customerId));
+        return (await _accessService.QueryAsync<CustomerMembershipModel, object>("dbo.spCustomerMemberTypeGetByCustomerId", new { CustomerId = customerId }, cancellationToken)).ToArray();
+    }
+
+    public Task<bool> HasActiveMembershipAsync(int customerId, string memberTypeCode, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.RequirePositive(customerId, nameof(customerId));
+        CustomerValidation.RequireText(memberTypeCode, nameof(memberTypeCode));
+        return _accessService.QuerySingleAsync<bool, object>("dbo.spCustomerMemberTypeCheckActiveMembership", new { CustomerId = customerId, MemberTypeCode = CustomerMembershipText.NormalizeCode(memberTypeCode) }, cancellationToken);
+    }
+
+    public Task AssignAsync(int customerId, string memberTypeCode, int createdByUserId, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.RequirePositive(customerId, nameof(customerId));
+        CustomerValidation.RequireText(memberTypeCode, nameof(memberTypeCode));
+        CustomerValidation.RequirePositive(createdByUserId, nameof(createdByUserId));
+        return _accessService.ExecuteAsync("dbo.spCustomerMemberTypeAssign", new { CustomerId = customerId, MemberTypeCode = CustomerMembershipText.NormalizeCode(memberTypeCode), CreatedByUserId = createdByUserId }, cancellationToken);
+    }
+
+    public Task DeactivateAsync(int customerId, string memberTypeCode, int updatedByUserId, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.RequirePositive(customerId, nameof(customerId));
+        CustomerValidation.RequireText(memberTypeCode, nameof(memberTypeCode));
+        CustomerValidation.RequirePositive(updatedByUserId, nameof(updatedByUserId));
+        return _accessService.ExecuteAsync("dbo.spCustomerMemberTypeDeactivate", new { CustomerId = customerId, MemberTypeCode = CustomerMembershipText.NormalizeCode(memberTypeCode), UpdatedByUserId = updatedByUserId }, cancellationToken);
+    }
+
+    public Task SyncAsync(int customerId, IReadOnlyCollection<string> memberTypeCodes, WholesaleMemberProfileSaveModel? wholesaleProfile, RubberSupplierMemberProfileSaveModel? rubberSupplierProfile, int updatedByUserId, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.RequirePositive(customerId, nameof(customerId));
+        CustomerValidation.RequirePositive(updatedByUserId, nameof(updatedByUserId));
+        var codes = NormalizeMemberCodes(memberTypeCodes);
+        return _accessService.ExecuteAsync("dbo.spCustomerMemberTypeSync", new
+        {
+            CustomerId = customerId,
+            MemberTypeCodesCsv = string.Join(",", codes),
+            WholesaleBusinessName = CustomerValidation.TrimOrNull(wholesaleProfile?.BusinessName),
+            wholesaleProfile?.WholesaleLevelId,
+            WholesaleIsApproved = wholesaleProfile?.IsApproved ?? false,
+            WholesalePaymentTermDays = wholesaleProfile?.PaymentTermDays ?? 0,
+            WholesaleApprovedByUserId = wholesaleProfile?.ApprovedByUserId,
+            SupplierCode = CustomerValidation.TrimOrNull(rubberSupplierProfile?.SupplierCode),
+            rubberSupplierProfile?.DefaultBusinessLocationId,
+            SupplierRemark = CustomerValidation.TrimOrNull(rubberSupplierProfile?.Remark),
+            UpdatedByUserId = updatedByUserId
+        }, cancellationToken);
+    }
+
+    internal static IReadOnlyCollection<string> NormalizeMemberCodes(IReadOnlyCollection<string>? memberTypeCodes)
+    {
+        var codes = (memberTypeCodes ?? Array.Empty<string>())
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(CustomerMembershipText.NormalizeCode)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return codes.Length == 0 ? new[] { MemberTypeCodes.Retail } : codes;
+    }
+}
+
+public sealed class CustomerRegistrationService : ICustomerRegistrationService
+{
+    private readonly ICustomerService _customerService;
+    private readonly ICustomerMemberTypeService _memberTypeService;
+
+    public CustomerRegistrationService(ICustomerService customerService, ICustomerMemberTypeService memberTypeService)
+    {
+        _customerService = customerService;
+        _memberTypeService = memberTypeService;
+    }
+
+    public async Task<int> RegisterAsync(CustomerCreateModel model, CancellationToken cancellationToken = default)
+    {
+        var codes = CustomerMemberTypeService.NormalizeMemberCodes(model.MemberTypeCodes);
+        var customerId = await _customerService.CreateAsync(new CustomerCreateModel
+        {
+            CustomerCode = model.CustomerCode,
+            CustomerName = model.CustomerName,
+            PhoneNumber = model.PhoneNumber,
+            Email = model.Email,
+            MemberType = LegacyMemberType(codes),
+            MemberTypeCodes = codes,
+            WholesaleProfile = model.WholesaleProfile,
+            RubberSupplierProfile = model.RubberSupplierProfile,
+            MemberLevelId = model.MemberLevelId,
+            DateOfBirth = model.DateOfBirth,
+            Gender = model.Gender,
+            Address = model.Address,
+            CreatedByUserId = model.CreatedByUserId
+        }, cancellationToken);
+        await _memberTypeService.SyncAsync(customerId, codes, model.WholesaleProfile, model.RubberSupplierProfile, model.CreatedByUserId, cancellationToken);
+        return customerId;
+    }
+
+    public async Task UpdateMembershipsAsync(CustomerUpdateModel model, CancellationToken cancellationToken = default)
+    {
+        var codes = CustomerMemberTypeService.NormalizeMemberCodes(model.MemberTypeCodes);
+        await _customerService.UpdateAsync(new CustomerUpdateModel
+        {
+            CustomerId = model.CustomerId,
+            CustomerName = model.CustomerName,
+            PhoneNumber = model.PhoneNumber,
+            Email = model.Email,
+            MemberType = LegacyMemberType(codes),
+            MemberTypeCodes = codes,
+            WholesaleProfile = model.WholesaleProfile,
+            RubberSupplierProfile = model.RubberSupplierProfile,
+            MemberLevelId = model.MemberLevelId,
+            DateOfBirth = model.DateOfBirth,
+            Gender = model.Gender,
+            Address = model.Address,
+            ApplyMemberLevelCreditDefault = model.ApplyMemberLevelCreditDefault,
+            UpdatedByUserId = model.UpdatedByUserId
+        }, cancellationToken);
+        await _memberTypeService.SyncAsync(model.CustomerId, codes, model.WholesaleProfile, model.RubberSupplierProfile, model.UpdatedByUserId, cancellationToken);
+    }
+
+    private static string LegacyMemberType(IReadOnlyCollection<string> codes) =>
+        codes.Contains(MemberTypeCodes.Wholesale, StringComparer.OrdinalIgnoreCase) ? "Wholesale" : "Retail";
+}
+
+public sealed class MemberLoyaltyService : IMemberLoyaltyService
+{
+    private readonly IAccessService _accessService;
+
+    public MemberLoyaltyService(IAccessService accessService) => _accessService = accessService;
+
+    public Task<MemberLoyaltyAccountModel?> GetAccountAsync(int customerId, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.RequirePositive(customerId, nameof(customerId));
+        return _accessService.QuerySingleOrDefaultAsync<MemberLoyaltyAccountModel, object>("dbo.spMemberLoyaltyAccountGetByCustomerId", new { CustomerId = customerId }, cancellationToken);
+    }
+
+    public Task<LoyaltyPointCalculationResultModel> CalculateFromRubberWeightAsync(int customerId, decimal rubberWeightKg, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.RequirePositive(customerId, nameof(customerId));
+        if (rubberWeightKg <= 0) throw new ArgumentException("Rubber weight must be greater than 0.", nameof(rubberWeightKg));
+        return _accessService.QuerySingleAsync<LoyaltyPointCalculationResultModel, object>("dbo.spMemberLoyaltyCalculateFromRubberWeight", new { CustomerId = customerId, RubberWeightKg = rubberWeightKg }, cancellationToken);
+    }
+
+    public Task<MemberLoyaltyTransactionModel> AddPointsFromRubberPurchaseAsync(int customerId, long rubberPurchaseHeaderId, decimal confirmedWeightKg, int employeeId, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.RequirePositive(customerId, nameof(customerId));
+        CustomerValidation.RequirePositive(rubberPurchaseHeaderId, nameof(rubberPurchaseHeaderId));
+        if (confirmedWeightKg <= 0) throw new ArgumentException("Confirmed weight must be greater than 0.", nameof(confirmedWeightKg));
+        CustomerValidation.RequirePositive(employeeId, nameof(employeeId));
+        return _accessService.QuerySingleAsync<MemberLoyaltyTransactionModel, object>("dbo.spMemberLoyaltyAddFromRubberPurchase", new { CustomerId = customerId, RubberPurchaseHeaderId = rubberPurchaseHeaderId, ConfirmedWeightKg = confirmedWeightKg, CreatedByUserId = employeeId }, cancellationToken);
+    }
+
+    public Task RedeemPointsAsync(int customerId, int points, string? remark, int employeeId, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.RequirePositive(customerId, nameof(customerId));
+        CustomerValidation.RequirePositive(points, nameof(points));
+        CustomerValidation.RequirePositive(employeeId, nameof(employeeId));
+        return _accessService.ExecuteAsync("dbo.spMemberLoyaltyRedeem", new { CustomerId = customerId, Points = points, Remark = CustomerValidation.TrimOrNull(remark), CreatedByUserId = employeeId }, cancellationToken);
+    }
+
+    public Task ReversePointsFromCancelledRubberPurchaseAsync(long rubberPurchaseHeaderId, int employeeId, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.RequirePositive(rubberPurchaseHeaderId, nameof(rubberPurchaseHeaderId));
+        CustomerValidation.RequirePositive(employeeId, nameof(employeeId));
+        return _accessService.ExecuteAsync("dbo.spMemberLoyaltyReverseRubberPurchase", new { RubberPurchaseHeaderId = rubberPurchaseHeaderId, CreatedByUserId = employeeId }, cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<MemberLoyaltyTransactionModel>> GetTransactionsAsync(int customerId, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.RequirePositive(customerId, nameof(customerId));
+        return (await _accessService.QueryAsync<MemberLoyaltyTransactionModel, object>("dbo.spMemberLoyaltyTransactionGetByCustomerId", new { CustomerId = customerId }, cancellationToken)).ToArray();
+    }
+}
+
+public sealed class MemberSalesCreditService : IMemberSalesCreditService
+{
+    private readonly ICustomerCreditService _creditService;
+
+    public MemberSalesCreditService(ICustomerCreditService creditService) => _creditService = creditService;
+
+    public Task<CustomerCreditModel?> GetAccountAsync(int customerId, CancellationToken cancellationToken = default) =>
+        _creditService.GetByCustomerIdAsync(customerId, cancellationToken);
+
+    public async Task<decimal> GetAvailableCreditAsync(int customerId, CancellationToken cancellationToken = default) =>
+        (await _creditService.GetByCustomerIdAsync(customerId, cancellationToken))?.AvailableCredit ?? 0m;
+
+    public async Task<bool> HasEnoughCreditAsync(int customerId, decimal requestedAmount, CancellationToken cancellationToken = default) =>
+        (await _creditService.CheckEligibilityAsync(customerId, requestedAmount, cancellationToken)).IsAllowed;
+
+    public Task CreateOrUpdateCreditApprovalAsync(CustomerCreditUpdateModel model, CancellationToken cancellationToken = default) =>
+        _creditService.SetCreditAsync(model, cancellationToken);
+
+    public Task<long> UseCreditForSaleAsync(int customerId, long saleId, decimal amount, int employeeId, CancellationToken cancellationToken = default) =>
+        _creditService.CreateCreditSaleAsync(customerId, saleId, amount, null, false, "Sales credit used for POS sale.", employeeId, cancellationToken);
+
+    public Task RecordRepaymentAsync(int customerId, decimal amount, string? paymentMethod, int employeeId, CancellationToken cancellationToken = default) =>
+        _creditService.ReceivePaymentAsync(new CustomerCreditPaymentModel { CustomerId = customerId, Amount = amount, ReferenceNo = paymentMethod, CreatedByUserId = employeeId }, cancellationToken);
+
+    public async Task AdjustCreditLimitAsync(int customerId, decimal newLimit, string reason, int approvedByEmployeeId, CancellationToken cancellationToken = default)
+    {
+        var account = await _creditService.GetByCustomerIdAsync(customerId, cancellationToken);
+        await _creditService.SetCreditAsync(new CustomerCreditUpdateModel
+        {
+            CustomerId = customerId,
+            AllowCredit = true,
+            CreditLimit = newLimit,
+            CreditTermDays = account?.CreditTermDays ?? 0,
+            CreditStatus = account?.CreditStatus ?? "Good",
+            RequireManagerApproval = account?.RequireManagerApproval ?? false,
+            ApprovedByUserId = approvedByEmployeeId,
+            Remark = reason,
+            UpdatedByUserId = approvedByEmployeeId
+        }, cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<CustomerCreditTransactionModel>> GetTransactionsAsync(int customerId, CancellationToken cancellationToken = default)
+    {
+        var result = await _creditService.GetTransactionsPagedAsync(new CustomerCreditTransactionPagedRequestModel { CustomerId = customerId, PageNumber = 1, PageSize = 500 }, cancellationToken);
+        return result.Transactions;
+    }
+}
+
+public sealed class RubberPurchaseService : IRubberPurchaseService
+{
+    private readonly IAccessService _accessService;
+
+    public RubberPurchaseService(IAccessService accessService) => _accessService = accessService;
+
+    public Task<long> CreateAsync(RubberPurchaseHeaderCreateModel model, CancellationToken cancellationToken = default)
+    {
+        if (model.CustomerId.GetValueOrDefault() <= 0 && string.IsNullOrWhiteSpace(model.NonMemberFarmerName))
+        {
+            throw new ArgumentException("A member supplier or non-member farmer name is required.", nameof(model.CustomerId));
+        }
+
+        if (model.CustomerId.GetValueOrDefault() > 0 && !string.IsNullOrWhiteSpace(model.NonMemberFarmerName))
+        {
+            throw new ArgumentException("Use either a member supplier or non-member farmer details, not both.", nameof(model.CustomerId));
+        }
+
+        CustomerValidation.RequirePositive(model.BusinessLocationId, nameof(model.BusinessLocationId));
+        CustomerValidation.RequirePositive(model.CreatedByUserId, nameof(model.CreatedByUserId));
+        if (model.WeightKg <= 0) throw new ArgumentException("Rubber weight must be greater than 0.", nameof(model.WeightKg));
+        if (model.TotalAmount is < 0) throw new ArgumentException("Total amount cannot be negative.", nameof(model.TotalAmount));
+
+        return _accessService.QuerySingleAsync<long, object>("dbo.spRubberPurchaseHeaderCreate", new
+        {
+            model.CustomerId,
+            NonMemberFarmerName = CustomerValidation.TrimOrNull(model.NonMemberFarmerName),
+            NonMemberFarmerPhone = CustomerValidation.TrimOrNull(model.NonMemberFarmerPhone),
+            model.BusinessLocationId,
+            model.RubberAuctionLocationId,
+            model.TransactionDate,
+            model.WeightKg,
+            model.RubberPriceId,
+            model.MarketingPriceId,
+            model.PricePerKgSnapshot,
+            model.PercentageSnapshot,
+            model.TotalAmount,
+            PaymentStatus = CustomerValidation.TrimOrNull(model.PaymentStatus) ?? "Pending",
+            model.CreatedByUserId
+        }, cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<long>> CreateBatchAsync(RubberPurchaseBatchCreateModel model, CancellationToken cancellationToken = default)
+    {
+        if (model.Purchases.Count == 0)
+        {
+            throw new ArgumentException("At least one rubber purchase row is required.", nameof(model.Purchases));
+        }
+
+        var ids = new List<long>(model.Purchases.Count);
+        foreach (var purchase in model.Purchases)
+        {
+            ids.Add(await CreateAsync(purchase, cancellationToken));
+        }
+
+        return ids;
+    }
+
+    public async Task<RubberPurchaseHeaderPagedModel> GetPagedAsync(RubberPurchaseHeaderPagedRequestModel request, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.ValidatePage(request.PageNumber, request.PageSize);
+        var rows = (await _accessService.QueryAsync<RubberPurchaseHeaderPagedRow, object>("dbo.spRubberPurchaseHeaderGetPaged", new
+        {
+            request.PageNumber,
+            request.PageSize,
+            request.CustomerId,
+            request.BusinessLocationId,
+            request.RubberAuctionLocationId,
+            PaymentStatus = CustomerValidation.TrimOrNull(request.PaymentStatus),
+            request.DateFrom,
+            request.DateTo,
+            SearchText = CustomerValidation.TrimOrNull(request.SearchText)
+        }, cancellationToken)).ToArray();
+
+        return new RubberPurchaseHeaderPagedModel
+        {
+            Items = rows,
+            TotalCount = rows.FirstOrDefault()?.TotalCount ?? 0,
+            PageNumber = request.PageNumber,
+            PageSize = request.PageSize
+        };
+    }
+
+    public Task<RubberPurchaseHeaderModel?> GetByIdAsync(long rubberPurchaseHeaderId, CancellationToken cancellationToken = default)
+    {
+        if (rubberPurchaseHeaderId <= 0) throw new ArgumentException("Rubber purchase id must be greater than 0.", nameof(rubberPurchaseHeaderId));
+        return _accessService.QuerySingleOrDefaultAsync<RubberPurchaseHeaderModel, object>("dbo.spRubberPurchaseHeaderGetById", new { RubberPurchaseHeaderId = rubberPurchaseHeaderId }, cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<RubberPurchaseHeaderModel>> GetByCustomerIdAsync(int customerId, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.RequirePositive(customerId, nameof(customerId));
+        return (await _accessService.QueryAsync<RubberPurchaseHeaderModel, object>("dbo.spRubberPurchaseHeaderGetByCustomerId", new { CustomerId = customerId }, cancellationToken)).ToArray();
+    }
+
+    public Task<RubberPurchaseHeaderModel> PayBillAsync(RubberPurchasePayBillModel model, CancellationToken cancellationToken = default)
+    {
+        if (model.RubberPurchaseHeaderId <= 0) throw new ArgumentException("Rubber purchase id must be greater than 0.", nameof(model.RubberPurchaseHeaderId));
+        CustomerValidation.RequireNonNegative(model.PaidAmount, nameof(model.PaidAmount));
+        CustomerValidation.RequireNonNegative(model.CreditDeductedAmount, nameof(model.CreditDeductedAmount));
+        if (model.PaidAmount + model.CreditDeductedAmount <= 0) throw new ArgumentException("Payment settlement amount must be greater than 0.", nameof(model.PaidAmount));
+        CustomerValidation.RequirePositive(model.UpdatedByUserId, nameof(model.UpdatedByUserId));
+        return _accessService.QuerySingleAsync<RubberPurchaseHeaderModel, object>("dbo.spRubberPurchaseHeaderPayBill", new
+        {
+            model.RubberPurchaseHeaderId,
+            model.PaidAmount,
+            model.CreditDeductedAmount,
+            PaymentMethod = CustomerValidation.TrimOrNull(model.PaymentMethod) ?? "Cash",
+            PaymentRemark = CustomerValidation.TrimOrNull(model.PaymentRemark),
+            model.UpdatedByUserId
+        }, cancellationToken);
+    }
+}
+
+public sealed class RubberPriceService : IRubberPriceService
+{
+    private readonly IAccessService _accessService;
+
+    public RubberPriceService(IAccessService accessService) => _accessService = accessService;
+
+    public async Task<IReadOnlyCollection<RubberPriceModel>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        (await _accessService.QueryAsync<RubberPriceModel, object>("dbo.spRubberPriceGetAll", new { }, cancellationToken)).ToArray();
+
+    public async Task<IReadOnlyCollection<RubberPriceModel>> GetActiveAsync(CancellationToken cancellationToken = default) =>
+        (await _accessService.QueryAsync<RubberPriceModel, object>("dbo.spRubberPriceGetActive", new { }, cancellationToken)).ToArray();
+
+    public Task<RubberPriceModel?> GetByIdAsync(int rubberPriceId, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.RequirePositive(rubberPriceId, nameof(rubberPriceId));
+        return _accessService.QuerySingleOrDefaultAsync<RubberPriceModel, object>("dbo.spRubberPriceGetById", new { RubberPriceId = rubberPriceId }, cancellationToken);
+    }
+}
+
+public sealed class RubberAuctionLocationService : IRubberAuctionLocationService
+{
+    private readonly IAccessService _accessService;
+
+    public RubberAuctionLocationService(IAccessService accessService) => _accessService = accessService;
+
+    public async Task<IReadOnlyCollection<RubberAuctionLocationModel>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        (await _accessService.QueryAsync<RubberAuctionLocationModel, object>("dbo.spRubberAuctionLocationGetAll", new { }, cancellationToken)).ToArray();
+
+    public async Task<IReadOnlyCollection<RubberAuctionLocationModel>> GetActiveAsync(CancellationToken cancellationToken = default) =>
+        (await _accessService.QueryAsync<RubberAuctionLocationModel, object>("dbo.spRubberAuctionLocationGetActive", new { }, cancellationToken)).ToArray();
 }
 
 public sealed class MemberLevelService : IMemberLevelService
@@ -555,7 +941,7 @@ public sealed class CustomerReportService : ICustomerReportService
     public CustomerReportService(IAccessService accessService) => _accessService = accessService;
 
     public Task<CustomerReportSummaryModel> GetSummaryAsync(CustomerReportRequestModel request, CancellationToken cancellationToken = default) =>
-        _accessService.QuerySingleAsync<CustomerReportSummaryModel, object>("dbo.spCustomerReportGetSummary", ReportParameters(request), cancellationToken);
+        _accessService.QuerySingleAsync<CustomerReportSummaryModel, object>("dbo.spCustomerReportGetSummary", new { request.DateFrom, request.DateTo, MemberType = CustomerValidation.TrimOrNull(request.MemberType), request.MemberLevelId, request.IsActive, request.Top, request.NoPurchaseAfterDate }, cancellationToken);
 
     public async Task<IReadOnlyCollection<TopCustomerModel>> GetTopCustomersBySpendingAsync(CustomerReportRequestModel request, CancellationToken cancellationToken = default) =>
         (await _accessService.QueryAsync<TopCustomerModel, object>("dbo.spCustomerReportTopCustomersBySpending", ReportParameters(request), cancellationToken)).ToArray();
@@ -582,6 +968,29 @@ public sealed class CustomerReportService : ICustomerReportService
     }
 }
 
+public sealed class CustomerAuditService : ICustomerAuditService
+{
+    private readonly IAccessService _accessService;
+
+    public CustomerAuditService(IAccessService accessService) => _accessService = accessService;
+
+    public async Task<CustomerAuditLogPagedResultModel> GetPagedAsync(CustomerAuditLogPagedRequestModel request, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.ValidatePage(request.PageNumber, request.PageSize);
+        var rows = (await _accessService.QueryAsync<CustomerAuditLogPagedRow, object>("dbo.spCustomerAuditLogGetPaged", new
+        {
+            request.CustomerId,
+            request.PageNumber,
+            request.PageSize,
+            ActionType = CustomerValidation.TrimOrNull(request.ActionType),
+            request.DateFrom,
+            request.DateTo
+        }, cancellationToken)).ToArray();
+
+        return new CustomerAuditLogPagedResultModel { Logs = rows, TotalCount = rows.FirstOrDefault()?.TotalCount ?? 0, PageNumber = request.PageNumber, PageSize = request.PageSize };
+    }
+}
+
 internal interface ITotalCountRow { int TotalCount { get; } }
 
 internal sealed class CustomerPagedRow : CustomerSummaryModel, ITotalCountRow { public int TotalCount { get; init; } }
@@ -596,6 +1005,8 @@ internal sealed class CustomerLevelHistoryPagedRow : CustomerLevelHistoryModel, 
 internal sealed class CustomerRefundHistoryPagedRow : CustomerRefundHistoryModel, ITotalCountRow { public int TotalCount { get; init; } }
 internal sealed class CustomerTimelinePagedRow : CustomerTimelineModel, ITotalCountRow { public int TotalCount { get; init; } }
 internal sealed class CustomerNotePagedRow : CustomerNoteModel, ITotalCountRow { public int TotalCount { get; init; } }
+internal sealed class CustomerAuditLogPagedRow : CustomerAuditLogModel, ITotalCountRow { public int TotalCount { get; init; } }
+internal sealed class RubberPurchaseHeaderPagedRow : RubberPurchaseHeaderModel, ITotalCountRow { public int TotalCount { get; init; } }
 
 internal static class CustomerValidation
 {

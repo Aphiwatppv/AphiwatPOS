@@ -9,6 +9,10 @@
     [BrandId] INT NULL,
     [UnitId] INT NOT NULL,
     [CostPrice] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_Product_CostPrice] DEFAULT (0),
+    [MinimumCost] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_Product_MinimumCost] DEFAULT (0),
+    [VatPercentage] DECIMAL(9,4) NOT NULL CONSTRAINT [DF_Product_VatPercentage] DEFAULT (0),
+    [VatAmount] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_Product_VatAmount] DEFAULT (0),
+    [MinimumSellingPrice] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_Product_MinimumSellingPrice] DEFAULT (0),
     [SellingPrice] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_Product_SellingPrice] DEFAULT (0),
     [WholesalePrice] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_Product_WholesalePrice] DEFAULT (0),
     [WholesaleMinQty] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_Product_WholesaleMinQty] DEFAULT (1),
@@ -30,6 +34,7 @@
     CONSTRAINT [FK_Product_Brand] FOREIGN KEY ([BrandId]) REFERENCES [dbo].[ProductBrand] ([BrandId]),
     CONSTRAINT [FK_Product_Unit] FOREIGN KEY ([UnitId]) REFERENCES [dbo].[ProductUnit] ([UnitId]),
     CONSTRAINT [UQ_Product_ProductCode] UNIQUE ([ProductCode]),
-    CONSTRAINT [CK_Product_PricesNonNegative] CHECK ([CostPrice] >= 0 AND [SellingPrice] >= 0 AND [WholesalePrice] >= 0 AND [WholesaleMinQty] >= 0),
+    CONSTRAINT [CK_Product_PricesNonNegative] CHECK ([CostPrice] >= 0 AND [MinimumCost] >= 0 AND [VatPercentage] >= 0 AND [VatAmount] >= 0 AND [MinimumSellingPrice] >= 0 AND [SellingPrice] >= 0 AND [WholesalePrice] >= 0 AND [WholesaleMinQty] >= 0),
+    CONSTRAINT [CK_Product_SellingPriceMinimum] CHECK ([SellingPrice] >= [MinimumSellingPrice]),
     CONSTRAINT [CK_Product_StockNonNegative] CHECK ([MinimumStockLevel] >= 0 AND [CurrentStock] >= 0)
 );

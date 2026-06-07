@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160">
+  <rect width="160" height="160" rx="24" fill="#16823a"/>
+  <circle cx="80" cy="62" r="36" fill="#f7f1cf"/>
+  <path d="M54 62 C70 48 90 48 106 62 C92 76 68 76 54 62 Z" fill="#45b96f"/>
+  <text x="80" y="116" text-anchor="middle" font-family="Tahoma, Arial, sans-serif" font-size="24" font-weight="700" fill="#ffffff">โออิชิ</text>
+</svg>

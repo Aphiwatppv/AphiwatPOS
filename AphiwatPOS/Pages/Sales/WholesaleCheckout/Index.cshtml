@@ -267,6 +267,10 @@
 
         <div class="cart-section">
             <label class="form-label">Payment method</label>
+            <div class="payment-due-callout due" data-payment-due-callout>
+                <span><i class="bi bi-exclamation-circle"></i>Outstanding</span>
+                <strong data-payment-outstanding>0.00</strong>
+            </div>
             @if (!paymentMethods.Any())
             {
                 <div class="empty-state py-3"><i class="bi bi-credit-card"></i><div>No payment methods found</div></div>
@@ -282,7 +286,7 @@
                 }
             </div>
             <div class="row g-2 mt-2">
-                <div class="col-7"><input class="form-control" data-payment-amount type="number" min="0" step="0.01" placeholder="Payment amount" /></div>
+                <div class="col-7"><input class="form-control payment-amount-input" data-payment-amount type="number" min="0" step="0.01" placeholder="Payment amount" /></div>
                 <div class="col-5"><input class="form-control" data-payment-ref placeholder="Reference no" /></div>
                 <div class="col-12"><button class="btn btn-outline-secondary w-100" type="button" data-add-payment><i class="bi bi-plus-lg me-1"></i>Add Payment</button></div>
             </div>
@@ -477,7 +481,7 @@
 
 <style>
 .wholesale-verify-panel{background:#fff;border:1px solid var(--pos-border);box-shadow:var(--pos-shadow);display:grid;gap:18px;grid-template-columns:minmax(0,1.15fr)minmax(320px,.85fr);margin-bottom:18px;padding:18px}.verify-step{color:var(--pos-primary);font-size:.78rem;font-weight:900;text-transform:uppercase}.verify-main h2,.verify-detail h3{font-size:1.25rem;font-weight:900;margin:.2rem 0}.verify-main p{color:var(--pos-muted);margin-bottom:14px}.verify-results{display:grid;gap:8px;margin-top:12px;max-height:260px;overflow:auto}.verify-result-card{align-items:center;background:#fff;border:1px solid var(--pos-border);display:flex;gap:10px;justify-content:space-between;padding:10px;text-align:left}.verify-result-card.active,.verify-result-card:hover{background:var(--pos-primary-soft);border-color:var(--pos-primary)}.verify-result-card small{color:var(--pos-muted);display:block}.verify-detail{background:#f8fafc;border:1px solid var(--pos-border);padding:14px}.verify-detail-grid{display:grid;gap:8px;grid-template-columns:1fr 1fr}.verify-detail-grid div{background:#fff;border:1px solid var(--pos-border);padding:8px}.verify-detail-grid span{color:var(--pos-muted);display:block;font-size:.74rem;font-weight:800}.verify-detail-grid strong{display:block;overflow-wrap:anywhere}.verify-actions{display:flex;flex-wrap:wrap;gap:8px}.wholesale-pos-locked{filter:grayscale(.15);opacity:.45;pointer-events:none}.pos-shell{display:grid;grid-template-columns:minmax(0,1fr)390px;gap:18px}.pos-products{min-width:0}.pos-scan-card{position:sticky;top:82px;z-index:5}.chip-row{display:flex;flex-wrap:wrap;gap:8px}.filter-chip{background:#fff;border:1px solid var(--pos-border);color:var(--pos-muted);font-weight:800;padding:7px 11px}.filter-chip.active,.filter-chip:hover{background:var(--pos-primary-soft);border-color:#a7f3d0;color:var(--pos-primary-hover)}.product-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}.product-card{background:#fff;border:1px solid var(--pos-border);box-shadow:var(--pos-shadow);color:var(--pos-text);display:grid;gap:6px;min-height:172px;padding:12px;text-align:left;transition:.16s}.product-card:hover{border-color:var(--pos-primary);box-shadow:var(--pos-shadow-hover);transform:translateY(-2px)}.product-card.disabled{opacity:.58;pointer-events:none}.product-art{align-items:center;background:var(--pos-primary-soft);border:1px solid #a7f3d0;color:var(--pos-primary);display:flex;height:54px;justify-content:center;overflow:hidden;width:54px}.product-art img,.cart-item-thumb img{display:block;height:100%;object-fit:cover;object-position:center;width:100%}.product-name{font-weight:800;line-height:1.2}.product-code,.product-meta span{color:var(--pos-muted);font-size:.82rem}.product-meta{align-items:center;display:flex;justify-content:space-between}.product-meta strong{color:var(--pos-primary-hover);font-size:1.05rem}.cart-panel{align-self:start;background:#fff;border:1px solid var(--pos-border);box-shadow:var(--pos-shadow-hover);padding:16px;position:sticky;top:82px}.cart-hero{align-items:center;border-bottom:1px solid var(--pos-border);display:grid;gap:12px;grid-template-columns:64px minmax(0,1fr)auto;padding-bottom:14px}.cart-hero:hover .cart-icon-wrap{transform:translateY(-1px)}.cart-icon-wrap{align-items:center;background:linear-gradient(135deg,#059669,#10b981);box-shadow:0 14px 28px rgba(5,150,105,.25);color:#fff;display:flex;font-size:1.65rem;height:60px;justify-content:center;position:relative;transition:.16s;width:60px;border-radius:999px!important}.cart-count-badge,.floating-cart-btn span{animation:pulseCart 1.5s infinite;background:#dc2626;color:#fff;font-size:.74rem;font-weight:900;min-width:22px;padding:2px 6px;position:absolute;right:-4px;top:-5px;text-align:center;border-radius:999px!important}.cart-hero h2{font-size:1.05rem;font-weight:900;margin:0}.cart-hero p{color:var(--pos-muted);margin:2px 0 0}.cart-total{color:var(--pos-primary-hover);font-size:1.3rem;font-weight:900}.cart-section{border-bottom:1px solid var(--pos-border);padding:13px 0}.customer-credit-panel{background:var(--pos-primary-soft);border:1px solid #a7f3d0;padding:10px}.selected-member-card{align-items:center;background:#f8fafc;border:1px solid var(--pos-border);display:flex;gap:10px;padding:10px}.selected-member-icon{align-items:center;background:var(--pos-primary-soft);color:var(--pos-primary);display:flex;height:34px;justify-content:center;width:34px;border-radius:999px!important}.cart-items{max-height:310px;overflow:auto}.cart-item{border:1px solid var(--pos-border);display:grid;gap:8px;margin-bottom:8px;padding:10px}.cart-item.flash{background:var(--pos-primary-soft)}.cart-item-title{display:grid;gap:8px;grid-template-columns:38px minmax(0,1fr)auto}.cart-item-thumb{align-items:center;background:var(--pos-primary-soft);border:1px solid #a7f3d0;color:var(--pos-primary);display:flex;height:38px;justify-content:center;overflow:hidden;width:38px}.qty-control{display:flex;gap:4px}.qty-control input{max-width:70px;text-align:center}.summary-line{display:flex;gap:10px;justify-content:space-between;margin:8px 0}.summary-line input{max-width:126px}.summary-line.total{border-top:0;font-size:1.08rem;font-weight:900;padding-top:0}.payment-method-grid{display:grid;gap:8px;grid-template-columns:repeat(2,minmax(0,1fr))}.payment-method-card{align-items:center;background:#fff;border:1px solid var(--pos-border);display:flex;gap:8px;min-height:42px;padding:9px;position:relative}.payment-method-card.active,.payment-method-card:hover{background:var(--pos-primary-soft);border-color:var(--pos-primary);color:var(--pos-primary-hover)}.payment-method-card.active:after{align-items:center;background:var(--pos-primary);color:#fff;content:"\F26E";display:flex;font-family:"bootstrap-icons";font-size:.7rem;height:18px;justify-content:center;position:absolute;right:6px;top:6px;width:18px;border-radius:999px}.payment-method-card[data-is-credit=true]{background:#fffbeb;border-color:#fde68a;color:#92400e}.payment-method-card[data-is-credit=true].active{border-color:var(--pos-warning);box-shadow:0 10px 24px rgba(245,158,11,.16)}.payment-row{align-items:center;background:#f8fafc;border:1px solid var(--pos-border);display:flex;gap:8px;justify-content:space-between;margin-top:6px;padding:8px}.payment-row.credit-chip{background:#fffbeb;border-color:#f59e0b;color:#92400e}.cart-actions{display:grid;gap:8px;padding-top:14px}.floating-cart-btn{display:none}.pos-empty{grid-column:1/-1}.payment-summary-card{background:#fff;border:1px solid var(--pos-border);box-shadow:0 12px 28px rgba(15,23,42,.06);margin-top:12px;padding:12px}.payment-summary-head{align-items:center;display:flex;justify-content:space-between;margin-bottom:8px}.summary-kicker{color:var(--pos-muted);font-size:.72rem;font-weight:900;letter-spacing:.02em;text-transform:uppercase}.payment-status-pill,.review-status-badge{border:1px solid transparent;font-size:.75rem;font-weight:900;padding:5px 9px;border-radius:999px}.payment-status-pill.paid,.review-status-badge.paid{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.payment-status-pill.due,.review-status-badge.due{background:#fef2f2;border-color:#fecaca;color:#dc2626}.payment-status-pill.credit,.review-status-badge.credit{background:#fffbeb;border-color:#fde68a;color:#92400e}.summary-divider{border-top:1px dashed var(--pos-border);margin:10px 0}.summary-net-row strong{color:var(--pos-primary-hover);font-size:1.28rem}.credit-summary-row{background:#fffbeb;border:1px solid #fde68a;color:#92400e;margin-inline:-4px;padding:7px}.remaining-row{font-size:1.03rem;font-weight:900}.remaining-row.paid strong{color:#047857}.remaining-row.due strong{color:#dc2626}.change-row.has-change{background:#ecfdf5;border:1px solid #a7f3d0;margin-inline:-4px;padding:7px}.credit-progress{background:#d1fae5;height:8px;overflow:hidden;border-radius:999px}.credit-progress span{background:linear-gradient(90deg,#f59e0b,#dc2626);display:block;height:100%;width:0}.credit-fit-message.enough{color:#047857}.credit-fit-message.not-enough{color:#b45309}.payment-review-dialog{max-width:740px}.payment-review-modal{border:0;box-shadow:0 28px 70px rgba(15,23,42,.22)}.payment-review-hero{align-items:start;background:linear-gradient(135deg,#ecfdf5,#fff);border:1px solid #a7f3d0;display:flex;gap:16px;justify-content:space-between;margin-bottom:12px;padding:18px}.review-label{color:var(--pos-muted);display:block;font-size:.78rem;font-weight:900;text-transform:uppercase}.payment-review-hero strong{color:#047857;display:block;font-size:2.35rem;line-height:1.1}.review-helper{color:var(--pos-muted);font-weight:700;margin-top:4px}.review-meta-grid{display:grid;gap:10px;grid-template-columns:1fr 1fr;margin-bottom:16px}.review-meta-grid div{background:#f8fafc;border:1px solid var(--pos-border);padding:10px}.review-meta-grid span{color:var(--pos-muted);display:block;font-size:.78rem;font-weight:800}.review-meta-grid strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.review-section-title{font-size:.84rem;font-weight:900;margin:0 0 8px;text-transform:uppercase}.payment-breakdown{border:1px solid var(--pos-border)}.breakdown-row{align-items:center;display:flex;gap:14px;justify-content:space-between;padding:12px 14px}.breakdown-row+.breakdown-row{border-top:1px solid var(--pos-border)}.breakdown-row span{color:var(--pos-muted);font-weight:800}.breakdown-row strong{font-size:1.12rem}.breakdown-row.net strong,.breakdown-row.paid strong{color:#0f172a;font-size:1.28rem}.breakdown-row.credit{background:#fffbeb}.breakdown-row.credit strong{color:#92400e}.breakdown-row.remaining.paid{background:#ecfdf5}.breakdown-row.remaining.paid strong{color:#047857}.breakdown-row.remaining.due{background:#fef2f2}.breakdown-row.remaining.due strong{color:#dc2626}.breakdown-row.change.has-change{background:#ecfdf5}.review-info{align-items:flex-start;border:1px solid var(--pos-border);display:flex;gap:10px;margin-top:10px;padding:10px}.review-info.success{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.review-info.warning{background:#fffbeb;border-color:#f59e0b;color:#92400e}.review-info.danger{background:#fef2f2;border-color:#fecaca;color:#b91c1c}.review-info.neutral{background:#f8fafc;color:#475569}.receipt-preview-body{background:#f8fafc}.receipt-document{background:#fff;border:1px solid var(--pos-border);box-shadow:0 18px 42px rgba(15,23,42,.08);color:#0f172a;margin:auto;max-width:860px;padding:24px}.receipt-header{align-items:flex-start;border-bottom:2px solid #0f172a;display:flex;justify-content:space-between;margin-bottom:18px;padding-bottom:14px}.receipt-brand{font-size:1.45rem;font-weight:900}.receipt-title{text-align:right;text-transform:uppercase}.receipt-grid{display:grid;gap:14px;grid-template-columns:1fr 1fr;margin-bottom:18px}.receipt-box{border:1px solid #cbd5e1;padding:12px}.receipt-box h4{font-size:.8rem;font-weight:900;margin:0 0 8px;text-transform:uppercase}.receipt-table{font-size:.92rem}.receipt-table th{background:#f8fafc;border-bottom:1px solid #cbd5e1}.receipt-summary{margin-left:auto;max-width:360px}.receipt-summary .summary-line{border-bottom:1px solid #e2e8f0;margin:0;padding:7px 0}.receipt-credit-note{background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-top:14px;padding:10px}.receipt-thanks{text-align:center;font-weight:800;margin-top:18px}@@keyframes pulseCart{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}@@media(max-width:1100px){.wholesale-verify-panel{grid-template-columns:1fr}.pos-shell{grid-template-columns:1fr}.cart-panel{bottom:0;left:0;max-height:84vh;overflow:auto;position:fixed;right:0;top:auto;transform:translateY(calc(100% - 76px));transition:.2s;z-index:2040}.cart-panel.open{transform:translateY(0)}.floating-cart-btn{align-items:center;background:var(--pos-primary);border:0;bottom:22px;box-shadow:0 18px 34px rgba(5,150,105,.28);color:#fff;display:flex;font-size:1.35rem;height:58px;justify-content:center;position:fixed;right:22px;width:58px;z-index:2045;border-radius:999px!important}.floating-cart-btn span{right:-2px;top:-6px}}@@media(max-width:700px){.verify-detail-grid{grid-template-columns:1fr}.product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cart-hero{grid-template-columns:58px minmax(0,1fr)}.cart-total{grid-column:1/-1}.payment-method-grid{grid-template-columns:1fr}.payment-review-dialog{margin:.5rem;max-width:none}.payment-review-hero,.receipt-header{display:block}.review-meta-grid,.receipt-grid{grid-template-columns:1fr}.payment-review-hero strong{font-size:1.85rem}}@@media print{body *{visibility:hidden!important}#receiptPreviewModal,#receiptPreviewModal *{visibility:visible!important}#receiptPreviewModal{display:block!important;inset:0;position:absolute}.modal-backdrop,.no-print,.app-sidebar,.app-topbar,.page-header,.pos-shell,.floating-cart-btn{display:none!important}.modal-dialog,.modal-content,.modal-body{box-shadow:none!important;margin:0!important;max-width:none!important;padding:0!important;width:auto!important}.receipt-preview-body{background:#fff!important}.receipt-document{border:0!important;box-shadow:none!important;color:#000!important;margin:0!important;max-width:none!important;padding:0!important}.receipt-table th{background:#fff!important;color:#000!important}body[data-print-mode=receipt] .receipt-document{font-size:11px;width:80mm}body[data-print-mode=receipt] .receipt-header,body[data-print-mode=receipt] .receipt-grid{display:block}body[data-print-mode=receipt] .receipt-box{border:0;border-bottom:1px dashed #000;padding:6px 0}body[data-print-mode=receipt] .receipt-table{font-size:10px}body[data-print-mode=invoice] .receipt-document{font-size:13px;width:190mm}.receipt-table tr{break-inside:avoid;page-break-inside:avoid}}
-.payment-method-card[data-is-promptpay=true]{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}.payment-method-card[data-is-promptpay=true].active{border-color:#2563eb;box-shadow:0 10px 24px rgba(37,99,235,.14)}.promptpay-panel{background:#f8fafc;border:1px solid #bfdbfe;padding:10px}.promptpay-preview{align-items:center;display:flex;gap:12px;margin-top:10px}.promptpay-preview img,.promptpay-qr-box{background:#fff;border:1px solid var(--pos-border);height:132px;padding:8px;width:132px}.promptpay-qr-box svg{display:block;height:100%;width:100%}.promptpay-meta{display:grid;gap:4px}.promptpay-meta strong{color:#1d4ed8;font-size:1.35rem}.promptpay-meta span{color:var(--pos-muted);font-size:.85rem}.payment-result-modal.success .modal-header{background:#ecfdf5;border-color:#a7f3d0}.payment-result-modal.fail .modal-header{background:#fef2f2;border-color:#fecaca}.payment-result-icon{align-items:center;border-radius:999px!important;display:flex;font-size:2rem;height:62px;justify-content:center;margin:auto;width:62px}.payment-result-modal.success .payment-result-icon{background:#dcfce7;color:#047857}.payment-result-modal.fail .payment-result-icon{background:#fee2e2;color:#dc2626}
+.payment-method-card[data-is-promptpay=true]{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}.payment-method-card[data-is-promptpay=true].active{border-color:#2563eb;box-shadow:0 10px 24px rgba(37,99,235,.14)}.promptpay-panel{background:#f8fafc;border:1px solid #bfdbfe;padding:10px}.promptpay-preview{align-items:center;display:flex;gap:12px;margin-top:10px}.promptpay-preview img,.promptpay-qr-box{background:#fff;border:1px solid var(--pos-border);height:132px;padding:8px;width:132px}.promptpay-qr-box svg{display:block;height:100%;width:100%}.promptpay-meta{display:grid;gap:4px}.promptpay-meta strong{color:#1d4ed8;font-size:1.35rem}.promptpay-meta span{color:var(--pos-muted);font-size:.85rem}.payment-result-modal.success .modal-header{background:#ecfdf5;border-color:#a7f3d0}.payment-result-modal.fail .modal-header{background:#fef2f2;border-color:#fecaca}.payment-result-icon{align-items:center;border-radius:999px!important;display:flex;font-size:2rem;height:62px;justify-content:center;margin:auto;width:62px}.payment-result-modal.success .payment-result-icon{background:#dcfce7;color:#047857}.payment-result-modal.fail .payment-result-icon{background:#fee2e2;color:#dc2626}.payment-due-callout{align-items:center;border:2px solid #fecaca;display:flex;gap:10px;justify-content:space-between;margin:8px 0 10px;padding:10px 12px}.payment-due-callout span{align-items:center;display:flex;gap:7px;font-size:.78rem;font-weight:900;text-transform:uppercase}.payment-due-callout strong{font-size:1.85rem;font-weight:900;line-height:1}.payment-due-callout.due{background:#fef2f2;color:#b91c1c}.payment-due-callout.paid{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.payment-amount-input{border:2px solid #10b981!important;font-size:1.28rem!important;font-weight:900!important;min-height:48px;text-align:right}.payment-amount-input:focus{border-color:#059669!important;box-shadow:0 0 0 .2rem rgba(16,185,129,.2)!important}
 </style>
 <style>
 @@media print{body[data-print-mode=receipt] .receipt-document{width:58mm!important;max-width:58mm!important}}
@@ -492,6 +496,7 @@
   let cart = @Html.Raw(JsonSerializer.Serialize(heldItems, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
   let payments = [];
   let activeMethod = document.querySelector('[data-payment-method].active') || document.querySelector('[data-payment-method]');
+  let customerDisplayOpened = false;
   const money = v => Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const round4 = v => Math.round((Number(v || 0) + Number.EPSILON) * 10000) / 10000;
   const by = s => document.querySelector(s);
@@ -527,7 +532,8 @@
   function lineTax(item) {
     if (item.taxRate === null || item.taxRate === undefined || Number.isNaN(Number(item.taxRate))) return Number(item.taxAmount || 0);
     const taxable = Math.max(0, (Number(item.quantity || 0) * Number(item.unitPrice || 0)) - Number(item.itemDiscountAmount || 0));
-    return round4(taxable * (Number(item.taxRate || 0) / 100));
+    const rate = Number(item.taxRate || 0);
+    return rate <= 0 ? 0 : round4(taxable * (rate / (100 + rate)));
   }
   function syncLineTaxes() {
     cart.forEach(item => { item.taxAmount = lineTax(item); });
@@ -662,6 +668,7 @@
     by('[data-barcode-input]')?.focus();
   }
   document.querySelectorAll('[data-payment-method]').forEach(btn => btn.addEventListener('click', () => {
+    ensureCustomerDisplayOpen();
     document.querySelectorAll('[data-payment-method]').forEach(x => x.classList.remove('active'));
     btn.classList.add('active');
     activeMethod = btn;
@@ -678,6 +685,16 @@
     if (!customerDisplayUrl) return;
     const separator = customerDisplayUrl.includes('?') ? '&' : '?';
     window.open(`${customerDisplayUrl}${separator}terminalId=${encodeURIComponent(terminalId)}`, 'aphiwatposCustomerDisplay', 'popup=yes,width=1100,height=820');
+    customerDisplayOpened = true;
+  }
+  function ensureCustomerDisplayOpen(syncCurrent = true) {
+    if (customerDisplayOpened) {
+      if (syncCurrent) publishLiveDisplay();
+      return;
+    }
+
+    openCustomerDisplay();
+    if (syncCurrent) setTimeout(() => publishLiveDisplay(), 500);
   }
   async function startDisplayHub() {
     if (!('WebSocket' in window) || displaySocket) return;
@@ -748,7 +765,7 @@
         quantity: Number(item.quantity || 0),
         unitPrice: Number(item.unitPrice || 0),
         discount: Number(item.itemDiscountAmount || 0),
-        lineTotal: (Number(item.quantity || 0) * Number(item.unitPrice || 0)) - Number(item.itemDiscountAmount || 0) + Number(item.taxAmount || 0)
+        lineTotal: (Number(item.quantity || 0) * Number(item.unitPrice || 0)) - Number(item.itemDiscountAmount || 0)
       }))
     };
   }
@@ -767,6 +784,7 @@
     publishCustomerDisplay({ type:'sale-update', event:statusText ? 'SaleStarted' : 'CartUpdated', displayState:t.paid > 0 ? 'WaitingForPayment' : 'Scanning', status:statusText || (t.paid > 0 ? 'Waiting for Payment' : 'Scanning Items'), ...customerDisplaySnapshot(t), updatedAt:new Date().toISOString() });
   }
   async function generatePromptPayQr() {
+    ensureCustomerDisplayOpen(false);
     const t = totals();
     const amount = Number(by('[data-payment-amount]').value || t.remaining || t.net || 0);
     const error = by('[data-promptpay-error]');
@@ -979,7 +997,7 @@
     const wrap = by('[data-cart-items]');
     syncLineTaxes();
     if (!cart.length) wrap.innerHTML = `<div class="empty-state empty-cart"><i class="bi bi-cart-x"></i><div class="fw-semibold">Your cart is empty</div><div>Scan barcode or select products to start a sale.</div></div>`;
-    else wrap.innerHTML = cart.map((item, index) => `<div class="cart-item" data-cart-row="${index}"><div class="cart-item-title"><span class="cart-item-thumb">${item.productImageUrl ? `<img src="${item.productImageUrl}" alt="">` : `<i class="bi bi-box-seam"></i>`}</span><div><strong>${item.productName}</strong><div class="text-muted small">${item.productCode}</div></div><button class="btn btn-sm btn-outline-danger" data-remove="${index}" type="button"><i class="bi bi-x-lg"></i></button></div><div class="d-flex justify-content-between align-items-center gap-2"><div class="qty-control"><button class="btn btn-sm btn-outline-secondary" data-dec="${index}" type="button">-</button><input class="form-control form-control-sm" data-qty="${index}" type="number" min="1" step="1" value="${item.quantity}"><button class="btn btn-sm btn-outline-secondary" data-inc="${index}" type="button">+</button></div><strong>${money((item.quantity * item.unitPrice) - item.itemDiscountAmount + item.taxAmount)}</strong></div><div class="input-group input-group-sm"><span class="input-group-text">Discount</span><input class="form-control text-end" data-line-discount="${index}" type="number" min="0" step="0.01" value="${item.itemDiscountAmount || 0}"></div></div>`).join('');
+    else wrap.innerHTML = cart.map((item, index) => `<div class="cart-item" data-cart-row="${index}"><div class="cart-item-title"><span class="cart-item-thumb">${item.productImageUrl ? `<img src="${item.productImageUrl}" alt="">` : `<i class="bi bi-box-seam"></i>`}</span><div><strong>${item.productName}</strong><div class="text-muted small">${item.productCode}</div></div><button class="btn btn-sm btn-outline-danger" data-remove="${index}" type="button"><i class="bi bi-x-lg"></i></button></div><div class="d-flex justify-content-between align-items-center gap-2"><div class="qty-control"><button class="btn btn-sm btn-outline-secondary" data-dec="${index}" type="button">-</button><input class="form-control form-control-sm" data-qty="${index}" type="number" min="1" step="1" value="${item.quantity}"><button class="btn btn-sm btn-outline-secondary" data-inc="${index}" type="button">+</button></div><strong>${money((item.quantity * item.unitPrice) - item.itemDiscountAmount)}</strong></div><div class="input-group input-group-sm"><span class="input-group-text">Discount</span><input class="form-control text-end" data-line-discount="${index}" type="number" min="0" step="0.01" value="${item.itemDiscountAmount || 0}"></div></div>`).join('');
     wrap.querySelectorAll('[data-remove]').forEach(x => x.onclick = () => { cart.splice(+x.dataset.remove, 1); render(); });
     wrap.querySelectorAll('[data-inc]').forEach(x => x.onclick = () => updateQty(+x.dataset.inc, cart[+x.dataset.inc].quantity + 1));
     wrap.querySelectorAll('[data-dec]').forEach(x => x.onclick = () => updateQty(+x.dataset.dec, Math.max(1, cart[+x.dataset.dec].quantity - 1)));
@@ -995,7 +1013,7 @@
     const manualTax = Number(by('[data-tax-amount]').value || 0);
     const lineTax = cart.reduce((s, x) => s + Number(x.taxAmount || 0), 0);
     const tax = manualTax + lineTax;
-    const net = Math.max(0, subtotal - itemDiscount - orderDiscount + tax);
+    const net = Math.max(0, subtotal - itemDiscount - orderDiscount + manualTax);
     const creditBtn = creditMethodButton();
     const creditIdx = creditPaymentIndex();
     if (creditBtn && creditIdx >= 0) {
@@ -1022,6 +1040,7 @@
     }
     by('[data-cart-count]').textContent = count; by('[data-cart-count-mobile]').textContent = count;
     by('[data-subtotal]').textContent = money(subtotal); by('[data-item-discount]').textContent = money(itemDiscount); by('[data-line-tax]').textContent = money(lineTax); by('[data-net]').textContent = money(net); by('[data-net-total]').textContent = money(net); by('[data-credit-used-sale]').textContent = money(creditUsed); by('[data-other-paid]').textContent = money(otherPaid); by('[data-remaining]').textContent = money(remaining); by('[data-paid]').textContent = money(paid); by('[data-change]').textContent = money(change);
+    by('[data-payment-outstanding]').textContent = money(remaining);
     by('[data-modal-net]').textContent = money(net); by('[data-modal-net-large]').textContent = `THB ${money(net)}`; by('[data-modal-credit]').textContent = money(creditUsed); by('[data-modal-other-paid]').textContent = money(otherPaid); by('[data-modal-remaining]').textContent = money(remaining); by('[data-modal-paid]').textContent = money(paid); by('[data-modal-change]').textContent = money(change); by('[data-hold-total]').textContent = money(net);
     by('[data-modal-customer]').textContent = customerName;
     by('[data-modal-items]').textContent = `${count} item${count === 1 ? '' : 's'}`;
@@ -1038,6 +1057,8 @@
     cartBadge.className = `payment-status-pill ${fullyPaid ? 'paid' : 'due'}`;
     by('[data-remaining-row]').classList.toggle('paid', remaining <= 0);
     by('[data-remaining-row]').classList.toggle('due', remaining > 0);
+    by('[data-payment-due-callout]').classList.toggle('paid', remaining <= 0);
+    by('[data-payment-due-callout]').classList.toggle('due', remaining > 0);
     by('[data-modal-remaining-row]').classList.toggle('paid', remaining <= 0);
     by('[data-modal-remaining-row]').classList.toggle('due', remaining > 0);
     by('[data-change-row]').classList.toggle('has-change', change > 0);
@@ -1140,7 +1161,7 @@
       customer: snapshot?.customer ? { name:snapshot.customer.name || 'Customer', memberLevel:snapshot.customer.level || '', availableCredit:0, creditUsed:totals.creditUsed || 0, remainingCredit:snapshot.availableCreditAfter || 0 } : { name:'Walk-in Customer' },
       payment: { method:payments.map(p => p.name || 'Payment').join(', ') || '-', paidAmount:totals.paid || 0, changeAmount:totals.change || 0, creditUsed:totals.creditUsed || 0, remainingCredit:snapshot?.availableCreditAfter || 0 },
       totals,
-      items: items.map(item => ({ name:item.productName || 'Item', quantity:Number(item.quantity || 0), unitPrice:Number(item.unitPrice || 0), discount:Number(item.itemDiscountAmount || 0), lineTotal:(Number(item.quantity || 0) * Number(item.unitPrice || 0)) - Number(item.itemDiscountAmount || 0) + Number(item.taxAmount || 0) })),
+      items: items.map(item => ({ name:item.productName || 'Item', quantity:Number(item.quantity || 0), unitPrice:Number(item.unitPrice || 0), discount:Number(item.itemDiscountAmount || 0), lineTotal:(Number(item.quantity || 0) * Number(item.unitPrice || 0)) - Number(item.itemDiscountAmount || 0) })),
       updatedAt:new Date().toISOString()
     };
   }
@@ -1171,6 +1192,7 @@
     }
   }
   function addProduct(product, showToast = true) {
+    ensureCustomerDisplayOpen(false);
     const item = product.dataset ? normalizeProduct({ productId:product.dataset.productId, locationId:product.dataset.locationId, quantity:product.dataset.wholesaleMin || 1, unitPrice:product.dataset.price, itemDiscountAmount:0, taxAmount:0, taxRate:product.dataset.taxRate, productName:product.dataset.name, productCode:product.dataset.code, unitSymbol:product.dataset.unit, currentStock:product.dataset.stock, productImageUrl:product.dataset.image, wholesaleMinQty:product.dataset.wholesaleMin, isActive:product.dataset.active === 'true', isStockTracked:product.dataset.stockTracked !== 'false', status:product.dataset.status }) : normalizeProduct(product);
     if (item.isActive === false || String(item.status || '').toLowerCase() === 'inactive') return showProductWarning('Product is inactive.');
     const existing = cart.find(x => x.productId === item.productId);
@@ -1196,6 +1218,7 @@
   async function scanBarcode(value) {
     const barcode = (value || '').trim();
     if (!barcode || barcodeLookupBusy) return;
+    ensureCustomerDisplayOpen(false);
     barcodeLookupBusy = true;
     const input = by('[data-barcode-input]');
     input.disabled = true;
@@ -1237,7 +1260,7 @@
     const items = snapshot.items || [];
     const paymentsHtml = (snapshot.payments || []).map(p => `<div class="summary-line"><span>${p.name || 'Payment'}</span><strong>${money(p.paymentAmount)}</strong></div>`).join('') || '<div class="text-muted">No payments recorded.</div>';
     const itemRows = items.map(item => {
-      const lineTotal = (Number(item.quantity || 0) * Number(item.unitPrice || 0)) - Number(item.itemDiscountAmount || 0) + Number(item.taxAmount || 0);
+      const lineTotal = (Number(item.quantity || 0) * Number(item.unitPrice || 0)) - Number(item.itemDiscountAmount || 0);
       return `<tr><td><strong>${item.productName || ''}</strong><div class="text-muted small">${item.productCode || ''}</div></td><td class="text-end">${money(item.quantity)}</td><td class="text-end">${money(item.unitPrice)}</td><td class="text-end">${money(item.itemDiscountAmount)}</td><td class="text-end">${money(lineTotal)}</td></tr>`;
     }).join('');
     const customer = snapshot.customer;
@@ -1260,11 +1283,11 @@
   by('[data-product-search]').addEventListener('input', e => { const q = e.target.value.toLowerCase(); products.forEach(p => p.hidden = !(p.dataset.name.toLowerCase().includes(q) || p.dataset.code.toLowerCase().includes(q) || (p.dataset.barcode || '').toLowerCase().includes(q))); });
   document.querySelectorAll('[data-stock-filter]').forEach(btn => btn.onclick = () => { document.querySelectorAll('[data-stock-filter]').forEach(x => x.classList.remove('active')); btn.classList.add('active'); products.forEach(p => p.hidden = btn.dataset.stockFilter !== 'all' && p.dataset.stockStatus !== btn.dataset.stockFilter); });
   by('[data-order-discount]').oninput = totals; by('[data-tax-amount]').oninput = totals;
-  by('[data-payment-amount]').addEventListener('input', () => { clearPromptPay(); totals(); });
+  by('[data-payment-amount]').addEventListener('input', () => { ensureCustomerDisplayOpen(); clearPromptPay(); totals(); });
   by('[data-payment-ref]').addEventListener('input', totals);
   by('[data-open-customer-display]')?.addEventListener('click', openCustomerDisplay);
   by('[data-generate-promptpay]')?.addEventListener('click', generatePromptPayQr);
-  by('[data-add-payment]').onclick = () => { const pending = pendingPayment(); if (!pending) return; if (activeMethod.dataset.requireRef === 'true' && !pending.referenceNo) return alert('Reference number is required.'); payments.push(pending); by('[data-payment-amount]').value = ''; by('[data-payment-ref]').value = ''; clearPromptPay(); totals(); };
+  by('[data-add-payment]').onclick = () => { ensureCustomerDisplayOpen(); const pending = pendingPayment(); if (!pending) return; if (activeMethod.dataset.requireRef === 'true' && !pending.referenceNo) return alert('Reference number is required.'); payments.push(pending); by('[data-payment-amount]').value = ''; by('[data-payment-ref]').value = ''; clearPromptPay(); totals(); };
   by('[data-use-credit]').onclick = applyCustomerCredit;
   by('[data-use-partial-credit]').onclick = () => { bootstrap.Modal.getOrCreateInstance(by('#insufficientCreditModal')).hide(); applyCustomerCredit(false); };
   by('[data-confirm-pay]').onclick = () => {

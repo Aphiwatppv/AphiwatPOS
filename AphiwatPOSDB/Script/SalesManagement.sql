@@ -474,7 +474,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM @Payments p JOIN dbo.PaymentMethod pm ON pm.PaymentMethodId=p.PaymentMethodId WHERE pm.RequireReferenceNo=1 AND NULLIF(LTRIM(RTRIM(ISNULL(p.ReferenceNo,N''))),N'') IS NULL) THROW 52105, 'Payment reference number is required.', 1;
     UPDATE i
     SET UnitPrice = CASE WHEN i.UnitPrice > 0 THEN i.UnitPrice ELSE p.SellingPrice END,
-        TaxAmount = ROUND(((i.Quantity * CASE WHEN i.UnitPrice > 0 THEN i.UnitPrice ELSE p.SellingPrice END) - i.ItemDiscountAmount) * (p.TaxRate / 100.0), 4)
+        TaxAmount = CASE WHEN p.TaxRate <= 0 THEN 0 ELSE ROUND(((i.Quantity * CASE WHEN i.UnitPrice > 0 THEN i.UnitPrice ELSE p.SellingPrice END) - i.ItemDiscountAmount) * (p.TaxRate / (100.0 + p.TaxRate)), 4) END
     FROM @Items i
     JOIN dbo.Product p ON p.ProductId = i.ProductId;
 
@@ -486,7 +486,7 @@ BEGIN
     DECLARE @LineTax DECIMAL(18,4) = (SELECT SUM(TaxAmount) FROM @Items);
     DECLARE @TotalTax DECIMAL(18,4) = @LineTax + ISNULL(@TaxAmount,0);
     DECLARE @TotalDiscount DECIMAL(18,4) = @ItemDiscount + ISNULL(@OrderDiscountAmount,0);
-    DECLARE @Net DECIMAL(18,4) = @Subtotal - @TotalDiscount + @TotalTax;
+    DECLARE @Net DECIMAL(18,4) = @Subtotal - @TotalDiscount + ISNULL(@TaxAmount,0);
     IF @UseCustomerCredit = 1
     BEGIN
         IF @CustomerId IS NULL THROW 52130, 'Customer credit payment requires a selected customer.', 1;
@@ -543,7 +543,7 @@ BEGIN
         END
 
         INSERT INTO dbo.SalesItem (SalesHeaderId, ProductId, ProductCodeSnapshot, ProductNameSnapshot, BarcodeSnapshot, UnitId, UnitSymbolSnapshot, Quantity, UnitPrice, CostPriceSnapshot, ItemDiscountAmount, TaxAmount, LineSubtotal, LineTotal)
-        SELECT @SalesHeaderId, p.ProductId, p.ProductCode, p.ProductName, p.Barcode, p.UnitId, u.UnitSymbol, i.Quantity, i.UnitPrice, p.CostPrice, i.ItemDiscountAmount, i.TaxAmount, i.Quantity*i.UnitPrice, i.Quantity*i.UnitPrice-i.ItemDiscountAmount+i.TaxAmount
+        SELECT @SalesHeaderId, p.ProductId, p.ProductCode, p.ProductName, p.Barcode, p.UnitId, u.UnitSymbol, i.Quantity, i.UnitPrice, p.CostPrice, i.ItemDiscountAmount, i.TaxAmount, i.Quantity*i.UnitPrice, i.Quantity*i.UnitPrice-i.ItemDiscountAmount
         FROM @Items i JOIN dbo.Product p ON p.ProductId=i.ProductId JOIN dbo.ProductUnit u ON u.UnitId=p.UnitId;
 
         INSERT INTO dbo.SalesPayment (SalesHeaderId, PaymentMethodId, PaymentAmount, ReferenceNo, CreatedByUserId)
@@ -611,11 +611,68 @@ GO
 CREATE OR ALTER PROCEDURE [dbo].[spSalesGetSummaryByDateRange] @FromDate DATETIME2(0), @ToDate DATETIME2(0), @CashierUserId INT=NULL AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT CAST(SaleDate AS DATE) SaleDate, COUNT(1) TransactionCount, SUM(SubtotalAmount) GrossAmount, SUM(TotalDiscountAmount) DiscountAmount, SUM(TaxAmount) TaxAmount, SUM(NetAmount) NetAmount,
-           ISNULL((SELECT SUM(r.RefundNetAmount) FROM dbo.SalesReturnHeader r WHERE r.Status=N'Completed' AND r.ReturnDate>=@FromDate AND r.ReturnDate<DATEADD(DAY,1,@ToDate)),0) RefundAmount
-    FROM dbo.SalesHeader
-    WHERE Status <> N'Voided' AND SaleDate>=@FromDate AND SaleDate<DATEADD(DAY,1,@ToDate) AND (@CashierUserId IS NULL OR CashierUserId=@CashierUserId)
-    GROUP BY CAST(SaleDate AS DATE) ORDER BY SaleDate;
+    ;WITH SaleScope AS
+    (
+        SELECT *
+        FROM dbo.SalesHeader
+        WHERE Status <> N'Voided'
+          AND SaleDate >= @FromDate
+          AND SaleDate < DATEADD(DAY, 1, @ToDate)
+          AND (@CashierUserId IS NULL OR CashierUserId = @CashierUserId)
+    ),
+    HeaderSummary AS
+    (
+        SELECT
+            CAST(SaleDate AS DATE) AS SaleDate,
+            COUNT(1) AS TransactionCount,
+            SUM(SubtotalAmount) AS GrossAmount,
+            SUM(TotalDiscountAmount) AS DiscountAmount,
+            SUM(TaxAmount) AS TaxAmount,
+            SUM(NetAmount) AS NetAmount,
+            SUM(OrderDiscountAmount) AS OrderDiscountAmount
+        FROM SaleScope
+        GROUP BY CAST(SaleDate AS DATE)
+    ),
+    ItemSummary AS
+    (
+        SELECT
+            CAST(s.SaleDate AS DATE) AS SaleDate,
+            SUM(si.Quantity * si.CostPriceSnapshot) AS CostOfGoodsSold,
+            SUM(si.LineTotal - (si.Quantity * si.CostPriceSnapshot)) AS GrossProfitAmount,
+            SUM(si.Quantity * si.CostPriceSnapshot * (ISNULL(p.VatPercentage, 0) / 100.0)) AS VatInAmount
+        FROM SaleScope s
+        JOIN dbo.SalesItem si ON si.SalesHeaderId = s.SalesHeaderId
+        JOIN dbo.Product p ON p.ProductId = si.ProductId
+        GROUP BY CAST(s.SaleDate AS DATE)
+    ),
+    RefundSummary AS
+    (
+        SELECT
+            CAST(r.ReturnDate AS DATE) AS SaleDate,
+            SUM(r.RefundNetAmount) AS RefundAmount
+        FROM dbo.SalesReturnHeader r
+        WHERE r.Status = N'Completed'
+          AND r.ReturnDate >= @FromDate
+          AND r.ReturnDate < DATEADD(DAY, 1, @ToDate)
+          AND (@CashierUserId IS NULL OR r.CashierUserId = @CashierUserId)
+        GROUP BY CAST(r.ReturnDate AS DATE)
+    )
+    SELECT
+        h.SaleDate,
+        h.TransactionCount,
+        h.GrossAmount,
+        h.DiscountAmount,
+        h.TaxAmount,
+        h.NetAmount,
+        ISNULL(r.RefundAmount, 0) AS RefundAmount,
+        ISNULL(i.CostOfGoodsSold, 0) AS CostOfGoodsSold,
+        ISNULL(i.GrossProfitAmount, 0) - h.OrderDiscountAmount AS GrossProfitAmount,
+        ISNULL(i.VatInAmount, 0) AS VatInAmount,
+        h.TaxAmount AS VatOutAmount
+    FROM HeaderSummary h
+    LEFT JOIN ItemSummary i ON i.SaleDate = h.SaleDate
+    LEFT JOIN RefundSummary r ON r.SaleDate = h.SaleDate
+    ORDER BY h.SaleDate;
 END;
 GO
 
@@ -679,7 +736,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM @Items i WHERE NOT EXISTS (SELECT 1 FROM dbo.Product p WHERE p.ProductId=i.ProductId AND p.IsActive=1 AND p.Status=N'Active')) THROW 52202, 'Held sale product is not active.', 1;
     UPDATE i
     SET UnitPrice = CASE WHEN i.UnitPrice > 0 THEN i.UnitPrice ELSE p.SellingPrice END,
-        TaxAmount = ROUND(((i.Quantity * CASE WHEN i.UnitPrice > 0 THEN i.UnitPrice ELSE p.SellingPrice END) - i.ItemDiscountAmount) * (p.TaxRate / 100.0), 4)
+        TaxAmount = CASE WHEN p.TaxRate <= 0 THEN 0 ELSE ROUND(((i.Quantity * CASE WHEN i.UnitPrice > 0 THEN i.UnitPrice ELSE p.SellingPrice END) - i.ItemDiscountAmount) * (p.TaxRate / (100.0 + p.TaxRate)), 4) END
     FROM @Items i
     JOIN dbo.Product p ON p.ProductId = i.ProductId;
     IF EXISTS (SELECT 1 FROM @Items i JOIN dbo.Product p ON p.ProductId=i.ProductId WHERE i.ItemDiscountAmount > 0 AND p.DiscountAllowed = 0) THROW 52203, 'Discount is not allowed for one or more products.', 1;
@@ -689,10 +746,10 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
         INSERT dbo.HeldSaleHeader (HeldSaleNo, CustomerId, CashierUserId, Note, EstimatedSubtotalAmount, EstimatedDiscountAmount, EstimatedTaxAmount, EstimatedNetAmount, Status, CreatedByUserId)
-        VALUES (@HeldSaleNo, @CustomerId, @CashierUserId, ISNULL(@Note,N''), @Subtotal, @Discount, @LineTax+ISNULL(@EstimatedTaxAmount,0), @Subtotal-@Discount+@LineTax+ISNULL(@EstimatedTaxAmount,0), N'Held', @CreatedByUserId);
+        VALUES (@HeldSaleNo, @CustomerId, @CashierUserId, ISNULL(@Note,N''), @Subtotal, @Discount, @LineTax+ISNULL(@EstimatedTaxAmount,0), @Subtotal-@Discount+ISNULL(@EstimatedTaxAmount,0), N'Held', @CreatedByUserId);
         SET @Id=SCOPE_IDENTITY();
         INSERT dbo.HeldSaleItem (HeldSaleHeaderId, ProductId, ProductCodeSnapshot, ProductNameSnapshot, BarcodeSnapshot, UnitId, UnitSymbolSnapshot, Quantity, UnitPrice, CostPriceSnapshot, ItemDiscountAmount, TaxAmount, LineSubtotal, LineTotal)
-        SELECT @Id,p.ProductId,p.ProductCode,p.ProductName,p.Barcode,p.UnitId,u.UnitSymbol,i.Quantity,i.UnitPrice,p.CostPrice,i.ItemDiscountAmount,i.TaxAmount,i.Quantity*i.UnitPrice,i.Quantity*i.UnitPrice-i.ItemDiscountAmount+i.TaxAmount FROM @Items i JOIN dbo.Product p ON p.ProductId=i.ProductId JOIN dbo.ProductUnit u ON u.UnitId=p.UnitId;
+        SELECT @Id,p.ProductId,p.ProductCode,p.ProductName,p.Barcode,p.UnitId,u.UnitSymbol,i.Quantity,i.UnitPrice,p.CostPrice,i.ItemDiscountAmount,i.TaxAmount,i.Quantity*i.UnitPrice,i.Quantity*i.UnitPrice-i.ItemDiscountAmount FROM @Items i JOIN dbo.Product p ON p.ProductId=i.ProductId JOIN dbo.ProductUnit u ON u.UnitId=p.UnitId;
         COMMIT; SELECT @Id;
     END TRY BEGIN CATCH IF @@TRANCOUNT>0 ROLLBACK; THROW; END CATCH
 END;

@@ -239,6 +239,10 @@ public sealed class SalesSummaryModel
     public decimal TaxAmount { get; init; }
     public decimal NetAmount { get; init; }
     public decimal RefundAmount { get; init; }
+    public decimal CostOfGoodsSold { get; init; }
+    public decimal GrossProfitAmount { get; init; }
+    public decimal VatInAmount { get; init; }
+    public decimal VatOutAmount { get; init; }
 }
 
 public sealed class DailySalesClosingModel

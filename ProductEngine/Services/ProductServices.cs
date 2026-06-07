@@ -264,8 +264,11 @@ public sealed class ProductService : IProductService
     public Task<ProductModel?> GetByIdAsync(int productId, CancellationToken cancellationToken = default) =>
         _accessService.QuerySingleOrDefaultAsync<ProductModel, object>("dbo.spProductGetById", new { ProductId = productId }, cancellationToken);
 
-    public Task<int> CreateAsync(ProductCreateModel model, CancellationToken cancellationToken = default) =>
-        _accessService.QuerySingleAsync<int, object>("dbo.spProductCreate", new
+    public Task<int> CreateAsync(ProductCreateModel model, CancellationToken cancellationToken = default)
+    {
+        var pricing = ProductServiceHelpers.CalculatePricing(model.MinimumCost, model.VatPercentage, model.SellingPrice);
+
+        return _accessService.QuerySingleAsync<int, object>("dbo.spProductCreate", new
         {
             ProductCode = model.ProductCode.Trim(),
             SKU = model.SKU?.Trim(),
@@ -275,22 +278,30 @@ public sealed class ProductService : IProductService
             model.BrandId,
             model.UnitId,
             model.CostPrice,
+            pricing.MinimumCost,
+            pricing.VatPercentage,
+            pricing.VatAmount,
+            pricing.MinimumSellingPrice,
             model.SellingPrice,
             model.WholesalePrice,
             model.WholesaleMinQty,
-            model.TaxRate,
+            TaxRate = pricing.VatPercentage,
             model.DiscountAllowed,
             model.IsStockTracked,
             model.MinimumStockLevel,
             model.CurrentStock,
             ProductImageUrl = model.ProductImageUrl?.Trim() ?? string.Empty,
             Description = model.Description?.Trim() ?? string.Empty,
-            Status = model.Status.Trim(),
+            Status = ProductServiceHelpers.NormalizeStatus(model.Status),
             model.CreatedByUserId
         }, cancellationToken);
+    }
 
-    public Task UpdateAsync(ProductUpdateModel model, CancellationToken cancellationToken = default) =>
-        _accessService.ExecuteAsync("dbo.spProductUpdate", new
+    public Task UpdateAsync(ProductUpdateModel model, CancellationToken cancellationToken = default)
+    {
+        var pricing = ProductServiceHelpers.CalculatePricing(model.MinimumCost, model.VatPercentage, model.SellingPrice);
+
+        return _accessService.ExecuteAsync("dbo.spProductUpdate", new
         {
             model.ProductId,
             ProductCode = model.ProductCode.Trim(),
@@ -301,20 +312,25 @@ public sealed class ProductService : IProductService
             model.BrandId,
             model.UnitId,
             model.CostPrice,
+            pricing.MinimumCost,
+            pricing.VatPercentage,
+            pricing.VatAmount,
+            pricing.MinimumSellingPrice,
             model.SellingPrice,
             model.WholesalePrice,
             model.WholesaleMinQty,
-            model.TaxRate,
+            TaxRate = pricing.VatPercentage,
             model.DiscountAllowed,
             model.IsStockTracked,
             model.MinimumStockLevel,
             model.CurrentStock,
             ProductImageUrl = model.ProductImageUrl?.Trim() ?? string.Empty,
             Description = model.Description?.Trim() ?? string.Empty,
-            Status = model.Status.Trim(),
+            Status = ProductServiceHelpers.NormalizeStatus(model.Status),
             model.IsActive,
             model.UpdatedByUserId
         }, cancellationToken);
+    }
 
     public Task DeactivateAsync(int productId, int updatedByUserId, CancellationToken cancellationToken = default) =>
         _accessService.ExecuteAsync("dbo.spProductDeactivate", new { ProductId = productId, UpdatedByUserId = updatedByUserId }, cancellationToken);
@@ -407,4 +423,33 @@ internal sealed class ProductPriceHistoryPagedRow : ProductPriceHistoryModel { p
 internal static class ProductServiceHelpers
 {
     public static string? TrimOrNull(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    public static string NormalizeStatus(string? value)
+    {
+        var status = value?.Trim();
+        return status switch
+        {
+            "ใช้งาน" => "Active",
+            "ไม่ใช้งาน" => "Inactive",
+            "ยกเลิกจำหน่าย" => "Discontinued",
+            "แบบร่าง" => "Draft",
+            "Active" or "Inactive" or "Discontinued" or "Draft" => status,
+            _ => "Active"
+        };
+    }
+
+    public static ProductPricingCalculation CalculatePricing(decimal minimumCost, decimal vatPercentage, decimal sellingPrice)
+    {
+        var vatAmount = minimumCost * vatPercentage / 100;
+        var minimumSellingPrice = minimumCost + vatAmount;
+
+        if (sellingPrice < minimumSellingPrice)
+        {
+            throw new InvalidOperationException("Selling price cannot be lower than minimum selling price.");
+        }
+
+        return new ProductPricingCalculation(minimumCost, vatPercentage, vatAmount, minimumSellingPrice);
+    }
 }
+
+internal readonly record struct ProductPricingCalculation(decimal MinimumCost, decimal VatPercentage, decimal VatAmount, decimal MinimumSellingPrice);

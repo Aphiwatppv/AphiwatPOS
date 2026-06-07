@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160">
+  <rect width="160" height="160" rx="24" fill="#f5fbff"/>
+  <polygon points="80,20 124,52 108,124 80,144 52,124 36,52" fill="#9ee7ff" stroke="#1687b8" stroke-width="6"/>
+  <text x="80" y="96" text-anchor="middle" font-family="Tahoma, Arial, sans-serif" font-size="20" font-weight="700" fill="#0f5e9c">คริสตัล</text>
+</svg>

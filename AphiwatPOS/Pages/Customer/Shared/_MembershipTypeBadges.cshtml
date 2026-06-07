@@ -1,0 +1,18 @@
+@model IReadOnlyCollection<string>
+@using CustomerEngine.Models
+@{
+    var codes = Model?.Any() == true ? Model : new[] { MemberTypeCodes.Retail };
+    static (string Label, string Css) Meta(string code) => code switch
+    {
+        MemberTypeCodes.Wholesale => ("Wholesale", "badge-warning"),
+        MemberTypeCodes.RubberSupplier => ("Rubber Supplier", "badge-success"),
+        _ => ("Retail", "badge-neutral")
+    };
+}
+<span class="d-inline-flex flex-wrap gap-1">
+@foreach (var code in codes)
+{
+    var meta = Meta(code);
+    <span class="badge status-badge @meta.Css">@meta.Label</span>
+}
+</span>

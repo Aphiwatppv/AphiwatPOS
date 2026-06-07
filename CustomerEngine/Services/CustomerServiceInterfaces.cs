@@ -15,6 +15,67 @@ public interface ICustomerService
     Task UpdatePurchaseSummaryAsync(int customerId, decimal saleAmount, DateTime purchaseDate, CancellationToken cancellationToken = default);
 }
 
+public interface ICustomerMemberTypeService
+{
+    Task<IReadOnlyCollection<MemberTypeModel>> GetAllActiveTypesAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<CustomerMembershipModel>> GetActiveMembershipsAsync(int customerId, CancellationToken cancellationToken = default);
+    Task<bool> HasActiveMembershipAsync(int customerId, string memberTypeCode, CancellationToken cancellationToken = default);
+    Task AssignAsync(int customerId, string memberTypeCode, int createdByUserId, CancellationToken cancellationToken = default);
+    Task DeactivateAsync(int customerId, string memberTypeCode, int updatedByUserId, CancellationToken cancellationToken = default);
+    Task SyncAsync(int customerId, IReadOnlyCollection<string> memberTypeCodes, WholesaleMemberProfileSaveModel? wholesaleProfile, RubberSupplierMemberProfileSaveModel? rubberSupplierProfile, int updatedByUserId, CancellationToken cancellationToken = default);
+}
+
+public interface ICustomerRegistrationService
+{
+    Task<int> RegisterAsync(CustomerCreateModel model, CancellationToken cancellationToken = default);
+    Task UpdateMembershipsAsync(CustomerUpdateModel model, CancellationToken cancellationToken = default);
+}
+
+public interface IMemberLoyaltyService
+{
+    Task<MemberLoyaltyAccountModel?> GetAccountAsync(int customerId, CancellationToken cancellationToken = default);
+    Task<LoyaltyPointCalculationResultModel> CalculateFromRubberWeightAsync(int customerId, decimal rubberWeightKg, CancellationToken cancellationToken = default);
+    Task<MemberLoyaltyTransactionModel> AddPointsFromRubberPurchaseAsync(int customerId, long rubberPurchaseHeaderId, decimal confirmedWeightKg, int employeeId, CancellationToken cancellationToken = default);
+    Task RedeemPointsAsync(int customerId, int points, string? remark, int employeeId, CancellationToken cancellationToken = default);
+    Task ReversePointsFromCancelledRubberPurchaseAsync(long rubberPurchaseHeaderId, int employeeId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<MemberLoyaltyTransactionModel>> GetTransactionsAsync(int customerId, CancellationToken cancellationToken = default);
+}
+
+public interface IRubberPurchaseService
+{
+    Task<long> CreateAsync(RubberPurchaseHeaderCreateModel model, CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<long>> CreateBatchAsync(RubberPurchaseBatchCreateModel model, CancellationToken cancellationToken = default);
+    Task<RubberPurchaseHeaderPagedModel> GetPagedAsync(RubberPurchaseHeaderPagedRequestModel request, CancellationToken cancellationToken = default);
+    Task<RubberPurchaseHeaderModel?> GetByIdAsync(long rubberPurchaseHeaderId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<RubberPurchaseHeaderModel>> GetByCustomerIdAsync(int customerId, CancellationToken cancellationToken = default);
+    Task<RubberPurchaseHeaderModel> PayBillAsync(RubberPurchasePayBillModel model, CancellationToken cancellationToken = default);
+}
+
+public interface IRubberPriceService
+{
+    Task<IReadOnlyCollection<RubberPriceModel>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<RubberPriceModel>> GetActiveAsync(CancellationToken cancellationToken = default);
+    Task<RubberPriceModel?> GetByIdAsync(int rubberPriceId, CancellationToken cancellationToken = default);
+}
+
+public interface IRubberAuctionLocationService
+{
+    Task<IReadOnlyCollection<RubberAuctionLocationModel>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<RubberAuctionLocationModel>> GetActiveAsync(CancellationToken cancellationToken = default);
+}
+
+public interface IMemberSalesCreditService
+{
+    Task<CustomerCreditModel?> GetAccountAsync(int customerId, CancellationToken cancellationToken = default);
+    Task<decimal> GetAvailableCreditAsync(int customerId, CancellationToken cancellationToken = default);
+    Task<bool> HasEnoughCreditAsync(int customerId, decimal requestedAmount, CancellationToken cancellationToken = default);
+    Task CreateOrUpdateCreditApprovalAsync(CustomerCreditUpdateModel model, CancellationToken cancellationToken = default);
+    Task<long> UseCreditForSaleAsync(int customerId, long saleId, decimal amount, int employeeId, CancellationToken cancellationToken = default);
+    Task RecordRepaymentAsync(int customerId, decimal amount, string? paymentMethod, int employeeId, CancellationToken cancellationToken = default);
+    Task AdjustCreditLimitAsync(int customerId, decimal newLimit, string reason, int approvedByEmployeeId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<CustomerCreditTransactionModel>> GetTransactionsAsync(int customerId, CancellationToken cancellationToken = default);
+}
+
 public interface IMemberLevelService
 {
     Task<IReadOnlyCollection<MemberLevelModel>> GetAllAsync(CancellationToken cancellationToken = default);
@@ -93,4 +154,9 @@ public interface ICustomerReportService
     Task<LoyaltyPointSummaryModel> GetLoyaltyPointSummaryAsync(CustomerReportRequestModel request, CancellationToken cancellationToken = default);
     Task<CustomerCreditSummaryModel> GetCreditSummaryAsync(CustomerReportRequestModel request, CancellationToken cancellationToken = default);
     Task<IReadOnlyCollection<InactiveCustomerModel>> GetInactiveCustomersAsync(CustomerReportRequestModel request, CancellationToken cancellationToken = default);
+}
+
+public interface ICustomerAuditService
+{
+    Task<CustomerAuditLogPagedResultModel> GetPagedAsync(CustomerAuditLogPagedRequestModel request, CancellationToken cancellationToken = default);
 }

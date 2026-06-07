@@ -85,6 +85,10 @@ CREATE TABLE [dbo].[Product]
     [BrandId] INT NULL,
     [UnitId] INT NOT NULL,
     [CostPrice] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_Product_CostPrice] DEFAULT (0),
+    [MinimumCost] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_Product_MinimumCost] DEFAULT (0),
+    [VatPercentage] DECIMAL(9,4) NOT NULL CONSTRAINT [DF_Product_VatPercentage] DEFAULT (0),
+    [VatAmount] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_Product_VatAmount] DEFAULT (0),
+    [MinimumSellingPrice] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_Product_MinimumSellingPrice] DEFAULT (0),
     [SellingPrice] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_Product_SellingPrice] DEFAULT (0),
     [WholesalePrice] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_Product_WholesalePrice] DEFAULT (0),
     [WholesaleMinQty] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_Product_WholesaleMinQty] DEFAULT (1),
@@ -106,7 +110,8 @@ CREATE TABLE [dbo].[Product]
     CONSTRAINT [FK_Product_Brand] FOREIGN KEY ([BrandId]) REFERENCES [dbo].[ProductBrand] ([BrandId]),
     CONSTRAINT [FK_Product_Unit] FOREIGN KEY ([UnitId]) REFERENCES [dbo].[ProductUnit] ([UnitId]),
     CONSTRAINT [UQ_Product_ProductCode] UNIQUE ([ProductCode]),
-    CONSTRAINT [CK_Product_PricesNonNegative] CHECK ([CostPrice] >= 0 AND [SellingPrice] >= 0 AND [WholesalePrice] >= 0 AND [WholesaleMinQty] >= 0),
+    CONSTRAINT [CK_Product_PricesNonNegative] CHECK ([CostPrice] >= 0 AND [MinimumCost] >= 0 AND [VatPercentage] >= 0 AND [VatAmount] >= 0 AND [MinimumSellingPrice] >= 0 AND [SellingPrice] >= 0 AND [WholesalePrice] >= 0 AND [WholesaleMinQty] >= 0),
+    CONSTRAINT [CK_Product_SellingPriceMinimum] CHECK ([SellingPrice] >= [MinimumSellingPrice]),
     CONSTRAINT [CK_Product_StockNonNegative] CHECK ([MinimumStockLevel] >= 0 AND [CurrentStock] >= 0)
 );
 GO
@@ -258,11 +263,26 @@ CREATE OR ALTER PROCEDURE [dbo].[spProductGetAllActive] AS BEGIN SET NOCOUNT ON;
 GO
 CREATE OR ALTER PROCEDURE [dbo].[spProductGetById] @ProductId INT AS BEGIN SET NOCOUNT ON; SELECT p.*, c.CategoryName, b.BrandName, u.UnitName FROM [dbo].[Product] p INNER JOIN [dbo].[ProductCategory] c ON c.CategoryId=p.CategoryId LEFT JOIN [dbo].[ProductBrand] b ON b.BrandId=p.BrandId INNER JOIN [dbo].[ProductUnit] u ON u.UnitId=p.UnitId WHERE p.ProductId=@ProductId; END;
 GO
-CREATE OR ALTER PROCEDURE [dbo].[spProductCreate] @ProductCode NVARCHAR(50), @SKU NVARCHAR(100), @Barcode NVARCHAR(100), @ProductName NVARCHAR(200), @CategoryId INT, @BrandId INT=NULL, @UnitId INT, @CostPrice DECIMAL(18,4), @SellingPrice DECIMAL(18,4), @WholesalePrice DECIMAL(18,4), @WholesaleMinQty DECIMAL(18,4), @TaxRate DECIMAL(9,4), @DiscountAllowed BIT, @IsStockTracked BIT, @MinimumStockLevel DECIMAL(18,4), @CurrentStock DECIMAL(18,4), @ProductImageUrl NVARCHAR(500), @Description NVARCHAR(1000), @Status NVARCHAR(30), @CreatedByUserId INT AS
-BEGIN SET NOCOUNT ON; INSERT INTO [dbo].[Product] (ProductCode,SKU,Barcode,ProductName,CategoryId,BrandId,UnitId,CostPrice,SellingPrice,WholesalePrice,WholesaleMinQty,TaxRate,DiscountAllowed,IsStockTracked,MinimumStockLevel,CurrentStock,ProductImageUrl,Description,Status,CreatedByUserId) VALUES (@ProductCode,ISNULL(@SKU,N''),NULLIF(@Barcode,N''),@ProductName,@CategoryId,@BrandId,@UnitId,@CostPrice,@SellingPrice,@WholesalePrice,@WholesaleMinQty,@TaxRate,@DiscountAllowed,@IsStockTracked,@MinimumStockLevel,@CurrentStock,ISNULL(@ProductImageUrl,N''),ISNULL(@Description,N''),@Status,NULLIF(@CreatedByUserId,0)); SELECT CAST(SCOPE_IDENTITY() AS INT); END;
+CREATE OR ALTER PROCEDURE [dbo].[spProductCreate] @ProductCode NVARCHAR(50), @SKU NVARCHAR(100), @Barcode NVARCHAR(100), @ProductName NVARCHAR(200), @CategoryId INT, @BrandId INT=NULL, @UnitId INT, @CostPrice DECIMAL(18,4), @MinimumCost DECIMAL(18,4), @VatPercentage DECIMAL(9,4), @VatAmount DECIMAL(18,4), @MinimumSellingPrice DECIMAL(18,4), @SellingPrice DECIMAL(18,4), @WholesalePrice DECIMAL(18,4), @WholesaleMinQty DECIMAL(18,4), @TaxRate DECIMAL(9,4), @DiscountAllowed BIT, @IsStockTracked BIT, @MinimumStockLevel DECIMAL(18,4), @CurrentStock DECIMAL(18,4), @ProductImageUrl NVARCHAR(500), @Description NVARCHAR(1000), @Status NVARCHAR(30), @CreatedByUserId INT AS
+BEGIN
+    SET NOCOUNT ON;
+    SET @VatAmount = @MinimumCost * @VatPercentage / 100;
+    SET @MinimumSellingPrice = @MinimumCost + @VatAmount;
+    SET @TaxRate = @VatPercentage;
+    IF @SellingPrice < @MinimumSellingPrice THROW 51001, 'Selling price cannot be lower than minimum selling price.', 1;
+    INSERT INTO [dbo].[Product] (ProductCode,SKU,Barcode,ProductName,CategoryId,BrandId,UnitId,CostPrice,MinimumCost,VatPercentage,VatAmount,MinimumSellingPrice,SellingPrice,WholesalePrice,WholesaleMinQty,TaxRate,DiscountAllowed,IsStockTracked,MinimumStockLevel,CurrentStock,ProductImageUrl,Description,Status,CreatedByUserId) VALUES (@ProductCode,ISNULL(@SKU,N''),NULLIF(@Barcode,N''),@ProductName,@CategoryId,@BrandId,@UnitId,@CostPrice,@MinimumCost,@VatPercentage,@VatAmount,@MinimumSellingPrice,@SellingPrice,@WholesalePrice,@WholesaleMinQty,@TaxRate,@DiscountAllowed,@IsStockTracked,@MinimumStockLevel,@CurrentStock,ISNULL(@ProductImageUrl,N''),ISNULL(@Description,N''),@Status,NULLIF(@CreatedByUserId,0));
+    SELECT CAST(SCOPE_IDENTITY() AS INT);
+END;
 GO
-CREATE OR ALTER PROCEDURE [dbo].[spProductUpdate] @ProductId INT, @ProductCode NVARCHAR(50), @SKU NVARCHAR(100), @Barcode NVARCHAR(100), @ProductName NVARCHAR(200), @CategoryId INT, @BrandId INT=NULL, @UnitId INT, @CostPrice DECIMAL(18,4), @SellingPrice DECIMAL(18,4), @WholesalePrice DECIMAL(18,4), @WholesaleMinQty DECIMAL(18,4), @TaxRate DECIMAL(9,4), @DiscountAllowed BIT, @IsStockTracked BIT, @MinimumStockLevel DECIMAL(18,4), @CurrentStock DECIMAL(18,4), @ProductImageUrl NVARCHAR(500), @Description NVARCHAR(1000), @Status NVARCHAR(30), @IsActive BIT, @UpdatedByUserId INT AS
-BEGIN SET NOCOUNT ON; UPDATE [dbo].[Product] SET ProductCode=@ProductCode, SKU=ISNULL(@SKU,N''), Barcode=NULLIF(@Barcode,N''), ProductName=@ProductName, CategoryId=@CategoryId, BrandId=@BrandId, UnitId=@UnitId, CostPrice=@CostPrice, SellingPrice=@SellingPrice, WholesalePrice=@WholesalePrice, WholesaleMinQty=@WholesaleMinQty, TaxRate=@TaxRate, DiscountAllowed=@DiscountAllowed, IsStockTracked=@IsStockTracked, MinimumStockLevel=@MinimumStockLevel, CurrentStock=@CurrentStock, ProductImageUrl=ISNULL(@ProductImageUrl,N''), Description=ISNULL(@Description,N''), Status=@Status, IsActive=@IsActive, UpdatedByUserId=NULLIF(@UpdatedByUserId,0), UpdatedDate=SYSUTCDATETIME() WHERE ProductId=@ProductId; END;
+CREATE OR ALTER PROCEDURE [dbo].[spProductUpdate] @ProductId INT, @ProductCode NVARCHAR(50), @SKU NVARCHAR(100), @Barcode NVARCHAR(100), @ProductName NVARCHAR(200), @CategoryId INT, @BrandId INT=NULL, @UnitId INT, @CostPrice DECIMAL(18,4), @MinimumCost DECIMAL(18,4), @VatPercentage DECIMAL(9,4), @VatAmount DECIMAL(18,4), @MinimumSellingPrice DECIMAL(18,4), @SellingPrice DECIMAL(18,4), @WholesalePrice DECIMAL(18,4), @WholesaleMinQty DECIMAL(18,4), @TaxRate DECIMAL(9,4), @DiscountAllowed BIT, @IsStockTracked BIT, @MinimumStockLevel DECIMAL(18,4), @CurrentStock DECIMAL(18,4), @ProductImageUrl NVARCHAR(500), @Description NVARCHAR(1000), @Status NVARCHAR(30), @IsActive BIT, @UpdatedByUserId INT AS
+BEGIN
+    SET NOCOUNT ON;
+    SET @VatAmount = @MinimumCost * @VatPercentage / 100;
+    SET @MinimumSellingPrice = @MinimumCost + @VatAmount;
+    SET @TaxRate = @VatPercentage;
+    IF @SellingPrice < @MinimumSellingPrice THROW 51001, 'Selling price cannot be lower than minimum selling price.', 1;
+    UPDATE [dbo].[Product] SET ProductCode=@ProductCode, SKU=ISNULL(@SKU,N''), Barcode=NULLIF(@Barcode,N''), ProductName=@ProductName, CategoryId=@CategoryId, BrandId=@BrandId, UnitId=@UnitId, CostPrice=@CostPrice, MinimumCost=@MinimumCost, VatPercentage=@VatPercentage, VatAmount=@VatAmount, MinimumSellingPrice=@MinimumSellingPrice, SellingPrice=@SellingPrice, WholesalePrice=@WholesalePrice, WholesaleMinQty=@WholesaleMinQty, TaxRate=@TaxRate, DiscountAllowed=@DiscountAllowed, IsStockTracked=@IsStockTracked, MinimumStockLevel=@MinimumStockLevel, CurrentStock=@CurrentStock, ProductImageUrl=ISNULL(@ProductImageUrl,N''), Description=ISNULL(@Description,N''), Status=@Status, IsActive=@IsActive, UpdatedByUserId=NULLIF(@UpdatedByUserId,0), UpdatedDate=SYSUTCDATETIME() WHERE ProductId=@ProductId;
+END;
 GO
 CREATE OR ALTER PROCEDURE [dbo].[spProductDeactivate] @ProductId INT, @UpdatedByUserId INT AS BEGIN SET NOCOUNT ON; UPDATE [dbo].[Product] SET IsActive=0, Status=N'Inactive', UpdatedByUserId=NULLIF(@UpdatedByUserId,0), UpdatedDate=SYSUTCDATETIME() WHERE ProductId=@ProductId; END;
 GO
@@ -271,9 +291,10 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         BEGIN TRANSACTION;
-        DECLARE @OldCostPrice DECIMAL(18,4), @OldSellingPrice DECIMAL(18,4), @ProfitAmount DECIMAL(18,4), @ProfitMargin DECIMAL(9,4);
-        SELECT @OldCostPrice=CostPrice, @OldSellingPrice=SellingPrice FROM [dbo].[Product] WITH (UPDLOCK, ROWLOCK) WHERE ProductId=@ProductId;
+        DECLARE @OldCostPrice DECIMAL(18,4), @OldSellingPrice DECIMAL(18,4), @MinimumSellingPrice DECIMAL(18,4), @ProfitAmount DECIMAL(18,4), @ProfitMargin DECIMAL(9,4);
+        SELECT @OldCostPrice=CostPrice, @OldSellingPrice=SellingPrice, @MinimumSellingPrice=MinimumSellingPrice FROM [dbo].[Product] WITH (UPDLOCK, ROWLOCK) WHERE ProductId=@ProductId;
         IF @OldCostPrice IS NULL THROW 51000, 'Product was not found.', 1;
+        IF @NewSellingPrice < @MinimumSellingPrice THROW 51001, 'Selling price cannot be lower than minimum selling price.', 1;
         SET @ProfitAmount = @NewSellingPrice - @NewCostPrice;
         SET @ProfitMargin = CASE WHEN @NewSellingPrice = 0 THEN 0 ELSE ((@NewSellingPrice - @NewCostPrice) / @NewSellingPrice) * 100 END;
         UPDATE [dbo].[Product] SET CostPrice=@NewCostPrice, SellingPrice=@NewSellingPrice, WholesalePrice=@NewWholesalePrice, WholesaleMinQty=@NewWholesaleMinQty, UpdatedByUserId=NULLIF(@ChangedByUserId,0), UpdatedDate=SYSUTCDATETIME() WHERE ProductId=@ProductId;

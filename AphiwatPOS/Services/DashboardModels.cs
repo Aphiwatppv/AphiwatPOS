@@ -42,6 +42,8 @@ public sealed class ProfitSummaryModel
     public decimal DiscountAmount { get; init; }
     public decimal NetSales { get; init; }
     public decimal CostOfGoodsSold { get; init; }
+    public decimal VatInAmount { get; init; }
+    public decimal VatOutAmount { get; init; }
     public decimal EstimatedProfit { get; init; }
     public decimal ProfitMarginPercent { get; init; }
 }

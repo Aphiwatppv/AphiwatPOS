@@ -652,7 +652,6 @@ internal static class SalesGuard
 
         var subtotal = 0m;
         var itemDiscount = 0m;
-        var itemTax = 0m;
         foreach (var item in request.Items)
         {
             Positive(item.ProductId, nameof(item.ProductId));
@@ -665,10 +664,9 @@ internal static class SalesGuard
             if (item.ItemDiscountAmount > lineSubtotal) throw new InvalidOperationException("Item discount cannot exceed line subtotal.");
             subtotal += lineSubtotal;
             itemDiscount += item.ItemDiscountAmount;
-            itemTax += item.TaxAmount;
         }
 
-        var netAmount = subtotal - itemDiscount - request.OrderDiscountAmount + itemTax + request.TaxAmount;
+        var netAmount = subtotal - itemDiscount - request.OrderDiscountAmount + request.TaxAmount;
         if (netAmount < 0) throw new InvalidOperationException("Net amount cannot be negative.");
         var creditAmount = request.UseCustomerCredit && request.CustomerCreditAmount <= 0 ? netAmount : request.CustomerCreditAmount;
         if (request.Payments.Sum(payment => payment.PaymentAmount) + creditAmount < netAmount) throw new InvalidOperationException("Total payment amount must be greater than or equal to net amount.");

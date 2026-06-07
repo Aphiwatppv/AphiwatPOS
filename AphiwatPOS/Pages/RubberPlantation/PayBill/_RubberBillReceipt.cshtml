@@ -1,0 +1,129 @@
+@model CustomerEngine.Models.RubberPurchaseHeaderModel
+@{
+    var grossAmount = Model.WeightKg * (Model.PricePerKgSnapshot ?? 0);
+    var deductAmount = grossAmount * ((Model.PercentageSnapshot ?? 0) / 100m);
+    var netAmount = Model.TotalAmount ?? 0;
+    var creditDeductedAmount = Math.Max(0, Model.CreditDeductedAmount);
+    var remainingAmount = Math.Max(0, netAmount - Model.PaidAmount - creditDeductedAmount);
+    string compact(decimal value) => value % 1 == 0 ? value.ToString("N0") : value.ToString("N2");
+    string money(decimal value) => value.ToString("N2");
+    var isCash = Model.PaymentMethod != "Transfer";
+    var isTransfer = Model.PaymentMethod == "Transfer";
+}
+<article class="rubber-receipt">
+    <header class="receipt-modern-header">
+        <div class="receipt-brand-mark">
+            <img src="~/images/rubber-plantation/s-samian-logo.png" alt="ส.เสมียนการเกษตร" />
+        </div>
+        <div class="receipt-brand-copy">
+            <div class="receipt-store-name">ส.เสมียนการเกษตร</div>
+            <div class="receipt-phone">โทร. 0994647562, 0616891813</div>
+            <h2>ใบเสร็จรับเงินค่ายางพารา</h2>
+            <p>Rubber Purchase Payment Receipt</p>
+        </div>
+        <div class="receipt-copy-type">
+            <strong>@(Model.ReceiptNo ?? "-")</strong>
+        </div>
+    </header>
+
+    <section class="receipt-meta-grid">
+        <div>
+            <span>วันที่ชำระเงิน</span>
+            <strong>@(Model.PaidDate?.ToString("dd/MM/yyyy") ?? DateTime.Today.ToString("dd/MM/yyyy"))</strong>
+        </div>
+        <div>
+            <span>ชื่อผู้ขาย</span>
+            <strong>@Model.CustomerName</strong>
+        </div>
+        <div>
+            <span>รหัสสมาชิก</span>
+            <strong>@Model.CustomerCode</strong>
+        </div>
+        <div>
+            <span>สถานที่รับซื้อ</span>
+            <strong>@(Model.RubberAuctionLocationName ?? Model.LocationName)</strong>
+        </div>
+    </section>
+
+    <table class="receipt-modern-table">
+        <thead>
+            <tr>
+                <th>รายการ</th>
+                <th class="text-end">จำนวน</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>น้ำหนักยาง</td>
+                <td class="text-end">@compact(Model.WeightKg) กิโลกรัม</td>
+            </tr>
+            <tr>
+                <td>ราคา / กก.</td>
+                <td class="text-end">@compact(Model.PricePerKgSnapshot ?? 0) บาท</td>
+            </tr>
+            <tr>
+                <td>เป็นเงิน</td>
+                <td class="text-end">@money(grossAmount) บาท</td>
+            </tr>
+            <tr>
+                <td>หัก @compact(Model.PercentageSnapshot ?? 0)%</td>
+                <td class="text-end">@money(deductAmount) บาท</td>
+            </tr>
+            @if (creditDeductedAmount > 0)
+            {
+                <tr class="receipt-credit-row">
+                    <td>หักเครดิตค้างชำระ</td>
+                    <td class="text-end">-@money(creditDeductedAmount) บาท</td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+                <th>ยอดจ่ายจริง</th>
+                <th class="text-end">@money(Model.PaidAmount) บาท</th>
+            </tr>
+        </tfoot>
+    </table>
+
+    <section class="receipt-total-panel">
+        <div>
+            <span>ยอดรวม</span>
+            <strong>@money(netAmount) บาท</strong>
+        </div>
+        <div>
+            <span>หักเครดิตค้าง</span>
+            <strong>@money(creditDeductedAmount) บาท</strong>
+        </div>
+        <div>
+            <span>ยอดจ่ายจริง</span>
+            <strong>@money(Model.PaidAmount) บาท</strong>
+        </div>
+    </section>
+
+    @if (remainingAmount > 0)
+    {
+        <section class="receipt-balance-due">
+            <span>ยอดค้างหลังหัก</span>
+            <strong>@money(remainingAmount) บาท</strong>
+        </section>
+    }
+
+    <section class="receipt-payment-row">
+        <span>วิธีชำระเงิน</span>
+        <div>
+            <label><i class="check-box @(isCash ? "checked" : "")"></i> เงินสด</label>
+            <label><i class="check-box @(isTransfer ? "checked" : "")"></i> โอนบัญชี</label>
+        </div>
+    </section>
+
+    <footer class="receipt-signature-row">
+        <div>
+            <span></span>
+            <p>ผู้รับเงิน</p>
+        </div>
+        <div>
+            <span></span>
+            <p>ผู้ขาย</p>
+        </div>
+    </footer>
+</article>

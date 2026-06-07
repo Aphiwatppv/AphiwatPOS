@@ -1,0 +1,466 @@
+@page
+@model AphiwatPOS.Pages.RubberPlantation.RubberPurchase.IndexModel
+@using AphiwatPOS.Pages.Customer
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Rubber Purchases";
+    ViewData["Subtitle"] = "Rubber plantation buying records for member suppliers and non-member farmers.";
+    var rows = Model.Purchases.Items.ToArray();
+    var isNonMemberInput = Model.Input.SellerType == "NonMember";
+    Func<CustomerEngine.Models.CustomerSummaryModel, string> supplierText = supplier =>
+    {
+        var name = string.IsNullOrWhiteSpace(supplier.CustomerName) ? "No name" : supplier.CustomerName.Trim();
+        var phone = string.IsNullOrWhiteSpace(supplier.PhoneNumber) ? "No phone" : supplier.PhoneNumber.Trim();
+        return $"{name} {supplier.CustomerCode} ({phone})";
+    };
+    var supplierJson = JsonSerializer.Serialize(Model.RubberSuppliers.Select(s => new { s.CustomerId, s.CustomerCode, s.CustomerName, s.PhoneNumber, DisplayText = supplierText(s) }));
+    var selectedSingleSupplier = Model.RubberSuppliers.FirstOrDefault(s => s.CustomerId == Model.Input.CustomerId);
+    var selectedSingleSupplierText = selectedSingleSupplier is null ? string.Empty : supplierText(selectedSingleSupplier);
+    string q(int page) => Url.Page("./Index", new { Model.SearchText, Model.RubberAuctionLocationId, Model.DateFrom, Model.DateTo, PageNumber = page }) ?? "#";
+}
+
+<partial name="/Pages/Customer/Shared/_TempDataAlert.cshtml" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<datalist id="rubberSupplierOptions">
+    @foreach (var supplier in Model.RubberSuppliers)
+    {
+        <option value="@supplierText(supplier)"></option>
+    }
+</datalist>
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div>
+        <h1>Rubber Purchases</h1>
+        <p>Record rubber weight for member suppliers or non-member farmers.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap justify-content-end">
+        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#purchaseBatchModal" type="button"><i class="bi bi-list-check me-1"></i>Add Many</button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#purchaseAddModal" type="button"><i class="bi bi-plus-circle me-1"></i>Add Purchase</button>
+    </div>
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-receipt"></i></span><div><div class="metric-label">Purchases</div><div class="metric-value">@Model.Purchases.TotalCount</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-box-arrow-in-down"></i></span><div><div class="metric-label">Weight Kg</div><div class="metric-value">@Model.TotalWeightKg.ToString("N2")</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-cash-stack"></i></span><div><div class="metric-label">Net Amount</div><div class="metric-value">@Model.TotalAmount.ToString("N2")</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-stars"></i></span><div><div class="metric-label">Points Earned</div><div class="metric-value">@Model.TotalPointsEarned</div></div></div>
+</div>
+
+<form method="get" class="filter-card mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-lg-3"><label class="form-label">Search supplier</label><input asp-for="SearchText" class="form-control" placeholder="Code, name, phone" /></div>
+        <div class="col-lg-3"><label class="form-label">Auction Location</label><select asp-for="RubberAuctionLocationId" class="form-select"><option value="">All locations</option>@foreach (var location in Model.AuctionLocations) { <option value="@location.RubberAuctionLocationId">@location.LocationName</option> }</select></div>
+        <div class="col-lg-2"><label class="form-label">Date From</label><input asp-for="DateFrom" class="form-control" type="date" /></div>
+        <div class="col-lg-2"><label class="form-label">Date To</label><input asp-for="DateTo" class="form-control" type="date" /></div>
+        <div class="col-lg-2 d-flex gap-2"><button class="btn btn-primary flex-fill" type="submit"><i class="bi bi-search"></i></button><a class="btn btn-outline-secondary" asp-page="./Index"><i class="bi bi-arrow-counterclockwise"></i></a></div>
+    </div>
+</form>
+
+<section class="data-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>Date</th><th>Supplier</th><th>Auction Location</th><th>Weight Kg</th><th>Price/Kg</th><th>Deduct %</th><th>Net Amount</th><th>Points</th><th>Carry Kg</th><th>Status</th></tr></thead>
+            <tbody>
+            @if (!rows.Any())
+            {
+                <tr><td colspan="10"><div class="empty-state"><i class="bi bi-box-arrow-in-down"></i><div class="fw-semibold">No rubber purchases found</div><div>Add a purchase when supplier weight is confirmed.</div></div></td></tr>
+            }
+            @foreach (var item in rows)
+            {
+                <tr>
+                    <td>@CustomerPageHelpers.DateTimeText(item.TransactionDate)</td>
+                    <td><span class="fw-semibold d-block">@item.CustomerName</span><span class="text-muted small">@item.CustomerCode / @item.PhoneNumber</span></td>
+                    <td>@(item.RubberAuctionLocationName ?? item.LocationName)</td>
+                    <td class="fw-semibold">@item.WeightKg.ToString("N2")</td>
+                    <td>@((item.PricePerKgSnapshot ?? 0).ToString("N2"))</td>
+                    <td>@((item.PercentageSnapshot ?? 0).ToString("N2"))</td>
+                    <td class="fw-semibold">@((item.TotalAmount ?? 0).ToString("N2"))</td>
+                    <td><span class="badge status-badge badge-success">@item.PointsEarned</span></td>
+                    <td>@item.CarryForwardWeightAfterKg.ToString("N2")</td>
+                    <td><span class="badge status-badge @(item.PaymentStatus == "Paid" ? "badge-success" : item.PaymentStatus == "Cancelled" ? "badge-danger" : "badge-warning")">@item.PaymentStatus</span></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <partial name="/Pages/Customer/Shared/_Pagination.cshtml" model="new AphiwatPOS.Pages.Customer.Shared.CustomerPaginationModel { PageNumber = Model.Purchases.PageNumber, PageSize = Model.Purchases.PageSize, TotalCount = Model.Purchases.TotalCount, PageUrl = q }" />
+</section>
+
+<div class="modal fade app-modal" id="purchaseBatchModal" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen-xl-down modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <form method="post" asp-page-handler="CreateBatch" class="modal-content" data-rubber-batch-form>
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title h5">Add Many Rubber Purchases</h2>
+                    <p class="modal-subtitle">Use one date, auction location, and market price for many supplier rows.</p>
+                </div>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-section mt-0 pt-0 border-0">
+                    <div class="section-label">Batch Information</div>
+                    <div class="row g-3">
+                        <div class="col-lg-3"><label class="form-label">Transaction Date</label><input asp-for="BatchInput.TransactionDate" class="form-control" type="date" required /></div>
+                        <input type="hidden" asp-for="BatchInput.BusinessLocationId" value="@Model.BatchInput.BusinessLocationId" />
+                        <input type="hidden" asp-for="BatchInput.PaymentStatus" value="Pending" />
+                        <div class="col-lg-4"><label class="form-label">Auction Location</label><select asp-for="BatchInput.RubberAuctionLocationId" class="form-select" required><option value="">-- Select auction location --</option>@foreach (var location in Model.AuctionLocations) { <option value="@location.RubberAuctionLocationId">@location.LocationName</option> }</select><span asp-validation-for="BatchInput.RubberAuctionLocationId" class="text-danger small"></span></div>
+                        <div class="col-lg-5"><label class="form-label">Market Price</label><select asp-for="BatchInput.RubberPriceId" class="form-select" data-batch-price-select required><option value="" data-price="0" data-percent="0">-- Select price --</option>@foreach (var price in Model.RubberPrices) { <option value="@price.RubberPriceId" data-price="@price.PricePerKg" data-percent="@price.PercentageOfService">@price.PricePerKg.ToString("N2") / kg - @price.PercentageOfService.ToString("N2")%</option> }</select><span asp-validation-for="BatchInput.RubberPriceId" class="text-danger small"></span></div>
+                    </div>
+                </div>
+                <div class="modal-section">
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                        <div class="section-label mb-0">Supplier Rows</div>
+                        <button class="btn btn-outline-primary btn-sm" type="button" data-batch-add-row><i class="bi bi-plus-circle me-1"></i>Add Row</button>
+                    </div>
+                    <span asp-validation-for="BatchInput.Rows" class="text-danger small"></span>
+                    <div class="table-responsive batch-table-wrap">
+                        <table class="table table-sm align-middle batch-table">
+                            <thead><tr><th>Seller</th><th>Member Supplier</th><th>Farmer Name</th><th>Phone</th><th>Weight Kg</th><th>Net</th><th></th></tr></thead>
+                            <tbody data-batch-rows>
+                            @for (var i = 0; i < Model.BatchInput.Rows.Count; i++)
+                            {
+                                <tr data-batch-row>
+                                    <td><select class="form-select form-select-sm" asp-for="BatchInput.Rows[i].SellerType" data-batch-seller-type><option value="Member">Member</option><option value="NonMember">Non-member</option></select></td>
+                                    <td>
+                                        @{
+                                            var batchSupplier = Model.RubberSuppliers.FirstOrDefault(s => s.CustomerId == Model.BatchInput.Rows[i].CustomerId);
+                                            var batchSupplierText = batchSupplier is null ? string.Empty : supplierText(batchSupplier);
+                                        }
+                                        <input class="form-control form-control-sm" value="@batchSupplierText" list="rubberSupplierOptions" placeholder="Code, name, phone" autocomplete="off" data-batch-member-search />
+                                        <input type="hidden" asp-for="BatchInput.Rows[i].CustomerId" data-batch-member />
+                                        <span asp-validation-for="BatchInput.Rows[i].CustomerId" class="text-danger small"></span>
+                                    </td>
+                                    <td><input class="form-control form-control-sm" asp-for="BatchInput.Rows[i].NonMemberFarmerName" maxlength="255" data-batch-nonmember /><span asp-validation-for="BatchInput.Rows[i].NonMemberFarmerName" class="text-danger small"></span></td>
+                                    <td><input class="form-control form-control-sm" asp-for="BatchInput.Rows[i].NonMemberFarmerPhone" maxlength="50" data-batch-nonmember /></td>
+                                    <td><input class="form-control form-control-sm" asp-for="BatchInput.Rows[i].WeightKg" type="number" step="0.01" min="0" data-batch-weight /></td>
+                                    <td><input class="form-control form-control-sm fw-bold" value="0.00" data-batch-net readonly /></td>
+                                    <td><button class="btn btn-outline-danger btn-sm" type="button" data-batch-remove-row title="Remove row"><i class="bi bi-trash"></i></button></td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="batch-totals">
+                        <div><span>Rows</span><strong data-batch-total-rows>0</strong></div>
+                        <div><span>Weight Kg</span><strong data-batch-total-weight>0.00</strong></div>
+                        <div><span>Gross</span><strong data-batch-total-gross>0.00</strong></div>
+                        <div><span>Deduct</span><strong data-batch-total-deduct>0.00</strong></div>
+                        <div><span>Net</span><strong data-batch-total-net>0.00</strong></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button>
+                <button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle me-1"></i>Save Batch</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade app-modal" id="purchaseAddModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <form method="post" asp-page-handler="Create" class="modal-content" data-rubber-purchase-form>
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title h5">Add Rubber Purchase</h2>
+                    <p class="modal-subtitle">Record confirmed supplier weight.</p>
+                </div>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-section mt-0 pt-0 border-0">
+                    <div class="section-label">Purchase Information</div>
+                    <div class="row g-3">
+                        <div class="col-lg-4"><label class="form-label">Transaction Date</label><input class="form-control" name="Input.TransactionDate" type="date" value="@DateTime.Today.ToString("yyyy-MM-dd")" required /></div>
+                        <div class="col-lg-4"><label class="form-label">Weight Kg</label><input class="form-control" name="Input.WeightKg" type="number" step="0.01" min="0.01" data-weight required /></div>
+                        <div class="col-lg-4">
+                            <label class="form-label">Payment Status</label>
+                            <input type="hidden" name="Input.PaymentStatus" value="Pending" />
+                            <div class="form-control bg-light fw-semibold">Pending - pay from จ่ายบิลยางพารา</div>
+                        </div>
+                        <input type="hidden" name="Input.BusinessLocationId" value="@Model.Input.BusinessLocationId" />
+                        <div class="col-lg-6"><label class="form-label">Auction Location</label><select class="form-select" name="Input.RubberAuctionLocationId" required><option value="">-- Select auction location --</option>@foreach (var location in Model.AuctionLocations) { <option value="@location.RubberAuctionLocationId">@location.LocationName</option> }</select></div>
+                        <div class="col-lg-6">
+                            <label class="form-label">Seller Type</label>
+                            <div class="seller-type-toggle">
+                                <label>
+                                    <input type="radio" name="Input.SellerType" value="Member" checked="@(!isNonMemberInput)" data-seller-type />
+                                    <span><i class="bi bi-person-badge"></i><strong>Member supplier</strong><small>Earns loyalty points</small></span>
+                                </label>
+                                <label>
+                                    <input type="radio" name="Input.SellerType" value="NonMember" checked="@isNonMemberInput" data-seller-type />
+                                    <span><i class="bi bi-person"></i><strong>Non-member farmer</strong><small>No loyalty points</small></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-lg-6" data-member-seller-section hidden="@isNonMemberInput">
+                            <label class="form-label">Supplier Member</label>
+                            <input class="form-control" value="@selectedSingleSupplierText" list="rubberSupplierOptions" placeholder="Type supplier code, name, or phone" autocomplete="off" data-member-supplier-search />
+                            <input type="hidden" name="Input.CustomerId" value="@Model.Input.CustomerId" data-member-supplier />
+                            <span asp-validation-for="Input.CustomerId" class="text-danger small"></span>
+                            <div class="text-muted small mt-1">Start typing to find a rubber supplier quickly.</div>
+                        </div>
+                        <div class="col-lg-3" data-non-member-seller-section hidden="@(!isNonMemberInput)">
+                            <label class="form-label">Farmer Name</label>
+                            <input class="form-control" name="Input.NonMemberFarmerName" value="@Model.Input.NonMemberFarmerName" maxlength="255" data-non-member-name />
+                            <span asp-validation-for="Input.NonMemberFarmerName" class="text-danger small"></span>
+                        </div>
+                        <div class="col-lg-3" data-non-member-seller-section hidden="@(!isNonMemberInput)">
+                            <label class="form-label">Phone</label>
+                            <input class="form-control" name="Input.NonMemberFarmerPhone" value="@Model.Input.NonMemberFarmerPhone" maxlength="50" data-non-member-phone />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-section">
+                    <div class="section-label">Price Information</div>
+                    <div class="row g-3">
+                        <div class="col-lg-4"><label class="form-label">Market Price</label><select class="form-select" name="Input.RubberPriceId" data-price-select required><option value="" data-price="0" data-percent="0">-- Select price --</option>@foreach (var price in Model.RubberPrices) { <option value="@price.RubberPriceId" data-price="@price.PricePerKg" data-percent="@price.PercentageOfService">@price.PricePerKg.ToString("N2") / kg - @price.PercentageOfService.ToString("N2")%</option> }</select></div>
+                        <div class="col-lg-4"><label class="form-label">Price / Kg</label><input class="form-control" value="0.00" data-price-output readonly /></div>
+                        <div class="col-lg-4"><label class="form-label">Deduct Percent</label><input class="form-control" value="0.00" data-percent-output readonly /></div>
+                        <div class="col-lg-4"><label class="form-label">Gross Amount</label><input class="form-control" value="0.00" data-gross readonly /></div>
+                        <div class="col-lg-4"><label class="form-label">Deduct Amount</label><input class="form-control" value="0.00" data-deduct readonly /></div>
+                        <div class="col-lg-4"><label class="form-label">Net Amount</label><input class="form-control fw-bold" value="0.00" data-net readonly /></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button>
+                <button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle me-1"></i>Save Purchase</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.seller-type-toggle{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.seller-type-toggle label{cursor:pointer;margin:0}
+.seller-type-toggle input{clip:rect(0 0 0 0);height:1px;overflow:hidden;position:absolute;white-space:nowrap;width:1px}
+.seller-type-toggle span{align-items:flex-start;background:#fff;border:1px solid var(--pos-border);display:grid;gap:2px;grid-template-columns:36px minmax(0,1fr);min-height:78px;padding:12px}
+.seller-type-toggle i{align-items:center;background:var(--pos-primary-soft);color:var(--pos-primary);display:flex;font-size:1.2rem;height:32px;justify-content:center;width:32px}
+.seller-type-toggle strong{font-weight:900}
+.seller-type-toggle small{color:var(--pos-muted);font-weight:700;grid-column:2}
+.seller-type-toggle input:checked+span{background:var(--pos-primary-soft);border-color:var(--pos-primary);box-shadow:0 0 0 2px rgba(8,117,46,.14)}
+.batch-table-wrap{border:1px solid var(--pos-border);max-height:420px;overflow:auto}
+.batch-table{min-width:1080px}
+.batch-table th{background:#f8faf9;color:var(--pos-muted);font-size:.78rem;text-transform:uppercase}
+.batch-table td{vertical-align:top}
+.batch-totals{background:#f8faf9;border:1px solid var(--pos-border);display:grid;gap:1px;grid-template-columns:repeat(5,minmax(0,1fr));margin-top:12px}
+.batch-totals div{background:#fff;padding:10px 12px}
+.batch-totals span{color:var(--pos-muted);display:block;font-size:.78rem;font-weight:800;text-transform:uppercase}
+.batch-totals strong{font-size:1rem}
+@@media(max-width:720px){.seller-type-toggle{grid-template-columns:1fr}}
+@@media(max-width:720px){.batch-totals{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const form = document.querySelector('[data-rubber-purchase-form]');
+            if (!form) return;
+            const suppliers = @Html.Raw(supplierJson);
+            const normalize = value => (value || '').trim().toLowerCase();
+            const resolveSupplier = value => {
+                const term = normalize(value);
+                if (!term) return null;
+                return suppliers.find(s =>
+                    normalize(s.DisplayText) === term ||
+                    normalize(s.CustomerCode) === term ||
+                    normalize(s.PhoneNumber) === term ||
+                    normalize(s.CustomerName) === term) || null;
+            };
+            const memberSections = [...form.querySelectorAll('[data-member-seller-section]')];
+            const nonMemberSections = [...form.querySelectorAll('[data-non-member-seller-section]')];
+            const memberSupplier = form.querySelector('[data-member-supplier]');
+            const memberSupplierSearch = form.querySelector('[data-member-supplier-search]');
+            const nonMemberName = form.querySelector('[data-non-member-name]');
+            const nonMemberPhone = form.querySelector('[data-non-member-phone]');
+            const read = selector => Number.parseFloat(form.querySelector(selector)?.value || '0') || 0;
+            const write = (selector, value) => {
+                const element = form.querySelector(selector);
+                if (element) element.value = value.toFixed(2);
+            };
+            const syncSellerType = () => {
+                const sellerType = form.querySelector('[data-seller-type]:checked')?.value || 'Member';
+                const isNonMember = sellerType === 'NonMember';
+                memberSections.forEach(section => section.hidden = isNonMember);
+                nonMemberSections.forEach(section => section.hidden = !isNonMember);
+                if (memberSupplier) {
+                    memberSupplier.required = !isNonMember;
+                    if (isNonMember) {
+                        memberSupplier.value = '';
+                        if (memberSupplierSearch) memberSupplierSearch.value = '';
+                    }
+                }
+                if (memberSupplierSearch) {
+                    memberSupplierSearch.required = !isNonMember;
+                }
+                if (nonMemberName) {
+                    nonMemberName.required = isNonMember;
+                    if (!isNonMember) nonMemberName.value = '';
+                }
+                if (nonMemberPhone && !isNonMember) nonMemberPhone.value = '';
+            };
+            const recalc = () => {
+                const option = form.querySelector('[data-price-select]')?.selectedOptions?.[0];
+                const pricePerKg = Number.parseFloat(option?.dataset.price || '0') || 0;
+                const deductPercent = Number.parseFloat(option?.dataset.percent || '0') || 0;
+                write('[data-price-output]', pricePerKg);
+                write('[data-percent-output]', deductPercent);
+                const gross = read('[data-weight]') * pricePerKg;
+                const deduct = gross * (deductPercent / 100);
+                write('[data-gross]', gross);
+                write('[data-deduct]', deduct);
+                write('[data-net]', Math.max(0, gross - deduct));
+            };
+            const syncMemberSearch = format => {
+                if (!memberSupplierSearch || !memberSupplier) return;
+                const supplier = resolveSupplier(memberSupplierSearch.value);
+                memberSupplier.value = supplier ? supplier.CustomerId : '';
+                if (supplier && format) memberSupplierSearch.value = supplier.DisplayText;
+            };
+            form.addEventListener('input', event => {
+                if (event.target.matches('[data-weight]')) recalc();
+                if (event.target.matches('[data-member-supplier-search]')) syncMemberSearch(true);
+            });
+            form.addEventListener('change', event => {
+                if (event.target.matches('[data-price-select]')) recalc();
+                if (event.target.matches('[data-member-supplier-search]')) syncMemberSearch(true);
+                if (event.target.matches('[data-seller-type]')) syncSellerType();
+            });
+            form.addEventListener('blur', event => {
+                if (event.target.matches('[data-member-supplier-search]')) syncMemberSearch(true);
+            }, true);
+            syncMemberSearch(true);
+            syncSellerType();
+            recalc();
+        })();
+        (() => {
+            const form = document.querySelector('[data-rubber-batch-form]');
+            if (!form) return;
+            const suppliers = @Html.Raw(supplierJson);
+            const rowsBody = form.querySelector('[data-batch-rows]');
+            const money = value => value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const normalize = value => (value || '').trim().toLowerCase();
+            const resolveSupplier = value => {
+                const term = normalize(value);
+                if (!term) return null;
+                return suppliers.find(s =>
+                    normalize(s.DisplayText) === term ||
+                    normalize(s.CustomerCode) === term ||
+                    normalize(s.PhoneNumber) === term ||
+                    normalize(s.CustomerName) === term) || null;
+            };
+            const getPrice = () => {
+                const option = form.querySelector('[data-batch-price-select]')?.selectedOptions?.[0];
+                return {
+                    price: Number.parseFloat(option?.dataset.price || '0') || 0,
+                    percent: Number.parseFloat(option?.dataset.percent || '0') || 0
+                };
+            };
+            const rowHtml = index => `
+                <tr data-batch-row>
+                    <td><select class="form-select form-select-sm" name="BatchInput.Rows[${index}].SellerType" data-batch-seller-type><option value="Member">Member</option><option value="NonMember">Non-member</option></select></td>
+                    <td><input class="form-control form-control-sm" list="rubberSupplierOptions" placeholder="Code, name, phone" autocomplete="off" data-batch-member-search /><input type="hidden" name="BatchInput.Rows[${index}].CustomerId" data-batch-member /></td>
+                    <td><input class="form-control form-control-sm" name="BatchInput.Rows[${index}].NonMemberFarmerName" maxlength="255" data-batch-nonmember /></td>
+                    <td><input class="form-control form-control-sm" name="BatchInput.Rows[${index}].NonMemberFarmerPhone" maxlength="50" data-batch-nonmember /></td>
+                    <td><input class="form-control form-control-sm" name="BatchInput.Rows[${index}].WeightKg" type="number" step="0.01" min="0" data-batch-weight /></td>
+                    <td><input class="form-control form-control-sm fw-bold" value="0.00" data-batch-net readonly /></td>
+                    <td><button class="btn btn-outline-danger btn-sm" type="button" data-batch-remove-row title="Remove row"><i class="bi bi-trash"></i></button></td>
+                </tr>`;
+            const reindexRows = () => {
+                [...rowsBody.querySelectorAll('[data-batch-row]')].forEach((row, index) => {
+                    row.querySelectorAll('[name]').forEach(input => {
+                        input.name = input.name.replace(/BatchInput\.Rows\[\d+\]/, `BatchInput.Rows[${index}]`);
+                    });
+                });
+            };
+            const syncBatchMember = (row, format) => {
+                const member = row.querySelector('[data-batch-member]');
+                const memberSearch = row.querySelector('[data-batch-member-search]');
+                if (!member || !memberSearch || memberSearch.disabled) return;
+                const supplier = resolveSupplier(memberSearch.value);
+                member.value = supplier ? supplier.CustomerId : '';
+                if (supplier && format) memberSearch.value = supplier.DisplayText;
+            };
+            const syncRow = row => {
+                const isNonMember = row.querySelector('[data-batch-seller-type]')?.value === 'NonMember';
+                const member = row.querySelector('[data-batch-member]');
+                const memberSearch = row.querySelector('[data-batch-member-search]');
+                row.querySelectorAll('[data-batch-nonmember]').forEach(input => {
+                    input.disabled = !isNonMember;
+                    input.closest('td')?.classList.toggle('text-muted', !isNonMember);
+                    if (!isNonMember) input.value = '';
+                });
+                if (member) {
+                    member.disabled = isNonMember;
+                    member.closest('td')?.classList.toggle('text-muted', isNonMember);
+                    if (isNonMember) member.value = '';
+                }
+                if (memberSearch) {
+                    memberSearch.disabled = isNonMember;
+                    memberSearch.required = !isNonMember;
+                    if (isNonMember) {
+                        memberSearch.value = '';
+                    } else {
+                        syncBatchMember(row, false);
+                    }
+                }
+            };
+            const recalc = () => {
+                const price = getPrice();
+                let activeRows = 0;
+                let totalWeight = 0;
+                let totalGross = 0;
+                let totalDeduct = 0;
+                let totalNet = 0;
+                rowsBody.querySelectorAll('[data-batch-row]').forEach(row => {
+                    syncRow(row);
+                    const weight = Number.parseFloat(row.querySelector('[data-batch-weight]')?.value || '0') || 0;
+                    const gross = weight * price.price;
+                    const deduct = gross * (price.percent / 100);
+                    const net = Math.max(0, gross - deduct);
+                    row.querySelector('[data-batch-net]').value = net.toFixed(2);
+                    if (weight > 0) activeRows++;
+                    totalWeight += weight;
+                    totalGross += gross;
+                    totalDeduct += deduct;
+                    totalNet += net;
+                });
+                form.querySelector('[data-batch-total-rows]').textContent = activeRows;
+                form.querySelector('[data-batch-total-weight]').textContent = money(totalWeight);
+                form.querySelector('[data-batch-total-gross]').textContent = money(totalGross);
+                form.querySelector('[data-batch-total-deduct]').textContent = money(totalDeduct);
+                form.querySelector('[data-batch-total-net]').textContent = money(totalNet);
+            };
+            form.querySelector('[data-batch-add-row]')?.addEventListener('click', () => {
+                rowsBody.insertAdjacentHTML('beforeend', rowHtml(rowsBody.querySelectorAll('[data-batch-row]').length));
+                recalc();
+            });
+            form.addEventListener('click', event => {
+                const remove = event.target.closest('[data-batch-remove-row]');
+                if (!remove) return;
+                const rows = rowsBody.querySelectorAll('[data-batch-row]');
+                if (rows.length <= 1) return;
+                remove.closest('[data-batch-row]')?.remove();
+                reindexRows();
+                recalc();
+            });
+            form.addEventListener('input', event => {
+                if (event.target.matches('[data-batch-member-search]')) syncBatchMember(event.target.closest('[data-batch-row]'), true);
+                if (event.target.matches('[data-batch-weight], [data-batch-member-search]')) recalc();
+            });
+            form.addEventListener('change', event => {
+                if (event.target.matches('[data-batch-member-search]')) syncBatchMember(event.target.closest('[data-batch-row]'), true);
+                if (event.target.matches('[data-batch-price-select], [data-batch-seller-type], [data-batch-member-search]')) recalc();
+            });
+            form.addEventListener('blur', event => {
+                if (event.target.matches('[data-batch-member-search]')) syncBatchMember(event.target.closest('[data-batch-row]'), true);
+            }, true);
+            recalc();
+            if (@Model.OpenBatchModal.ToString().ToLowerInvariant()) {
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('purchaseBatchModal')).show();
+            }
+        })();
+    </script>
+}

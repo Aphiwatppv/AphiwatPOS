@@ -19,6 +19,7 @@ public sealed class IndexModel : PageModel
     }
 
     [BindProperty(SupportsGet = true)] public string? SearchText { get; set; }
+    [BindProperty(SupportsGet = true)] public string? MemberType { get; set; }
     [BindProperty(SupportsGet = true)] public int? MemberLevelId { get; set; }
     [BindProperty(SupportsGet = true)] public string? CreditFilter { get; set; }
     [BindProperty(SupportsGet = true)] public int PageNumber { get; set; } = 1;
@@ -48,7 +49,7 @@ public sealed class IndexModel : PageModel
     {
         MemberLevels = await _memberLevelService.GetAllActiveAsync(cancellationToken);
         var creditStatus = CreditFilter is "CreditAllowed" or "HasUsedCredit" or "NoAvailableCredit" ? "Good" : null;
-        Customers = await _customerService.GetPagedAsync(new CustomerPagedRequestModel { PageNumber = PageNumber, PageSize = 20, SearchText = SearchText, MemberLevelId = MemberLevelId, IsActive = true, CreditStatus = creditStatus }, cancellationToken);
+        Customers = await _customerService.GetPagedAsync(new CustomerPagedRequestModel { PageNumber = PageNumber, PageSize = 20, SearchText = SearchText, MemberType = MemberType, MemberLevelId = MemberLevelId, IsActive = true, CreditStatus = creditStatus }, cancellationToken);
 
         var filtered = Customers.Customers.AsEnumerable();
         filtered = CreditFilter switch

@@ -765,19 +765,71 @@ document.addEventListener("DOMContentLoaded", () => {
     const selling = form.querySelector("[data-new-selling]");
     const amount = form.querySelector("[data-profit-amount]");
     const margin = form.querySelector("[data-profit-margin]");
+    const sellingError = form.querySelector("[data-new-selling-error]");
+    const minimumSellingPrice = Number.parseFloat(form.dataset.minimumSellingPrice || "0") || 0;
+    const saveButton = form.querySelector('button[type="submit"]');
 
     const update = () => {
       const c = Number.parseFloat(cost?.value || "0");
       const s = Number.parseFloat(selling?.value || "0");
       const profit = s - c;
       const pct = s <= 0 ? 0 : (profit / s) * 100;
+      const valid = s >= minimumSellingPrice;
       if (amount) amount.value = profit.toFixed(2);
       if (margin) margin.value = `${pct.toFixed(2)}%`;
+      selling?.classList.toggle("is-invalid", !valid);
+      sellingError?.classList.toggle("d-none", valid);
+      if (saveButton) saveButton.disabled = !valid;
+      return valid;
     };
 
     cost?.addEventListener("input", update);
     selling?.addEventListener("input", update);
+    form.addEventListener("submit", (event) => {
+      if (update()) return;
+      event.preventDefault();
+      selling?.focus();
+    });
     update();
+  });
+
+  document.querySelectorAll("[data-pricing-section]").forEach((section) => {
+    const form = section.closest("form");
+    const minimumCost = section.querySelector("[data-minimum-cost]");
+    const vatPercentage = section.querySelector("[data-vat-percentage]");
+    const vatAmount = section.querySelector("[data-vat-amount]");
+    const taxRate = section.querySelector("[data-tax-rate]");
+    const minimumSellingPrice = section.querySelector("[data-minimum-selling-price]");
+    const minimumSellingDisplay = section.querySelector("[data-minimum-selling-display]");
+    const sellingPrice = section.querySelector("[data-selling-price]");
+    const error = section.querySelector("[data-selling-price-error]");
+    const saveButton = form?.querySelector('button[type="submit"]');
+
+    const updatePricing = () => {
+      const minimumCostValue = Number.parseFloat(minimumCost?.value || "0") || 0;
+      const vatPercentageValue = Number.parseFloat(vatPercentage?.value || "0") || 0;
+      const sellingPriceValue = Number.parseFloat(sellingPrice?.value || "0") || 0;
+      const vatAmountValue = minimumCostValue * vatPercentageValue / 100;
+      const minimumSellingValue = minimumCostValue + vatAmountValue;
+      const isValid = sellingPriceValue >= minimumSellingValue;
+
+      if (vatAmount) vatAmount.value = vatAmountValue.toFixed(2);
+      if (minimumSellingPrice) minimumSellingPrice.value = minimumSellingValue.toFixed(2);
+      if (minimumSellingDisplay) minimumSellingDisplay.textContent = minimumSellingValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (taxRate) taxRate.value = vatPercentageValue.toFixed(2);
+      sellingPrice?.classList.toggle("is-invalid", !isValid);
+      error?.classList.toggle("d-none", isValid);
+      if (saveButton) saveButton.disabled = !isValid;
+      return isValid;
+    };
+
+    [minimumCost, vatPercentage, sellingPrice].forEach((input) => input?.addEventListener("input", updatePricing));
+    form?.addEventListener("submit", (event) => {
+      if (updatePricing()) return;
+      event.preventDefault();
+      sellingPrice?.focus();
+    });
+    updatePricing();
   });
 
   document.querySelectorAll(".toast.show").forEach((toastElement) => {

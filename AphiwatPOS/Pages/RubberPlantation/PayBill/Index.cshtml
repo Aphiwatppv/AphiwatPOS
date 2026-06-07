@@ -1,0 +1,408 @@
+@page
+@model AphiwatPOS.Pages.RubberPlantation.PayBill.IndexModel
+@using AphiwatPOS.Pages.Customer
+@{
+    ViewData["Title"] = "จ่ายบิลยางพารา";
+    ViewData["Subtitle"] = "ชำระเงินค่ารับซื้อยางและพิมพ์ใบเสร็จ.";
+    var selected = Model.SelectedPurchase;
+    var receipt = Model.Receipt;
+    var fullPaymentAmount = selected?.TotalAmount ?? 0;
+    string money(decimal value) => value.ToString("N2");
+}
+
+<partial name="/Pages/Customer/Shared/_TempDataAlert.cshtml" model="(Model.StatusMessage, Model.ErrorMessage)" />
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3 no-print">
+    <div>
+        <h1>จ่ายบิลยางพารา</h1>
+        <p>เลือกบิลรับซื้อยาง บันทึกการชำระเงิน และพิมพ์ใบเสร็จรับเงิน.</p>
+    </div>
+    <a class="btn btn-outline-secondary" asp-page="/RubberPlantation/RubberPurchase/Index"><i class="bi bi-box-arrow-in-down me-1"></i>รายการรับซื้อ</a>
+</div>
+
+<div class="summary-grid no-print">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-receipt"></i></span><div><div class="metric-label">บิลรอจ่าย</div><div class="metric-value">@Model.DuePurchases.Count</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-cash-stack"></i></span><div><div class="metric-label">ยอดค้างรวม</div><div class="metric-value">@money(Model.TotalDueAmount)</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-printer"></i></span><div><div class="metric-label">ใบเสร็จล่าสุด</div><div class="metric-value">@(receipt?.ReceiptNo ?? "-")</div></div></div>
+</div>
+
+<div class="rubber-pay-layout no-print">
+    <section class="data-card">
+        <div class="card-heading">
+            <div>
+                <h2>บิลที่รอชำระ</h2>
+                <p>ค้นหาจากรหัสสมาชิก ชื่อ หรือเบอร์โทร</p>
+            </div>
+        </div>
+        <form method="get" class="row g-2 mb-3">
+            <div class="col"><input asp-for="SearchText" class="form-control" placeholder="ค้นหาผู้ขาย" /></div>
+            <div class="col-auto"><button class="btn btn-primary" type="submit"><i class="bi bi-search"></i></button></div>
+            <div class="col-auto"><a class="btn btn-outline-secondary" asp-page="./Index"><i class="bi bi-arrow-counterclockwise"></i></a></div>
+        </form>
+        <div class="rubber-bill-list">
+            @if (!Model.DuePurchases.Any())
+            {
+                <div class="empty-state"><i class="bi bi-check2-circle"></i><div class="fw-semibold">ไม่มีบิลค้างชำระ</div></div>
+            }
+            @foreach (var item in Model.DuePurchases)
+            {
+                <a class="rubber-bill-card @(selected?.RubberPurchaseHeaderId == item.RubberPurchaseHeaderId ? "active" : "")" asp-page="./Index" asp-route-SearchText="@Model.SearchText" asp-route-HistorySearchText="@Model.HistorySearchText" asp-route-HistoryPaymentMethod="@Model.HistoryPaymentMethod" asp-route-HistoryDateFrom="@Model.HistoryDateFrom?.ToString("yyyy-MM-dd")" asp-route-HistoryDateTo="@Model.HistoryDateTo?.ToString("yyyy-MM-dd")" asp-route-SelectedPurchaseId="@item.RubberPurchaseHeaderId">
+                    <span>
+                        <strong>@item.CustomerName</strong>
+                        <small>@item.CustomerCode · @CustomerPageHelpers.Date(item.TransactionDate) · @(item.RubberAuctionLocationName ?? item.LocationName)</small>
+                    </span>
+                    <span class="text-end">
+                        <strong>@money(AphiwatPOS.Pages.RubberPlantation.PayBill.IndexModel.GetRemainingAmount(item))</strong>
+                        <small>@item.WeightKg.ToString("N2") kg</small>
+                    </span>
+                </a>
+            }
+        </div>
+    </section>
+
+    <section class="data-card">
+        <div class="card-heading">
+            <div>
+                <h2>ชำระเงิน</h2>
+                <p>ตรวจสอบยอดก่อนบันทึกและพิมพ์ใบเสร็จ</p>
+            </div>
+        </div>
+        @if (selected is null)
+        {
+            <div class="empty-state"><i class="bi bi-receipt"></i><div class="fw-semibold">เลือกบิลเพื่อชำระเงิน</div></div>
+        }
+        else
+        {
+            <div class="rubber-pay-detail">
+                <div class="rubber-selected-head">
+                    <div>
+                        <span>ผู้ขายยาง</span>
+                        <strong>@selected.CustomerName</strong>
+                        <small>@selected.CustomerCode · @(selected.PhoneNumber ?? "-")</small>
+                    </div>
+                    <div class="text-end">
+                        <span>ยอดที่ต้องจ่ายเต็มจำนวน</span>
+                        <strong>@money(fullPaymentAmount)</strong>
+                        <small>บาท</small>
+                    </div>
+                </div>
+                <dl>
+                    <dt>วันที่รับซื้อ</dt><dd>@CustomerPageHelpers.Date(selected.TransactionDate)</dd>
+                    <dt>สถานที่รับซื้อ</dt><dd>@(selected.RubberAuctionLocationName ?? selected.LocationName)</dd>
+                    <dt>น้ำหนัก</dt><dd>@selected.WeightKg.ToString("N2") กิโลกรัม</dd>
+                    <dt>ราคา</dt><dd>@((selected.PricePerKgSnapshot ?? 0).ToString("N2")) บาท/กก.</dd>
+                    <dt>หัก</dt><dd>@((selected.PercentageSnapshot ?? 0).ToString("N2"))%</dd>
+                    <dt>ยอดสุทธิ</dt><dd>@money(selected.TotalAmount ?? 0) บาท</dd>
+                </dl>
+            </div>
+            <form method="post" asp-page-handler="Pay" class="rubber-payment-form">
+                <input type="hidden" asp-for="Input.RubberPurchaseHeaderId" value="@selected.RubberPurchaseHeaderId" />
+                <input asp-for="Input.PaidAmount" type="hidden" value="@fullPaymentAmount" />
+                <div class="full-pay-banner">
+                    <div>
+                        <span>ระบบนี้จ่ายเต็มจำนวนเท่านั้น</span>
+                        <strong>@money(fullPaymentAmount) บาท</strong>
+                    </div>
+                    <i class="bi bi-shield-check"></i>
+                </div>
+                <div>
+                    <label class="form-label">วิธีชำระเงิน</label>
+                    <div class="payment-method-grid" role="radiogroup" aria-label="วิธีชำระเงิน">
+                        <label class="payment-method-option">
+                            <input asp-for="Input.PaymentMethod" type="radio" value="Cash" checked />
+                            <span><i class="bi bi-cash-stack"></i><strong>เงินสด</strong><small>รับเงินสดและออกใบเสร็จทันที</small></span>
+                        </label>
+                        <label class="payment-method-option">
+                            <input asp-for="Input.PaymentMethod" type="radio" value="Transfer" />
+                            <span><i class="bi bi-bank"></i><strong>โอนบัญชี</strong><small>บันทึกเลขอ้างอิงในหมายเหตุ</small></span>
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label">หมายเหตุ</label>
+                    <input asp-for="Input.PaymentRemark" class="form-control" placeholder="เลขอ้างอิงหรือหมายเหตุเพิ่มเติม" />
+                </div>
+                <div class="payment-review">
+                    <div><span>ผู้ขาย</span><strong>@selected.CustomerName</strong></div>
+                    <div><span>น้ำหนัก</span><strong>@selected.WeightKg.ToString("N2") กก.</strong></div>
+                    <div><span>ยอดจ่าย</span><strong>@money(fullPaymentAmount) บาท</strong></div>
+                </div>
+                @if (Model.SelectedCustomerHasOutstandingCredit)
+                {
+                    <div class="credit-due-alert">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <div>
+                            <span>ลูกค้ามีเครดิตค้างชำระ</span>
+                            <strong>@money(Model.SelectedCreditOutstandingAmount) บาท</strong>
+                        </div>
+                    </div>
+                }
+                <div class="d-flex justify-content-end gap-2">
+                    @if (receipt is not null)
+                    {
+                        <button class="btn btn-outline-secondary" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i>พิมพ์ใบเสร็จ</button>
+                    }
+                    <button class="btn btn-primary btn-lg" type="button" data-bs-toggle="modal" data-bs-target="#confirmRubberPayment"><i class="bi bi-check2-circle me-1"></i>จ่ายบิลเต็มจำนวน</button>
+                </div>
+
+                <div class="modal fade app-modal" id="confirmRubberPayment" tabindex="-1" aria-labelledby="confirmRubberPaymentTitle" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h2 class="modal-title h5" id="confirmRubberPaymentTitle">ยืนยันการจ่ายบิล</h2>
+                                <button class="btn-close" data-bs-dismiss="modal" type="button" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="confirm-payment-amount">@money(fullPaymentAmount) บาท</div>
+                                <dl class="confirm-payment-list">
+                                    <dt>ผู้ขาย</dt><dd>@selected.CustomerName</dd>
+                                    <dt>วันที่รับซื้อ</dt><dd>@CustomerPageHelpers.Date(selected.TransactionDate)</dd>
+                                    <dt>น้ำหนัก</dt><dd>@selected.WeightKg.ToString("N2") กก.</dd>
+                                </dl>
+                                @if (Model.SelectedCustomerHasOutstandingCredit)
+                                {
+                                    <div class="credit-due-modal">
+                                        <div class="credit-due-modal-icon"><i class="bi bi-credit-card"></i></div>
+                                        <div>
+                                            <h3>ลูกค้ามีเครดิตค้างชำระ ต้องการชำระด้วยไหม?</h3>
+                                            <p>ถ้าเลือกชำระด้วย ระบบจะบันทึกชำระบิลยางเต็มจำนวน และบันทึกชำระเครดิตค้างอีก @money(Model.SelectedCreditOutstandingAmount) บาท</p>
+                                        </div>
+                                    </div>
+                                }
+                                @if (Model.SelectedCustomerHasOutstandingCredit)
+                                {
+                                    <label class="credit-due-choice">
+                                        <input class="form-check-input" name="Input.PayCustomerCredit" value="true" type="checkbox" />
+                                        <span>ชำระเครดิตค้างด้วย @money(Model.SelectedCreditOutstandingAmount) บาท</span>
+                                    </label>
+                                }
+                            </div>
+                            <div class="modal-footer">
+                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">ตรวจสอบอีกครั้ง</button>
+                                <button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle me-1"></i>ยืนยันการจ่ายบิล</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        }
+    </section>
+</div>
+
+<section class="data-card mt-3 no-print">
+    <div class="card-heading">
+        <div>
+            <h2>ประวัติการจ่ายเงิน</h2>
+            <p>ดูรายการที่เคยชำระแล้ว และพิมพ์ใบเสร็จย้อนหลัง</p>
+        </div>
+    </div>
+    <form method="get" class="history-filter-card">
+        <input type="hidden" asp-for="SearchText" />
+        <div class="row g-2 align-items-end">
+            <div class="col-lg-4">
+                <label class="form-label">ค้นหาประวัติ</label>
+                <input asp-for="HistorySearchText" class="form-control" placeholder="เลขใบเสร็จ ผู้ขาย เบอร์โทร หรือสถานที่" />
+            </div>
+            <div class="col-lg-2">
+                <label class="form-label">วิธีชำระ</label>
+                <select asp-for="HistoryPaymentMethod" class="form-select">
+                    <option value="">ทั้งหมด</option>
+                    <option value="Cash">เงินสด</option>
+                    <option value="Transfer">โอนบัญชี</option>
+                </select>
+            </div>
+            <div class="col-lg-2">
+                <label class="form-label">จากวันที่</label>
+                <input asp-for="HistoryDateFrom" class="form-control" type="date" />
+            </div>
+            <div class="col-lg-2">
+                <label class="form-label">ถึงวันที่</label>
+                <input asp-for="HistoryDateTo" class="form-control" type="date" />
+            </div>
+            <div class="col-lg-2 d-flex gap-2">
+                <button class="btn btn-primary flex-fill" type="submit"><i class="bi bi-funnel"></i></button>
+                <a class="btn btn-outline-secondary" asp-page="./Index" asp-route-SearchText="@Model.SearchText"><i class="bi bi-arrow-counterclockwise"></i></a>
+            </div>
+        </div>
+        @if (Model.HasHistoryFilter)
+        {
+            <div class="history-filter-summary">
+                <span>@Model.PaidHistory.Count รายการ</span>
+                <a asp-page="./Index" asp-route-SearchText="@Model.SearchText">ล้างตัวกรอง</a>
+            </div>
+        }
+    </form>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>เลขที่ใบเสร็จ</th>
+                    <th>วันที่จ่าย</th>
+                    <th>ผู้ขาย</th>
+                    <th>น้ำหนัก</th>
+                    <th>ยอดสุทธิ</th>
+                    <th>ชำระแล้ว</th>
+                    <th>วิธีชำระ</th>
+                    <th class="text-end">พิมพ์</th>
+                </tr>
+            </thead>
+            <tbody>
+            @if (!Model.PaidHistory.Any())
+            {
+                <tr><td colspan="8"><div class="empty-state"><i class="bi bi-clock-history"></i><div class="fw-semibold">ยังไม่มีประวัติการจ่ายเงิน</div></div></td></tr>
+            }
+            @foreach (var item in Model.PaidHistory)
+            {
+                <tr>
+                    <td><span class="code-badge mono">@(item.ReceiptNo ?? "-")</span></td>
+                    <td>@CustomerPageHelpers.DateTimeText(item.PaidDate)</td>
+                    <td><span class="fw-semibold d-block">@item.CustomerName</span><span class="text-muted small">@item.CustomerCode · @(item.RubberAuctionLocationName ?? item.LocationName)</span></td>
+                    <td>@item.WeightKg.ToString("N2") kg</td>
+                    <td>@money(item.TotalAmount ?? 0)</td>
+                    <td class="fw-semibold">@money(item.PaidAmount)</td>
+                    <td>@PaymentText(item.PaymentMethod)</td>
+                    <td class="text-end">
+                        <a class="btn btn-outline-secondary btn-sm" asp-page="./Index" asp-route-SearchText="@Model.SearchText" asp-route-HistorySearchText="@Model.HistorySearchText" asp-route-HistoryPaymentMethod="@Model.HistoryPaymentMethod" asp-route-HistoryDateFrom="@Model.HistoryDateFrom?.ToString("yyyy-MM-dd")" asp-route-HistoryDateTo="@Model.HistoryDateTo?.ToString("yyyy-MM-dd")" asp-route-ReceiptId="@item.RubberPurchaseHeaderId" asp-route-PromptPrint="true"><i class="bi bi-printer me-1"></i>ดู/พิมพ์</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@if (receipt is not null)
+{
+    <section class="data-card mt-3 no-print">
+        <div class="card-heading">
+            <div>
+                <h2>ใบเสร็จล่าสุด</h2>
+                <p>@receipt.ReceiptNo</p>
+            </div>
+            <button class="btn btn-primary" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i>พิมพ์ใบเสร็จ</button>
+        </div>
+        <div class="rubber-receipt-preview">
+            <partial name="_RubberBillReceipt" model="receipt" />
+        </div>
+    </section>
+
+    <div class="modal fade app-modal" id="printReceiptPrompt" tabindex="-1" aria-labelledby="printReceiptPromptTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content print-prompt-modal">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="printReceiptPromptTitle">ต้องการพิมพ์ใบเสร็จไหม?</h2>
+                    <button class="btn-close" data-bs-dismiss="modal" type="button" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="print-prompt-icon"><i class="bi bi-printer"></i></div>
+                    <div class="print-prompt-receipt">@(receipt.ReceiptNo ?? "-")</div>
+                    <dl class="confirm-payment-list">
+                        <dt>ผู้ขาย</dt><dd>@receipt.CustomerName</dd>
+                        <dt>ยอดชำระ</dt><dd>@money(receipt.PaidAmount) บาท</dd>
+                        <dt>วิธีชำระ</dt><dd>@PaymentText(receipt.PaymentMethod)</dd>
+                    </dl>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">ยังไม่พิมพ์</button>
+                    <button class="btn btn-primary" type="button" data-bs-dismiss="modal" onclick="window.print()"><i class="bi bi-printer me-1"></i>พิมพ์ใบเสร็จ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="print-only">
+    @if (receipt is not null)
+    {
+        <partial name="_RubberBillReceipt" model="receipt" />
+    }
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    @if (receipt is not null && Model.PromptPrint)
+    {
+        <script>
+            (() => {
+                const prompt = document.getElementById('printReceiptPrompt');
+                if (prompt && window.bootstrap) {
+                    window.addEventListener('load', () => new bootstrap.Modal(prompt).show());
+                }
+            })();
+        </script>
+    }
+}
+
+@functions {
+    string PaymentText(string? method) => method == "Transfer" ? "โอนบัญชี" : "เงินสด";
+}
+
+<style>
+.rubber-pay-layout{display:grid;gap:18px;grid-template-columns:minmax(320px,.78fr)minmax(0,1.22fr)}
+.rubber-bill-list{display:grid;gap:8px;max-height:620px;overflow:auto;padding-right:2px}
+.rubber-bill-card{align-items:center;background:#fff;border:1px solid var(--pos-border);border-left:4px solid transparent;color:var(--pos-text);display:flex;gap:12px;justify-content:space-between;padding:12px;text-decoration:none;transition:background .15s ease,border-color .15s ease,box-shadow .15s ease}
+.rubber-bill-card:hover,.rubber-bill-card.active{background:var(--pos-primary-soft);border-color:var(--pos-primary);box-shadow:0 10px 24px rgba(15,23,42,.08)}
+.rubber-bill-card small{color:var(--pos-muted);display:block}
+.rubber-pay-detail{background:#f8fafc;border:1px solid var(--pos-border);margin-bottom:14px;padding:14px}
+.rubber-selected-head{align-items:center;background:#fff;border:1px solid var(--pos-border);display:grid;gap:14px;grid-template-columns:minmax(0,1fr)auto;margin-bottom:14px;padding:14px}
+.rubber-selected-head span,.rubber-selected-head small{color:var(--pos-muted);display:block;font-size:.82rem;font-weight:700}
+.rubber-selected-head strong{display:block;font-size:1.3rem;font-weight:900;line-height:1.15}
+.rubber-selected-head .text-end strong{color:var(--pos-primary);font-size:2rem}
+.rubber-pay-detail dl{display:grid;gap:9px 14px;grid-template-columns:150px minmax(0,1fr);margin:0}
+.rubber-pay-detail dt{color:var(--pos-muted);font-weight:700}
+.rubber-pay-detail dd{font-weight:800;margin:0;text-align:right}
+.rubber-payment-form{display:grid;gap:14px}
+.full-pay-banner{align-items:center;background:#0f5132;color:#fff;display:flex;justify-content:space-between;padding:18px}
+.full-pay-banner span{display:block;font-size:.86rem;font-weight:800;opacity:.84}
+.full-pay-banner strong{display:block;font-size:2rem;font-weight:900;line-height:1.1}
+.full-pay-banner i{font-size:2rem;opacity:.9}
+.payment-method-grid{display:grid;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.payment-method-option{cursor:pointer;margin:0}
+.payment-method-option input{clip:rect(0 0 0 0);height:1px;overflow:hidden;position:absolute;white-space:nowrap;width:1px}
+.payment-method-option span{align-items:flex-start;background:#fff;border:1px solid var(--pos-border);display:grid;gap:3px;grid-template-columns:40px minmax(0,1fr);min-height:96px;padding:14px;transition:background .15s ease,border-color .15s ease,box-shadow .15s ease}
+.payment-method-option i{align-items:center;background:var(--pos-primary-soft);color:var(--pos-primary);display:flex;font-size:1.35rem;height:36px;justify-content:center;width:36px}
+.payment-method-option strong{display:block;font-weight:900}
+.payment-method-option small{color:var(--pos-muted);display:block;font-weight:700;grid-column:2}
+.payment-method-option input:checked+span{background:var(--pos-primary-soft);border-color:var(--pos-primary);box-shadow:0 0 0 2px rgba(8,117,46,.14)}
+.payment-review{background:#fff;border:1px solid var(--pos-border);display:grid;gap:0;grid-template-columns:1.2fr .8fr 1fr}
+.payment-review div{padding:12px 14px}
+.payment-review div+div{border-left:1px solid var(--pos-border)}
+.payment-review span{color:var(--pos-muted);display:block;font-size:.78rem;font-weight:800}
+.payment-review strong{display:block;font-weight:900;margin-top:2px}
+.credit-due-alert{align-items:center;background:#fff7ed;border:1px solid #fdba74;color:#7c2d12;display:flex;gap:12px;padding:14px}
+.credit-due-alert i{align-items:center;background:#fed7aa;color:#c2410c;display:flex;font-size:1.2rem;height:38px;justify-content:center;width:38px}
+.credit-due-alert span{display:block;font-size:.82rem;font-weight:800}
+.credit-due-alert strong{display:block;font-size:1.45rem;font-weight:900;line-height:1.1}
+.credit-due-modal{align-items:flex-start;background:#fff7ed;border:1px solid #fdba74;display:grid;gap:12px;grid-template-columns:44px minmax(0,1fr);margin-top:14px;padding:14px}
+.credit-due-modal-icon{align-items:center;background:#fed7aa;color:#c2410c;display:flex;font-size:1.3rem;height:40px;justify-content:center;width:40px}
+.credit-due-modal h3{color:#7c2d12;font-size:1rem;font-weight:900;margin:0 0 4px}
+.credit-due-modal p{color:#9a3412;font-size:.9rem;font-weight:700;margin:0}
+.credit-due-choice{align-items:center;background:#f8fafc;border:1px solid var(--pos-border);cursor:pointer;display:flex;font-weight:900;gap:10px;margin-top:10px;padding:12px}
+.confirm-payment-amount{color:var(--pos-primary);font-size:2rem;font-weight:900;text-align:center}
+.confirm-payment-list{display:grid;gap:8px 12px;grid-template-columns:120px minmax(0,1fr);margin:14px 0 0}.confirm-payment-list dt{color:var(--pos-muted);font-weight:800}.confirm-payment-list dd{font-weight:900;margin:0;text-align:right}
+.history-filter-card{background:#f8fafc;border:1px solid var(--pos-border);margin-bottom:14px;padding:14px}
+.history-filter-summary{align-items:center;color:var(--pos-muted);display:flex;font-size:.86rem;font-weight:800;gap:10px;margin-top:10px}
+.history-filter-summary a{color:var(--pos-primary);font-weight:900;text-decoration:none}
+.print-prompt-modal .modal-body{text-align:center}
+.print-prompt-icon{align-items:center;background:var(--pos-primary-soft);color:var(--pos-primary);display:flex;font-size:2rem;height:64px;justify-content:center;margin:0 auto 10px;width:64px}
+.print-prompt-receipt{color:var(--pos-primary);font-family:Consolas,monospace;font-size:1.3rem;font-weight:900;margin-bottom:8px}
+.rubber-receipt-preview{background:#f8fafc;border:1px dashed var(--pos-border);padding:18px}
+.rubber-receipt{background:#fff;border:1px solid #d7eadc;box-shadow:0 18px 44px rgba(15,23,42,.08);color:#123524;font-family:"Sarabun","TH Sarabun New",Arial,sans-serif;margin:auto;max-width:760px;padding:28px}
+.receipt-modern-header{align-items:center;border-bottom:3px solid #08752e;display:grid;gap:16px;grid-template-columns:96px minmax(0,1fr)150px;margin-bottom:22px;padding-bottom:18px}
+.receipt-brand-mark{align-items:center;background:#fff;border:1px solid #d7eadc;display:flex;height:88px;justify-content:center;overflow:hidden;padding:6px;width:88px;border-radius:18px}
+.receipt-brand-mark img{display:block;height:100%;object-fit:contain;width:100%}
+.receipt-brand-copy{min-width:0}.receipt-store-name{color:#08752e;font-size:1.3rem;font-weight:900;line-height:1.1}.receipt-phone{color:#315a3f;font-size:.9rem;font-weight:800;margin-top:4px}.receipt-brand-copy h2{color:#123524;font-size:1.45rem;font-weight:900;margin:7px 0 2px}.receipt-brand-copy p{color:#64756a;font-size:.82rem;font-weight:700;margin:0}
+.receipt-copy-type{align-self:start;text-align:right}.receipt-copy-type strong{background:#e8f7ed;color:#08752e;display:inline-block;font-family:Consolas,monospace;font-size:.95rem;font-weight:900;padding:8px 10px;border-radius:999px}
+.receipt-meta-grid{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:18px}.receipt-meta-grid div{background:#f8fcf9;border:1px solid #d7eadc;padding:10px 12px}.receipt-meta-grid span{color:#64756a;display:block;font-size:.78rem;font-weight:800}.receipt-meta-grid strong{color:#123524;display:block;font-size:1rem;font-weight:900;margin-top:3px;overflow-wrap:anywhere}
+.receipt-modern-table{border-collapse:separate;border-spacing:0;margin-top:14px;overflow:hidden;width:100%;border-radius:12px}.receipt-modern-table th{background:#08752e;color:#fff;font-size:.95rem;font-weight:900;padding:12px}.receipt-modern-table td{background:#fff;border-bottom:1px solid #d7eadc;color:#123524;padding:12px}.receipt-modern-table tbody tr:nth-child(even) td{background:#f8fcf9}.receipt-modern-table tfoot th{background:#e8f7ed;color:#08752e;font-size:1.05rem}
+.receipt-modern-table .receipt-credit-row td{background:#fff7ed;color:#9a3412;font-weight:900}
+.receipt-total-panel{background:#f8fcf9;border:1px solid #d7eadc;display:grid;gap:0;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:18px}.receipt-total-panel div{padding:14px}.receipt-total-panel div+div{border-left:1px solid #d7eadc}.receipt-total-panel span{color:#64756a;display:block;font-size:.78rem;font-weight:800}.receipt-total-panel strong{color:#08752e;display:block;font-size:1.08rem;font-weight:900;margin-top:4px}
+.receipt-balance-due{align-items:center;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;display:flex;font-weight:900;justify-content:space-between;margin-top:12px;padding:12px 14px}
+.receipt-payment-row{align-items:center;border:1px solid #d7eadc;display:flex;justify-content:space-between;margin-top:18px;padding:12px 14px}.receipt-payment-row>span{color:#64756a;font-weight:900}.receipt-payment-row label{color:#123524;font-weight:800;margin-left:18px}
+.check-box{border:1.5px solid #08752e;display:inline-block;height:13px;margin:0 5px 0 0;vertical-align:-2px;width:13px;border-radius:3px}.check-box.checked{background:#08752e;color:#fff}.check-box.checked:after{content:"✓";display:block;font-size:12px;line-height:12px;text-align:center}
+.receipt-signature-row{display:grid;gap:60px;grid-template-columns:1fr 1fr;margin-top:44px}.receipt-signature-row span{border-bottom:1px solid #123524;display:block;height:24px}.receipt-signature-row p{color:#64756a;font-weight:800;margin:8px 0 0;text-align:center}
+.print-only{display:none}
+@@media(max-width:992px){.rubber-pay-layout{grid-template-columns:1fr}.rubber-pay-detail dl{grid-template-columns:1fr}.rubber-pay-detail dd{text-align:left}}
+@@media(max-width:720px){.rubber-selected-head,.payment-method-grid,.payment-review,.receipt-modern-header,.receipt-meta-grid,.receipt-total-panel{grid-template-columns:1fr}.rubber-selected-head .text-end{text-align:left!important}.payment-review div+div{border-left:0;border-top:1px solid var(--pos-border)}.receipt-copy-type{text-align:left}.receipt-total-panel div+div{border-left:0;border-top:1px solid #d7eadc}.receipt-payment-row{align-items:flex-start;display:grid;gap:8px}.receipt-payment-row label{display:block;margin:4px 0}.receipt-signature-row{gap:24px}}
+@@media print{body{background:#fff!important}.app-sidebar,.app-topbar,.no-print,.modal-backdrop{display:none!important}.app-shell,.app-main,.app-content{display:block!important;margin:0!important;padding:0!important}.print-only{display:block!important}.print-only .rubber-receipt{max-width:none;width:180mm}.rubber-receipt{border:0!important;box-shadow:none!important;margin:0 auto!important;padding:8mm!important}.rubber-receipt-preview{border:0!important;padding:0!important}.receipt-brand-mark{print-color-adjust:exact;-webkit-print-color-adjust:exact}.receipt-modern-table th,.receipt-modern-table tfoot th,.receipt-copy-type strong,.check-box.checked{print-color-adjust:exact;-webkit-print-color-adjust:exact}@@page{size:A4 portrait;margin:10mm}}
+</style>

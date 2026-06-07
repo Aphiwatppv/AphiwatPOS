@@ -63,6 +63,7 @@
     <Folder Include="Seed" />
     <Folder Include="Seed\Authentication &amp; User Management" />
     <Folder Include="Seed\Customer Management" />
+    <Folder Include="Seed\Product Management" />
     <Folder Include="Script" />
     <Folder Include="dbo\Table\Product Management" />
     <Folder Include="dbo\Stored Procedures\Product Management" />
@@ -120,9 +121,14 @@
     <PostDeploy Include="Script.PostDeployment.sql" />
     <None Include="Seed\Authentication &amp; User Management\AccessSeed.sql" />
     <None Include="Seed\Customer Management\MemberLevelSeed.sql" />
+    <None Include="Seed\Product Management\CategorySeed.sql" />
+    <None Include="Seed\Product Management\UnitSeed.sql" />
     <None Include="Script\ProductManagement.sql" />
+    <None Include="Script\MinimumSellingPriceMigration.sql" />
     <None Include="Script\InventoryManagement.sql" />
     <None Include="Script\CustomerManagement.sql" />
+    <None Include="Script\CustomerMemberModule.sql" />
+    <None Include="Script\CustomerMultiMembershipDeployment.sql" />
     <None Include="Script\SalesManagement.sql" />
     <Build Include="dbo\Table\Product Management\ProductCategory.sql" />
     <Build Include="dbo\Table\Product Management\ProductBrand.sql" />
@@ -264,6 +270,7 @@
     <Build Include="dbo\Table\Customer Management\CustomerCredit.sql" />
     <Build Include="dbo\Table\Customer Management\CustomerCreditTransaction.sql" />
     <Build Include="dbo\Table\Customer Management\CustomerCreditRepayment.sql" />
+    <Build Include="dbo\Table\Customer Management\CustomerAuditLog.sql" />
     <None Include="dbo\Table\Customer Management\CustomerIndexes.sql" />
     <Build Include="dbo\Table\Customer Management\CustomerLevelHistory.sql" />
     <Build Include="dbo\Table\Customer Management\CustomerNote.sql" />
@@ -272,6 +279,7 @@
     <Build Include="dbo\Table\Customer Management\MemberLevel.sql" />
     <Build Include="dbo\Table\Customer Management\MemberLevelUpgradeRule.sql" />
     <Build Include="dbo\Stored Procedures\Customer Management\spCustomerCheckLevelEligibility.sql" />
+    <Build Include="dbo\Stored Procedures\Customer Management\spCustomerAuditLogGetPaged.sql" />
     <Build Include="dbo\Stored Procedures\Customer Management\spCustomerCreate.sql" />
     <Build Include="dbo\Stored Procedures\Customer Management\spCustomerCreditAdjust.sql" />
     <Build Include="dbo\Stored Procedures\Customer Management\spCustomerCreditCheckEligibility.sql" />

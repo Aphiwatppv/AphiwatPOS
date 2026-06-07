@@ -572,7 +572,7 @@ public sealed class IndexModel : PageModel
         var subtotal = items.Sum(item => item.Quantity * item.UnitPrice);
         var itemDiscount = items.Sum(item => item.ItemDiscountAmount);
         var tax = items.Sum(item => item.TaxAmount) + Input.TaxAmount;
-        var grandTotal = Math.Max(0, subtotal - itemDiscount - Input.OrderDiscountAmount + tax);
+        var grandTotal = Math.Max(0, subtotal - itemDiscount - Input.OrderDiscountAmount + Input.TaxAmount);
         return (subtotal, itemDiscount + Input.OrderDiscountAmount, tax, grandTotal, payments.Sum(payment => payment.PaymentAmount));
     }
 
@@ -603,7 +603,7 @@ public sealed class IndexModel : PageModel
         var lineTax = items.Sum(item => item.TaxAmount);
         var manualTax = Input.TaxAmount;
         var tax = lineTax + manualTax;
-        var net = Math.Max(0, subtotal - itemDiscount - Input.OrderDiscountAmount + tax);
+        var net = Math.Max(0, subtotal - itemDiscount - Input.OrderDiscountAmount + manualTax);
         var paid = payments.Sum(payment => payment.PaymentAmount);
         var change = result.ChangeAmount;
         var remaining = Math.Max(0, net - paid);
@@ -695,6 +695,7 @@ public sealed class IndexModel : PageModel
         public string Status { get; init; } = string.Empty;
         public decimal CurrentStock { get; init; }
         public string ProductImageUrl { get; init; } = string.Empty;
+        public bool IsGeneratedBarcode { get; init; }
 
         public static CheckoutProductViewModel From(SalesCheckoutProductModel product, string imageUrl) => new()
         {
@@ -714,7 +715,26 @@ public sealed class IndexModel : PageModel
             IsActive = product.IsActive,
             Status = product.Status,
             CurrentStock = product.CurrentStock,
-            ProductImageUrl = imageUrl
+            ProductImageUrl = imageUrl,
+            IsGeneratedBarcode = IsSystemGeneratedBarcode(product.Barcode)
         };
+
+        private static bool IsSystemGeneratedBarcode(string? barcode)
+        {
+            if (barcode is not { Length: 13 } || !barcode.StartsWith("20", StringComparison.Ordinal) || barcode.Any(c => c < '0' || c > '9'))
+            {
+                return false;
+            }
+
+            var sum = 0;
+            for (var index = 0; index < 12; index++)
+            {
+                var digit = barcode[index] - '0';
+                sum += index % 2 == 0 ? digit : digit * 3;
+            }
+
+            var checkDigit = (10 - sum % 10) % 10;
+            return checkDigit == barcode[12] - '0';
+        }
     }
 }

@@ -28,7 +28,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM @Payments p JOIN dbo.PaymentMethod pm ON pm.PaymentMethodId=p.PaymentMethodId WHERE pm.RequireReferenceNo=1 AND NULLIF(LTRIM(RTRIM(ISNULL(p.ReferenceNo,N''))),N'') IS NULL) THROW 52105, 'Payment reference number is required.', 1;
     UPDATE i
     SET UnitPrice = CASE WHEN i.UnitPrice > 0 THEN i.UnitPrice ELSE p.SellingPrice END,
-        TaxAmount = ROUND(((i.Quantity * CASE WHEN i.UnitPrice > 0 THEN i.UnitPrice ELSE p.SellingPrice END) - i.ItemDiscountAmount) * (p.TaxRate / 100.0), 4)
+        TaxAmount = CASE WHEN p.TaxRate <= 0 THEN 0 ELSE ROUND(((i.Quantity * CASE WHEN i.UnitPrice > 0 THEN i.UnitPrice ELSE p.SellingPrice END) - i.ItemDiscountAmount) * (p.TaxRate / (100.0 + p.TaxRate)), 4) END
     FROM @Items i
     JOIN dbo.Product p ON p.ProductId = i.ProductId;
 
@@ -40,7 +40,7 @@ BEGIN
     DECLARE @LineTax DECIMAL(18,4) = (SELECT SUM(TaxAmount) FROM @Items);
     DECLARE @TotalTax DECIMAL(18,4) = @LineTax + ISNULL(@TaxAmount,0);
     DECLARE @TotalDiscount DECIMAL(18,4) = @ItemDiscount + ISNULL(@OrderDiscountAmount,0);
-    DECLARE @Net DECIMAL(18,4) = @Subtotal - @TotalDiscount + @TotalTax;
+    DECLARE @Net DECIMAL(18,4) = @Subtotal - @TotalDiscount + ISNULL(@TaxAmount,0);
     IF @UseCustomerCredit = 1
     BEGIN
         IF @CustomerId IS NULL THROW 52130, 'Customer credit payment requires a selected customer.', 1;
@@ -97,7 +97,7 @@ BEGIN
         END
 
         INSERT INTO dbo.SalesItem (SalesHeaderId, ProductId, ProductCodeSnapshot, ProductNameSnapshot, BarcodeSnapshot, UnitId, UnitSymbolSnapshot, Quantity, UnitPrice, CostPriceSnapshot, ItemDiscountAmount, TaxAmount, LineSubtotal, LineTotal)
-        SELECT @SalesHeaderId, p.ProductId, p.ProductCode, p.ProductName, p.Barcode, p.UnitId, u.UnitSymbol, i.Quantity, i.UnitPrice, p.CostPrice, i.ItemDiscountAmount, i.TaxAmount, i.Quantity*i.UnitPrice, i.Quantity*i.UnitPrice-i.ItemDiscountAmount+i.TaxAmount
+        SELECT @SalesHeaderId, p.ProductId, p.ProductCode, p.ProductName, p.Barcode, p.UnitId, u.UnitSymbol, i.Quantity, i.UnitPrice, p.CostPrice, i.ItemDiscountAmount, i.TaxAmount, i.Quantity*i.UnitPrice, i.Quantity*i.UnitPrice-i.ItemDiscountAmount
         FROM @Items i JOIN dbo.Product p ON p.ProductId=i.ProductId JOIN dbo.ProductUnit u ON u.UnitId=p.UnitId;
 
         INSERT INTO dbo.SalesPayment (SalesHeaderId, PaymentMethodId, PaymentAmount, ReferenceNo, CreatedByUserId)

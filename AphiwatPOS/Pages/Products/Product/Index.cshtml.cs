@@ -79,6 +79,12 @@ public sealed class IndexModel : PageModel
 
     public async Task<IActionResult> OnPostCreateAsync(CancellationToken cancellationToken)
     {
+        if (!ValidatePricingInput())
+        {
+            TempData["ErrorMessage"] = "Selling price cannot be lower than minimum selling price.";
+            return RedirectToPage();
+        }
+
         if (!ModelState.IsValid)
         {
             TempData["ErrorMessage"] = "Please review the product form and try again.";
@@ -86,64 +92,112 @@ public sealed class IndexModel : PageModel
         }
 
         var productCode = await NextProductCodeAsync(cancellationToken);
-        var imageUrl = await SaveImageAsync(ProductInput.ProductImage, cancellationToken) ?? ProductInput.ExistingImageUrl ?? string.Empty;
-        await _productService.CreateAsync(new ProductCreateModel
+        var isBarcodeGenerated = string.IsNullOrWhiteSpace(ProductInput.Barcode);
+        var barcode = isBarcodeGenerated ? await NextBarcodeAsync(cancellationToken) : ProductInput.Barcode!.Trim();
+        if (!isBarcodeGenerated && await _productService.IsBarcodeExistsAsync(barcode, null, cancellationToken))
         {
-            ProductCode = productCode,
-            SKU = ProductInput.SKU,
-            Barcode = ProductInput.Barcode,
-            ProductName = ProductInput.ProductName,
-            CategoryId = ProductInput.CategoryId,
-            BrandId = ProductInput.BrandId,
-            UnitId = ProductInput.UnitId,
-            CostPrice = ProductInput.CostPrice,
-            SellingPrice = ProductInput.SellingPrice,
-            WholesalePrice = ProductInput.WholesalePrice,
-            WholesaleMinQty = ProductInput.WholesaleMinQty,
-            TaxRate = ProductInput.TaxRate,
-            DiscountAllowed = ProductInput.DiscountAllowed,
-            IsStockTracked = ProductInput.IsStockTracked,
-            MinimumStockLevel = ProductInput.MinimumStockLevel,
-            CurrentStock = 0,
-            ProductImageUrl = imageUrl,
-            Description = ProductInput.Description,
-            Status = ProductInput.Status,
-            CreatedByUserId = CurrentUserId()
-        }, cancellationToken);
+            TempData["ErrorMessage"] = "This barcode is already used by another product.";
+            return RedirectToPage();
+        }
 
-        TempData["StatusMessage"] = "Product saved successfully.";
+        var imageUrl = await SaveImageAsync(ProductInput.ProductImage, cancellationToken) ?? ProductInput.ExistingImageUrl ?? string.Empty;
+        try
+        {
+            await _productService.CreateAsync(new ProductCreateModel
+            {
+                ProductCode = productCode,
+                SKU = ProductInput.SKU,
+                Barcode = barcode,
+                ProductName = ProductInput.ProductName,
+                CategoryId = ProductInput.CategoryId,
+                BrandId = ProductInput.BrandId,
+                UnitId = ProductInput.UnitId,
+                CostPrice = ProductInput.CostPrice,
+                MinimumCost = ProductInput.MinimumCost,
+                VatPercentage = ProductInput.VatPercentage,
+                VatAmount = ProductInput.VatAmount,
+                MinimumSellingPrice = ProductInput.MinimumSellingPrice,
+                SellingPrice = ProductInput.SellingPrice,
+                WholesalePrice = ProductInput.WholesalePrice,
+                WholesaleMinQty = ProductInput.WholesaleMinQty,
+                TaxRate = ProductInput.VatPercentage,
+                DiscountAllowed = ProductInput.DiscountAllowed,
+                IsStockTracked = ProductInput.IsStockTracked,
+                MinimumStockLevel = ProductInput.MinimumStockLevel,
+                CurrentStock = 0,
+                ProductImageUrl = imageUrl,
+                Description = ProductInput.Description,
+                Status = ProductInput.Status,
+                CreatedByUserId = CurrentUserId()
+            }, cancellationToken);
+        }
+        catch (Exception ex) when (ex.Message.Contains("minimum selling price", StringComparison.OrdinalIgnoreCase))
+        {
+            TempData["ErrorMessage"] = "Selling price cannot be lower than minimum selling price.";
+            return RedirectToPage();
+        }
+
+        TempData["StatusMessage"] = isBarcodeGenerated
+            ? $"Product saved successfully. Generated barcode {barcode}."
+            : "Product saved successfully.";
         return RedirectToCurrentFilters();
     }
 
     public async Task<IActionResult> OnPostUpdateAsync(CancellationToken cancellationToken)
     {
+        if (!ValidatePricingInput())
+        {
+            TempData["ErrorMessage"] = "Selling price cannot be lower than minimum selling price.";
+            return RedirectToCurrentFilters();
+        }
+
+        var barcode = string.IsNullOrWhiteSpace(ProductInput.Barcode) ? null : ProductInput.Barcode.Trim();
+        if (!string.IsNullOrWhiteSpace(barcode) &&
+            await _productService.IsBarcodeExistsAsync(barcode, ProductInput.ProductId, cancellationToken))
+        {
+            TempData["ErrorMessage"] = "This barcode is already used by another product.";
+            return RedirectToCurrentFilters();
+        }
+
         var imageUrl = await SaveImageAsync(ProductInput.ProductImage, cancellationToken) ?? ProductInput.ExistingImageUrl ?? string.Empty;
         var existingProduct = await _productService.GetByIdAsync(ProductInput.ProductId, cancellationToken);
-        await _productService.UpdateAsync(new ProductUpdateModel
+        try
         {
-            ProductId = ProductInput.ProductId,
-            ProductCode = ProductInput.ProductCode,
-            SKU = ProductInput.SKU,
-            Barcode = ProductInput.Barcode,
-            ProductName = ProductInput.ProductName,
-            CategoryId = ProductInput.CategoryId,
-            BrandId = ProductInput.BrandId,
-            UnitId = ProductInput.UnitId,
-            CostPrice = ProductInput.CostPrice,
-            SellingPrice = ProductInput.SellingPrice,
-            WholesalePrice = ProductInput.WholesalePrice,
-            WholesaleMinQty = ProductInput.WholesaleMinQty,
-            TaxRate = ProductInput.TaxRate,
-            DiscountAllowed = ProductInput.DiscountAllowed,
-            IsStockTracked = ProductInput.IsStockTracked,
-            MinimumStockLevel = ProductInput.MinimumStockLevel,
-            CurrentStock = existingProduct?.CurrentStock ?? 0,
-            ProductImageUrl = imageUrl,
-            Description = ProductInput.Description,
-            Status = ProductInput.Status,
-            IsActive = ProductInput.IsActive,
-            UpdatedByUserId = CurrentUserId()
-        }, cancellationToken);
+            await _productService.UpdateAsync(new ProductUpdateModel
+            {
+                ProductId = ProductInput.ProductId,
+                ProductCode = ProductInput.ProductCode,
+                SKU = ProductInput.SKU,
+                Barcode = barcode,
+                ProductName = ProductInput.ProductName,
+                CategoryId = ProductInput.CategoryId,
+                BrandId = ProductInput.BrandId,
+                UnitId = ProductInput.UnitId,
+                CostPrice = ProductInput.CostPrice,
+                MinimumCost = ProductInput.MinimumCost,
+                VatPercentage = ProductInput.VatPercentage,
+                VatAmount = ProductInput.VatAmount,
+                MinimumSellingPrice = ProductInput.MinimumSellingPrice,
+                SellingPrice = ProductInput.SellingPrice,
+                WholesalePrice = ProductInput.WholesalePrice,
+                WholesaleMinQty = ProductInput.WholesaleMinQty,
+                TaxRate = ProductInput.VatPercentage,
+                DiscountAllowed = ProductInput.DiscountAllowed,
+                IsStockTracked = ProductInput.IsStockTracked,
+                MinimumStockLevel = ProductInput.MinimumStockLevel,
+                CurrentStock = existingProduct?.CurrentStock ?? 0,
+                ProductImageUrl = imageUrl,
+                Description = ProductInput.Description,
+                Status = ProductInput.Status,
+                IsActive = ProductInput.IsActive,
+                UpdatedByUserId = CurrentUserId()
+            }, cancellationToken);
+        }
+        catch (Exception ex) when (ex.Message.Contains("minimum selling price", StringComparison.OrdinalIgnoreCase))
+        {
+            TempData["ErrorMessage"] = "Selling price cannot be lower than minimum selling price.";
+            return RedirectToCurrentFilters();
+        }
 
         TempData["StatusMessage"] = "Product updated successfully.";
         return RedirectToCurrentFilters();
@@ -151,16 +205,24 @@ public sealed class IndexModel : PageModel
 
     public async Task<IActionResult> OnPostUpdatePriceAsync(CancellationToken cancellationToken)
     {
-        await _productService.UpdatePriceAsync(new ProductPriceUpdateModel
+        try
         {
-            ProductId = PriceInput.ProductId,
-            NewCostPrice = PriceInput.NewCostPrice,
-            NewSellingPrice = PriceInput.NewSellingPrice,
-            NewWholesalePrice = PriceInput.NewWholesalePrice,
-            NewWholesaleMinQty = PriceInput.NewWholesaleMinQty,
-            ChangeReason = PriceInput.ChangeReason,
-            ChangedByUserId = CurrentUserId()
-        }, cancellationToken);
+            await _productService.UpdatePriceAsync(new ProductPriceUpdateModel
+            {
+                ProductId = PriceInput.ProductId,
+                NewCostPrice = PriceInput.NewCostPrice,
+                NewSellingPrice = PriceInput.NewSellingPrice,
+                NewWholesalePrice = PriceInput.NewWholesalePrice,
+                NewWholesaleMinQty = PriceInput.NewWholesaleMinQty,
+                ChangeReason = PriceInput.ChangeReason,
+                ChangedByUserId = CurrentUserId()
+            }, cancellationToken);
+        }
+        catch (Exception ex) when (ex.Message.Contains("minimum selling price", StringComparison.OrdinalIgnoreCase))
+        {
+            TempData["ErrorMessage"] = "Selling price cannot be lower than minimum selling price.";
+            return RedirectToCurrentFilters();
+        }
 
         TempData["StatusMessage"] = "Product price updated and history saved.";
         return RedirectToCurrentFilters();
@@ -243,6 +305,33 @@ public sealed class IndexModel : PageModel
             code => _productService.IsCodeExistsAsync(code, null, cancellationToken));
     }
 
+    private async Task<string> NextBarcodeAsync(CancellationToken cancellationToken)
+    {
+        for (var sequence = 1L; sequence <= 9_999_999_999L; sequence++)
+        {
+            var body = $"20{sequence:0000000000}";
+            var barcode = $"{body}{CalculateEan13CheckDigit(body)}";
+            if (!await _productService.IsBarcodeExistsAsync(barcode, null, cancellationToken))
+            {
+                return barcode;
+            }
+        }
+
+        throw new InvalidOperationException("Unable to generate the next barcode.");
+    }
+
+    private static int CalculateEan13CheckDigit(string firstTwelveDigits)
+    {
+        var sum = 0;
+        for (var index = 0; index < firstTwelveDigits.Length; index++)
+        {
+            var digit = firstTwelveDigits[index] - '0';
+            sum += index % 2 == 0 ? digit : digit * 3;
+        }
+
+        return (10 - sum % 10) % 10;
+    }
+
     private async Task<string?> SaveImageAsync(IFormFile? file, CancellationToken cancellationToken)
     {
         if (file is null || file.Length == 0) return null;
@@ -256,6 +345,16 @@ public sealed class IndexModel : PageModel
         return $"/uploads/products/{fileName}";
     }
 
+    private bool ValidatePricingInput()
+    {
+        var vatAmount = ProductInput.MinimumCost * ProductInput.VatPercentage / 100;
+        var minimumSellingPrice = ProductInput.MinimumCost + vatAmount;
+        ProductInput.VatAmount = vatAmount;
+        ProductInput.MinimumSellingPrice = minimumSellingPrice;
+        ProductInput.TaxRate = ProductInput.VatPercentage;
+        return ProductInput.SellingPrice >= minimumSellingPrice;
+    }
+
     public sealed class ProductFormInput
     {
         public int ProductId { get; set; }
@@ -267,6 +366,10 @@ public sealed class IndexModel : PageModel
         public int? BrandId { get; set; }
         [Range(1, int.MaxValue)] public int UnitId { get; set; }
         [Range(0, double.MaxValue)] public decimal CostPrice { get; set; }
+        [Range(0, double.MaxValue)] public decimal MinimumCost { get; set; }
+        [Range(0, 100)] public decimal VatPercentage { get; set; }
+        [Range(0, double.MaxValue)] public decimal VatAmount { get; set; }
+        [Range(0, double.MaxValue)] public decimal MinimumSellingPrice { get; set; }
         [Range(0, double.MaxValue)] public decimal SellingPrice { get; set; }
         [Range(0, double.MaxValue)] public decimal WholesalePrice { get; set; }
         [Range(0, double.MaxValue)] public decimal WholesaleMinQty { get; set; } = 1;

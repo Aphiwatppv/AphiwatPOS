@@ -290,6 +290,11 @@ public sealed class IndexModel : PageModel
                 new SettingsLink("Customer Credit", "Credit limits and terms", "bi-credit-card", "/Customers/Credit/Index"),
                 new SettingsLink("Customers", "Profiles and contact data", "bi-person-lines-fill", "/Customer/CustomerList/Index")
             }),
+            new SettingsGroup("Rubber Plantation Setup", new[]
+            {
+                new SettingsLink("Rubber Purchases", "Supplier rubber weight, auction location, and market price", "bi-box-arrow-in-down", "/RubberPlantation/RubberPurchase/Index"),
+                new SettingsLink("จ่ายบิล", "Pay rubber purchase bills and print receipts", "bi-cash-coin", "/RubberPlantation/PayBill/Index")
+            }),
             new SettingsGroup("Access Setup", new[]
             {
                 new SettingsLink("Employees", "User accounts and profile setup", "bi-people", "/Employees/Employee/Index"),

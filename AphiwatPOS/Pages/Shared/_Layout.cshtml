@@ -22,6 +22,7 @@
     var inventoryExpanded = currentPage.StartsWith("/Inventory", StringComparison.OrdinalIgnoreCase);
     var customerExpanded = currentPage.StartsWith("/Customer", StringComparison.OrdinalIgnoreCase) ||
         currentPage.StartsWith("/Customers", StringComparison.OrdinalIgnoreCase);
+    var rubberPlantationExpanded = currentPage.StartsWith("/RubberPlantation", StringComparison.OrdinalIgnoreCase);
     var hasSalesAccess = User.IsInRole("Admin") ||
         User.Claims.Any(claim => claim.Type == "Permission" && claim.Value.StartsWith("SALES_", StringComparison.OrdinalIgnoreCase));
     var hasInventoryAccess = User.IsInRole("Admin") ||
@@ -117,6 +118,17 @@
                             <a class="@isActive("/Customers/CreditRepayment")" asp-page="/Customers/CreditRepayment/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Credit Repayment" data-i18n-title="nav.creditRepayment"><span class="nav-icon"><i class="bi bi-cash-coin"></i></span><span class="nav-label" data-i18n="nav.creditRepayment">Credit Repayment</span></a>
                             <a class="@isActive("/Customer/CustomerHistory")" asp-page="/Customer/CustomerHistory/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Customer History" data-i18n-title="nav.customerHistory"><span class="nav-icon"><i class="bi bi-clock-history"></i></span><span class="nav-label" data-i18n="nav.customerHistory">Customer History</span></a>
                             <a class="@isActive("/Customer/CustomerReport")" asp-page="/Customer/CustomerReport/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Customer Report" data-i18n-title="nav.customerReport"><span class="nav-icon"><i class="bi bi-bar-chart"></i></span><span class="nav-label" data-i18n="nav.customerReport">Customer Report</span></a>
+                        </div>
+                    </div>
+                    <div class="nav-section">
+                        <button class="nav-section-toggle @(rubberPlantationExpanded ? "active" : string.Empty)" type="button" data-bs-toggle="collapse" data-bs-target="#rubberPlantationNav" aria-expanded="@rubberPlantationExpanded.ToString().ToLowerInvariant()" aria-controls="rubberPlantationNav" title="Rubber Plantation">
+                            <span class="nav-icon"><i class="bi bi-tree"></i></span>
+                            <span class="nav-label">Rubber Plantation</span>
+                            <span class="nav-caret"><i class="bi bi-chevron-down"></i></span>
+                        </button>
+                        <div class="nav-section-items collapse @(rubberPlantationExpanded ? "show" : string.Empty)" id="rubberPlantationNav">
+                            <a class="@isActive("/RubberPlantation/RubberPurchase")" asp-page="/RubberPlantation/RubberPurchase/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Rubber Purchases"><span class="nav-icon"><i class="bi bi-box-arrow-in-down"></i></span><span class="nav-label">Rubber Purchases</span></a>
+                            <a class="@isActive("/RubberPlantation/PayBill")" asp-page="/RubberPlantation/PayBill/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="จ่ายบิล"><span class="nav-icon"><i class="bi bi-cash-coin"></i></span><span class="nav-label">จ่ายบิล</span></a>
                         </div>
                     </div>
                     <div class="nav-section">

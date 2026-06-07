@@ -83,6 +83,8 @@
                 <div><span>Discount</span><strong>@Money(manager.ProfitSummary.DiscountAmount)</strong></div>
                 <div><span>Net sales</span><strong>@Money(manager.ProfitSummary.NetSales)</strong></div>
                 <div><span>COGS</span><strong>@Money(manager.ProfitSummary.CostOfGoodsSold)</strong></div>
+                <div><span>VAT In</span><strong>@Money(manager.ProfitSummary.VatInAmount)</strong></div>
+                <div><span>VAT Out</span><strong>@Money(manager.ProfitSummary.VatOutAmount)</strong></div>
                 <div class="total"><span>Estimated profit</span><strong>@Money(manager.ProfitSummary.EstimatedProfit)</strong></div>
                 <div><span>Margin</span><strong>@manager.ProfitSummary.ProfitMarginPercent.ToString("N1")%</strong></div>
             </div>

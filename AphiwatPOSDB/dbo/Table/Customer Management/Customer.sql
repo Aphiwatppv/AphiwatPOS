@@ -5,6 +5,7 @@
     CustomerName NVARCHAR(255) NOT NULL,
     PhoneNumber NVARCHAR(50) NOT NULL,
     Email NVARCHAR(255) NULL,
+    MemberType NVARCHAR(30) NOT NULL CONSTRAINT DF_Customer_MemberType DEFAULT(N'Retail'),
     MemberLevelId INT NULL,
     DateOfBirth DATE NULL,
     Gender NVARCHAR(20) NULL,
@@ -20,6 +21,7 @@
     CONSTRAINT UQ_Customer_CustomerCode UNIQUE(CustomerCode),
     CONSTRAINT UQ_Customer_PhoneNumber UNIQUE(PhoneNumber),
     CONSTRAINT FK_Customer_MemberLevel FOREIGN KEY(MemberLevelId) REFERENCES dbo.MemberLevel(MemberLevelId),
+    CONSTRAINT CK_Customer_MemberType CHECK (MemberType IN (N'Retail',N'Wholesale')),
     CONSTRAINT CK_Customer_TotalValues CHECK (TotalSpending >= 0 AND TotalPurchaseCount >= 0),
     CONSTRAINT CK_Customer_Gender CHECK (Gender IS NULL OR Gender IN (N'Male',N'Female',N'Other',N'Unspecified'))
 );

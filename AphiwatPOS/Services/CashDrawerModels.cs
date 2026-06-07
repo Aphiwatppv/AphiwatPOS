@@ -3,6 +3,12 @@ namespace AphiwatPOS.Services;
 public sealed class ReceiptPrinterOptions
 {
     public string PrinterName { get; set; } = "XP-80C";
+    public string TextEncodingName { get; set; } = "windows-874";
+    public int CharacterCodeTable { get; set; } = 21;
+    public bool RenderTextAsImage { get; set; } = true;
+    public string ReceiptFontName { get; set; } = "Tahoma";
+    public int ReceiptFontSize { get; set; } = 20;
+    public int ReceiptImageWidth { get; set; } = 384;
     public bool CashDrawerEnabled { get; set; } = true;
     public string DrawerKickCommand { get; set; } = "27,112,0,25,250";
     public int DrawerPin { get; set; } = 2;
