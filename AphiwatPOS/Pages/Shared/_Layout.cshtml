@@ -1,4 +1,4 @@
-@inject AuthenticationEngine.Services.IUserManagementService UserManagementService
+﻿@inject AuthenticationEngine.Services.IUserManagementService UserManagementService
 @{
     var currentPage = ViewContext.RouteData.Values["page"]?.ToString() ?? string.Empty;
     var displayName = User.FindFirst("DisplayName")?.Value ?? User.Identity?.Name ?? "POS User";
@@ -121,14 +121,14 @@
                         </div>
                     </div>
                     <div class="nav-section">
-                        <button class="nav-section-toggle @(rubberPlantationExpanded ? "active" : string.Empty)" type="button" data-bs-toggle="collapse" data-bs-target="#rubberPlantationNav" aria-expanded="@rubberPlantationExpanded.ToString().ToLowerInvariant()" aria-controls="rubberPlantationNav" title="Rubber Plantation">
+                        <button class="nav-section-toggle @(rubberPlantationExpanded ? "active" : string.Empty)" type="button" data-bs-toggle="collapse" data-bs-target="#rubberPlantationNav" aria-expanded="@rubberPlantationExpanded.ToString().ToLowerInvariant()" aria-controls="rubberPlantationNav" title="Rubber Plantation" data-i18n-title="nav.rubberPlantation">
                             <span class="nav-icon"><i class="bi bi-tree"></i></span>
-                            <span class="nav-label">Rubber Plantation</span>
+                            <span class="nav-label" data-i18n="nav.rubberPlantation">Rubber Plantation</span>
                             <span class="nav-caret"><i class="bi bi-chevron-down"></i></span>
                         </button>
                         <div class="nav-section-items collapse @(rubberPlantationExpanded ? "show" : string.Empty)" id="rubberPlantationNav">
-                            <a class="@isActive("/RubberPlantation/RubberPurchase")" asp-page="/RubberPlantation/RubberPurchase/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Rubber Purchases"><span class="nav-icon"><i class="bi bi-box-arrow-in-down"></i></span><span class="nav-label">Rubber Purchases</span></a>
-                            <a class="@isActive("/RubberPlantation/PayBill")" asp-page="/RubberPlantation/PayBill/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="จ่ายบิล"><span class="nav-icon"><i class="bi bi-cash-coin"></i></span><span class="nav-label">จ่ายบิล</span></a>
+                            <a class="@isActive("/RubberPlantation/RubberPurchase")" asp-page="/RubberPlantation/RubberPurchase/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Rubber Purchases" data-i18n-title="nav.rubberPurchases"><span class="nav-icon"><i class="bi bi-box-arrow-in-down"></i></span><span class="nav-label" data-i18n="nav.rubberPurchases">Rubber Purchases</span></a>
+                            <a class="@isActive("/RubberPlantation/PayBill")" asp-page="/RubberPlantation/PayBill/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Pay Rubber Bills" data-i18n-title="nav.rubberPayBill"><span class="nav-icon"><i class="bi bi-cash-coin"></i></span><span class="nav-label" data-i18n="nav.rubberPayBill">Pay Rubber Bills</span></a>
                         </div>
                     </div>
                     <div class="nav-section">
@@ -335,3 +335,4 @@
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
+

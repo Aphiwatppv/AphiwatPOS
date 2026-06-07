@@ -1,12 +1,47 @@
-@page
+﻿@page
 @model AphiwatPOS.Pages.RubberPlantation.PayBill.IndexModel
 @using AphiwatPOS.Pages.Customer
+@using System.Text.Json
 @{
-    ViewData["Title"] = "จ่ายบิลยางพารา";
-    ViewData["Subtitle"] = "ชำระเงินค่ารับซื้อยางและพิมพ์ใบเสร็จ.";
+    ViewData["Title"] = "à¸ˆà¹ˆà¸²à¸¢à¸šà¸´à¸¥à¸¢à¸²à¸‡à¸žà¸²à¸£à¸²";
+    ViewData["Subtitle"] = "à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™à¸„à¹ˆà¸²à¸£à¸±à¸šà¸‹à¸·à¹‰à¸­à¸¢à¸²à¸‡à¹à¸¥à¸°à¸žà¸´à¸¡à¸žà¹Œà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆ.";
     var selected = Model.SelectedPurchase;
     var receipt = Model.Receipt;
     var fullPaymentAmount = selected?.TotalAmount ?? 0;
+    var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+    object? selectedDisplayPayload = selected is null ? null : new
+    {
+        rubberPurchaseHeaderId = selected.RubberPurchaseHeaderId,
+        sellerName = selected.CustomerName,
+        sellerCode = selected.CustomerCode,
+        phoneNumber = selected.PhoneNumber,
+        purchaseDate = CustomerPageHelpers.Date(selected.TransactionDate),
+        locationName = selected.RubberAuctionLocationName ?? selected.LocationName,
+        weightKg = selected.WeightKg,
+        pricePerKg = selected.PricePerKgSnapshot ?? 0,
+        deductionPercent = selected.PercentageSnapshot ?? 0,
+        totalAmount = selected.TotalAmount ?? 0,
+        remainingAmount = AphiwatPOS.Pages.RubberPlantation.PayBill.IndexModel.GetRemainingAmount(selected),
+        outstandingCreditAmount = Model.SelectedCreditOutstandingAmount
+    };
+    object? receiptDisplayPayload = receipt is null ? null : new
+    {
+        rubberPurchaseHeaderId = receipt.RubberPurchaseHeaderId,
+        receiptNo = receipt.ReceiptNo,
+        sellerName = receipt.CustomerName,
+        sellerCode = receipt.CustomerCode,
+        phoneNumber = receipt.PhoneNumber,
+        purchaseDate = CustomerPageHelpers.Date(receipt.TransactionDate),
+        locationName = receipt.RubberAuctionLocationName ?? receipt.LocationName,
+        weightKg = receipt.WeightKg,
+        pricePerKg = receipt.PricePerKgSnapshot ?? 0,
+        deductionPercent = receipt.PercentageSnapshot ?? 0,
+        totalAmount = receipt.TotalAmount ?? 0,
+        remainingAmount = AphiwatPOS.Pages.RubberPlantation.PayBill.IndexModel.GetRemainingAmount(receipt),
+        paidAmount = receipt.PaidAmount,
+        creditDeductedAmount = receipt.CreditDeductedAmount,
+        paymentMethod = PaymentText(receipt.PaymentMethod)
+    };
     string money(decimal value) => value.ToString("N2");
 }
 
@@ -14,42 +49,46 @@
 
 <div class="page-header d-flex align-items-start justify-content-between gap-3 no-print">
     <div>
-        <h1>จ่ายบิลยางพารา</h1>
-        <p>เลือกบิลรับซื้อยาง บันทึกการชำระเงิน และพิมพ์ใบเสร็จรับเงิน.</p>
+        <h1>à¸ˆà¹ˆà¸²à¸¢à¸šà¸´à¸¥à¸¢à¸²à¸‡à¸žà¸²à¸£à¸²</h1>
+        <p>à¹€à¸¥à¸·à¸­à¸à¸šà¸´à¸¥à¸£à¸±à¸šà¸‹à¸·à¹‰à¸­à¸¢à¸²à¸‡ à¸šà¸±à¸™à¸—à¸¶à¸à¸à¸²à¸£à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™ à¹à¸¥à¸°à¸žà¸´à¸¡à¸žà¹Œà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆà¸£à¸±à¸šà¹€à¸‡à¸´à¸™.</p>
     </div>
-    <a class="btn btn-outline-secondary" asp-page="/RubberPlantation/RubberPurchase/Index"><i class="bi bi-box-arrow-in-down me-1"></i>รายการรับซื้อ</a>
+    <a class="btn btn-outline-secondary" asp-page="/RubberPlantation/RubberPurchase/Index"><i class="bi bi-box-arrow-in-down me-1"></i>à¸£à¸²à¸¢à¸à¸²à¸£à¸£à¸±à¸šà¸‹à¸·à¹‰à¸­</a>
+</div>
+
+<div class="no-print mb-3">
+    <button class="btn btn-outline-primary" type="button" data-open-rubber-display><i class="bi bi-display me-1"></i><span data-i18n="rubberPay.customerDisplay">Customer Display</span></button>
 </div>
 
 <div class="summary-grid no-print">
-    <div class="summary-card"><span class="metric-icon"><i class="bi bi-receipt"></i></span><div><div class="metric-label">บิลรอจ่าย</div><div class="metric-value">@Model.DuePurchases.Count</div></div></div>
-    <div class="summary-card"><span class="metric-icon"><i class="bi bi-cash-stack"></i></span><div><div class="metric-label">ยอดค้างรวม</div><div class="metric-value">@money(Model.TotalDueAmount)</div></div></div>
-    <div class="summary-card"><span class="metric-icon"><i class="bi bi-printer"></i></span><div><div class="metric-label">ใบเสร็จล่าสุด</div><div class="metric-value">@(receipt?.ReceiptNo ?? "-")</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-receipt"></i></span><div><div class="metric-label">à¸šà¸´à¸¥à¸£à¸­à¸ˆà¹ˆà¸²à¸¢</div><div class="metric-value">@Model.DuePurchases.Count</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-cash-stack"></i></span><div><div class="metric-label">à¸¢à¸­à¸”à¸„à¹‰à¸²à¸‡à¸£à¸§à¸¡</div><div class="metric-value">@money(Model.TotalDueAmount)</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-printer"></i></span><div><div class="metric-label">à¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆà¸¥à¹ˆà¸²à¸ªà¸¸à¸”</div><div class="metric-value">@(receipt?.ReceiptNo ?? "-")</div></div></div>
 </div>
 
 <div class="rubber-pay-layout no-print">
     <section class="data-card">
         <div class="card-heading">
             <div>
-                <h2>บิลที่รอชำระ</h2>
-                <p>ค้นหาจากรหัสสมาชิก ชื่อ หรือเบอร์โทร</p>
+                <h2>à¸šà¸´à¸¥à¸—à¸µà¹ˆà¸£à¸­à¸Šà¸³à¸£à¸°</h2>
+                <p>à¸„à¹‰à¸™à¸«à¸²à¸ˆà¸²à¸à¸£à¸«à¸±à¸ªà¸ªà¸¡à¸²à¸Šà¸´à¸ à¸Šà¸·à¹ˆà¸­ à¸«à¸£à¸·à¸­à¹€à¸šà¸­à¸£à¹Œà¹‚à¸—à¸£</p>
             </div>
         </div>
         <form method="get" class="row g-2 mb-3">
-            <div class="col"><input asp-for="SearchText" class="form-control" placeholder="ค้นหาผู้ขาย" /></div>
+            <div class="col"><input asp-for="SearchText" class="form-control" placeholder="à¸„à¹‰à¸™à¸«à¸²à¸œà¸¹à¹‰à¸‚à¸²à¸¢" /></div>
             <div class="col-auto"><button class="btn btn-primary" type="submit"><i class="bi bi-search"></i></button></div>
             <div class="col-auto"><a class="btn btn-outline-secondary" asp-page="./Index"><i class="bi bi-arrow-counterclockwise"></i></a></div>
         </form>
         <div class="rubber-bill-list">
             @if (!Model.DuePurchases.Any())
             {
-                <div class="empty-state"><i class="bi bi-check2-circle"></i><div class="fw-semibold">ไม่มีบิลค้างชำระ</div></div>
+                <div class="empty-state"><i class="bi bi-check2-circle"></i><div class="fw-semibold">à¹„à¸¡à¹ˆà¸¡à¸µà¸šà¸´à¸¥à¸„à¹‰à¸²à¸‡à¸Šà¸³à¸£à¸°</div></div>
             }
             @foreach (var item in Model.DuePurchases)
             {
                 <a class="rubber-bill-card @(selected?.RubberPurchaseHeaderId == item.RubberPurchaseHeaderId ? "active" : "")" asp-page="./Index" asp-route-SearchText="@Model.SearchText" asp-route-HistorySearchText="@Model.HistorySearchText" asp-route-HistoryPaymentMethod="@Model.HistoryPaymentMethod" asp-route-HistoryDateFrom="@Model.HistoryDateFrom?.ToString("yyyy-MM-dd")" asp-route-HistoryDateTo="@Model.HistoryDateTo?.ToString("yyyy-MM-dd")" asp-route-SelectedPurchaseId="@item.RubberPurchaseHeaderId">
                     <span>
                         <strong>@item.CustomerName</strong>
-                        <small>@item.CustomerCode · @CustomerPageHelpers.Date(item.TransactionDate) · @(item.RubberAuctionLocationName ?? item.LocationName)</small>
+                        <small>@item.CustomerCode Â· @CustomerPageHelpers.Date(item.TransactionDate) Â· @(item.RubberAuctionLocationName ?? item.LocationName)</small>
                     </span>
                     <span class="text-end">
                         <strong>@money(AphiwatPOS.Pages.RubberPlantation.PayBill.IndexModel.GetRemainingAmount(item))</strong>
@@ -63,36 +102,36 @@
     <section class="data-card">
         <div class="card-heading">
             <div>
-                <h2>ชำระเงิน</h2>
-                <p>ตรวจสอบยอดก่อนบันทึกและพิมพ์ใบเสร็จ</p>
+                <h2>à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™</h2>
+                <p>à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸¢à¸­à¸”à¸à¹ˆà¸­à¸™à¸šà¸±à¸™à¸—à¸¶à¸à¹à¸¥à¸°à¸žà¸´à¸¡à¸žà¹Œà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆ</p>
             </div>
         </div>
         @if (selected is null)
         {
-            <div class="empty-state"><i class="bi bi-receipt"></i><div class="fw-semibold">เลือกบิลเพื่อชำระเงิน</div></div>
+            <div class="empty-state"><i class="bi bi-receipt"></i><div class="fw-semibold">à¹€à¸¥à¸·à¸­à¸à¸šà¸´à¸¥à¹€à¸žà¸·à¹ˆà¸­à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™</div></div>
         }
         else
         {
             <div class="rubber-pay-detail">
                 <div class="rubber-selected-head">
                     <div>
-                        <span>ผู้ขายยาง</span>
+                        <span>à¸œà¸¹à¹‰à¸‚à¸²à¸¢à¸¢à¸²à¸‡</span>
                         <strong>@selected.CustomerName</strong>
-                        <small>@selected.CustomerCode · @(selected.PhoneNumber ?? "-")</small>
+                        <small>@selected.CustomerCode Â· @(selected.PhoneNumber ?? "-")</small>
                     </div>
                     <div class="text-end">
-                        <span>ยอดที่ต้องจ่ายเต็มจำนวน</span>
+                        <span>à¸¢à¸­à¸”à¸—à¸µà¹ˆà¸•à¹‰à¸­à¸‡à¸ˆà¹ˆà¸²à¸¢à¹€à¸•à¹‡à¸¡à¸ˆà¸³à¸™à¸§à¸™</span>
                         <strong>@money(fullPaymentAmount)</strong>
-                        <small>บาท</small>
+                        <small>à¸šà¸²à¸—</small>
                     </div>
                 </div>
                 <dl>
-                    <dt>วันที่รับซื้อ</dt><dd>@CustomerPageHelpers.Date(selected.TransactionDate)</dd>
-                    <dt>สถานที่รับซื้อ</dt><dd>@(selected.RubberAuctionLocationName ?? selected.LocationName)</dd>
-                    <dt>น้ำหนัก</dt><dd>@selected.WeightKg.ToString("N2") กิโลกรัม</dd>
-                    <dt>ราคา</dt><dd>@((selected.PricePerKgSnapshot ?? 0).ToString("N2")) บาท/กก.</dd>
-                    <dt>หัก</dt><dd>@((selected.PercentageSnapshot ?? 0).ToString("N2"))%</dd>
-                    <dt>ยอดสุทธิ</dt><dd>@money(selected.TotalAmount ?? 0) บาท</dd>
+                    <dt>à¸§à¸±à¸™à¸—à¸µà¹ˆà¸£à¸±à¸šà¸‹à¸·à¹‰à¸­</dt><dd>@CustomerPageHelpers.Date(selected.TransactionDate)</dd>
+                    <dt>à¸ªà¸–à¸²à¸™à¸—à¸µà¹ˆà¸£à¸±à¸šà¸‹à¸·à¹‰à¸­</dt><dd>@(selected.RubberAuctionLocationName ?? selected.LocationName)</dd>
+                    <dt>à¸™à¹‰à¸³à¸«à¸™à¸±à¸</dt><dd>@selected.WeightKg.ToString("N2") à¸à¸´à¹‚à¸¥à¸à¸£à¸±à¸¡</dd>
+                    <dt>à¸£à¸²à¸„à¸²</dt><dd>@((selected.PricePerKgSnapshot ?? 0).ToString("N2")) à¸šà¸²à¸—/à¸à¸.</dd>
+                    <dt>à¸«à¸±à¸</dt><dd>@((selected.PercentageSnapshot ?? 0).ToString("N2"))%</dd>
+                    <dt>à¸¢à¸­à¸”à¸ªà¸¸à¸—à¸˜à¸´</dt><dd>@money(selected.TotalAmount ?? 0) à¸šà¸²à¸—</dd>
                 </dl>
             </div>
             <form method="post" asp-page-handler="Pay" class="rubber-payment-form">
@@ -100,72 +139,72 @@
                 <input asp-for="Input.PaidAmount" type="hidden" value="@fullPaymentAmount" />
                 <div class="full-pay-banner">
                     <div>
-                        <span>ระบบนี้จ่ายเต็มจำนวนเท่านั้น</span>
-                        <strong>@money(fullPaymentAmount) บาท</strong>
+                        <span>à¸£à¸°à¸šà¸šà¸™à¸µà¹‰à¸ˆà¹ˆà¸²à¸¢à¹€à¸•à¹‡à¸¡à¸ˆà¸³à¸™à¸§à¸™à¹€à¸—à¹ˆà¸²à¸™à¸±à¹‰à¸™</span>
+                        <strong>@money(fullPaymentAmount) à¸šà¸²à¸—</strong>
                     </div>
                     <i class="bi bi-shield-check"></i>
                 </div>
                 <div>
-                    <label class="form-label">วิธีชำระเงิน</label>
-                    <div class="payment-method-grid" role="radiogroup" aria-label="วิธีชำระเงิน">
+                    <label class="form-label">à¸§à¸´à¸˜à¸µà¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™</label>
+                    <div class="payment-method-grid" role="radiogroup" aria-label="à¸§à¸´à¸˜à¸µà¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™">
                         <label class="payment-method-option">
                             <input asp-for="Input.PaymentMethod" type="radio" value="Cash" checked />
-                            <span><i class="bi bi-cash-stack"></i><strong>เงินสด</strong><small>รับเงินสดและออกใบเสร็จทันที</small></span>
+                            <span><i class="bi bi-cash-stack"></i><strong>à¹€à¸‡à¸´à¸™à¸ªà¸”</strong><small>à¸£à¸±à¸šà¹€à¸‡à¸´à¸™à¸ªà¸”à¹à¸¥à¸°à¸­à¸­à¸à¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆà¸—à¸±à¸™à¸—à¸µ</small></span>
                         </label>
                         <label class="payment-method-option">
                             <input asp-for="Input.PaymentMethod" type="radio" value="Transfer" />
-                            <span><i class="bi bi-bank"></i><strong>โอนบัญชี</strong><small>บันทึกเลขอ้างอิงในหมายเหตุ</small></span>
+                            <span><i class="bi bi-bank"></i><strong>à¹‚à¸­à¸™à¸šà¸±à¸à¸Šà¸µ</strong><small>à¸šà¸±à¸™à¸—à¸¶à¸à¹€à¸¥à¸‚à¸­à¹‰à¸²à¸‡à¸­à¸´à¸‡à¹ƒà¸™à¸«à¸¡à¸²à¸¢à¹€à¸«à¸•à¸¸</small></span>
                         </label>
                     </div>
                 </div>
                 <div>
-                    <label class="form-label">หมายเหตุ</label>
-                    <input asp-for="Input.PaymentRemark" class="form-control" placeholder="เลขอ้างอิงหรือหมายเหตุเพิ่มเติม" />
+                    <label class="form-label">à¸«à¸¡à¸²à¸¢à¹€à¸«à¸•à¸¸</label>
+                    <input asp-for="Input.PaymentRemark" class="form-control" placeholder="à¹€à¸¥à¸‚à¸­à¹‰à¸²à¸‡à¸­à¸´à¸‡à¸«à¸£à¸·à¸­à¸«à¸¡à¸²à¸¢à¹€à¸«à¸•à¸¸à¹€à¸žà¸´à¹ˆà¸¡à¹€à¸•à¸´à¸¡" />
                 </div>
                 <div class="payment-review">
-                    <div><span>ผู้ขาย</span><strong>@selected.CustomerName</strong></div>
-                    <div><span>น้ำหนัก</span><strong>@selected.WeightKg.ToString("N2") กก.</strong></div>
-                    <div><span>ยอดจ่าย</span><strong>@money(fullPaymentAmount) บาท</strong></div>
+                    <div><span>à¸œà¸¹à¹‰à¸‚à¸²à¸¢</span><strong>@selected.CustomerName</strong></div>
+                    <div><span>à¸™à¹‰à¸³à¸«à¸™à¸±à¸</span><strong>@selected.WeightKg.ToString("N2") à¸à¸.</strong></div>
+                    <div><span>à¸¢à¸­à¸”à¸ˆà¹ˆà¸²à¸¢</span><strong>@money(fullPaymentAmount) à¸šà¸²à¸—</strong></div>
                 </div>
                 @if (Model.SelectedCustomerHasOutstandingCredit)
                 {
                     <div class="credit-due-alert">
                         <i class="bi bi-exclamation-triangle"></i>
                         <div>
-                            <span>ลูกค้ามีเครดิตค้างชำระ</span>
-                            <strong>@money(Model.SelectedCreditOutstandingAmount) บาท</strong>
+                            <span>à¸¥à¸¹à¸à¸„à¹‰à¸²à¸¡à¸µà¹€à¸„à¸£à¸”à¸´à¸•à¸„à¹‰à¸²à¸‡à¸Šà¸³à¸£à¸°</span>
+                            <strong>@money(Model.SelectedCreditOutstandingAmount) à¸šà¸²à¸—</strong>
                         </div>
                     </div>
                 }
                 <div class="d-flex justify-content-end gap-2">
                     @if (receipt is not null)
                     {
-                        <button class="btn btn-outline-secondary" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i>พิมพ์ใบเสร็จ</button>
+                        <button class="btn btn-outline-secondary" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i>à¸žà¸´à¸¡à¸žà¹Œà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆ</button>
                     }
-                    <button class="btn btn-primary btn-lg" type="button" data-bs-toggle="modal" data-bs-target="#confirmRubberPayment"><i class="bi bi-check2-circle me-1"></i>จ่ายบิลเต็มจำนวน</button>
+                    <button class="btn btn-primary btn-lg" type="button" data-bs-toggle="modal" data-bs-target="#confirmRubberPayment"><i class="bi bi-check2-circle me-1"></i>à¸ˆà¹ˆà¸²à¸¢à¸šà¸´à¸¥à¹€à¸•à¹‡à¸¡à¸ˆà¸³à¸™à¸§à¸™</button>
                 </div>
 
                 <div class="modal fade app-modal" id="confirmRubberPayment" tabindex="-1" aria-labelledby="confirmRubberPaymentTitle" aria-hidden="true">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
                             <div class="modal-header">
-                                <h2 class="modal-title h5" id="confirmRubberPaymentTitle">ยืนยันการจ่ายบิล</h2>
+                                <h2 class="modal-title h5" id="confirmRubberPaymentTitle">à¸¢à¸·à¸™à¸¢à¸±à¸™à¸à¸²à¸£à¸ˆà¹ˆà¸²à¸¢à¸šà¸´à¸¥</h2>
                                 <button class="btn-close" data-bs-dismiss="modal" type="button" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
-                                <div class="confirm-payment-amount">@money(fullPaymentAmount) บาท</div>
+                                <div class="confirm-payment-amount">@money(fullPaymentAmount) à¸šà¸²à¸—</div>
                                 <dl class="confirm-payment-list">
-                                    <dt>ผู้ขาย</dt><dd>@selected.CustomerName</dd>
-                                    <dt>วันที่รับซื้อ</dt><dd>@CustomerPageHelpers.Date(selected.TransactionDate)</dd>
-                                    <dt>น้ำหนัก</dt><dd>@selected.WeightKg.ToString("N2") กก.</dd>
+                                    <dt>à¸œà¸¹à¹‰à¸‚à¸²à¸¢</dt><dd>@selected.CustomerName</dd>
+                                    <dt>à¸§à¸±à¸™à¸—à¸µà¹ˆà¸£à¸±à¸šà¸‹à¸·à¹‰à¸­</dt><dd>@CustomerPageHelpers.Date(selected.TransactionDate)</dd>
+                                    <dt>à¸™à¹‰à¸³à¸«à¸™à¸±à¸</dt><dd>@selected.WeightKg.ToString("N2") à¸à¸.</dd>
                                 </dl>
                                 @if (Model.SelectedCustomerHasOutstandingCredit)
                                 {
                                     <div class="credit-due-modal">
                                         <div class="credit-due-modal-icon"><i class="bi bi-credit-card"></i></div>
                                         <div>
-                                            <h3>ลูกค้ามีเครดิตค้างชำระ ต้องการชำระด้วยไหม?</h3>
-                                            <p>ถ้าเลือกชำระด้วย ระบบจะบันทึกชำระบิลยางเต็มจำนวน และบันทึกชำระเครดิตค้างอีก @money(Model.SelectedCreditOutstandingAmount) บาท</p>
+                                            <h3>à¸¥à¸¹à¸à¸„à¹‰à¸²à¸¡à¸µà¹€à¸„à¸£à¸”à¸´à¸•à¸„à¹‰à¸²à¸‡à¸Šà¸³à¸£à¸° à¸•à¹‰à¸­à¸‡à¸à¸²à¸£à¸Šà¸³à¸£à¸°à¸”à¹‰à¸§à¸¢à¹„à¸«à¸¡?</h3>
+                                            <p>à¸–à¹‰à¸²à¹€à¸¥à¸·à¸­à¸à¸Šà¸³à¸£à¸°à¸”à¹‰à¸§à¸¢ à¸£à¸°à¸šà¸šà¸ˆà¸°à¸šà¸±à¸™à¸—à¸¶à¸à¸Šà¸³à¸£à¸°à¸šà¸´à¸¥à¸¢à¸²à¸‡à¹€à¸•à¹‡à¸¡à¸ˆà¸³à¸™à¸§à¸™ à¹à¸¥à¸°à¸šà¸±à¸™à¸—à¸¶à¸à¸Šà¸³à¸£à¸°à¹€à¸„à¸£à¸”à¸´à¸•à¸„à¹‰à¸²à¸‡à¸­à¸µà¸ @money(Model.SelectedCreditOutstandingAmount) à¸šà¸²à¸—</p>
                                         </div>
                                     </div>
                                 }
@@ -173,13 +212,13 @@
                                 {
                                     <label class="credit-due-choice">
                                         <input class="form-check-input" name="Input.PayCustomerCredit" value="true" type="checkbox" />
-                                        <span>ชำระเครดิตค้างด้วย @money(Model.SelectedCreditOutstandingAmount) บาท</span>
+                                        <span>à¸Šà¸³à¸£à¸°à¹€à¸„à¸£à¸”à¸´à¸•à¸„à¹‰à¸²à¸‡à¸”à¹‰à¸§à¸¢ @money(Model.SelectedCreditOutstandingAmount) à¸šà¸²à¸—</span>
                                     </label>
                                 }
                             </div>
                             <div class="modal-footer">
-                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">ตรวจสอบอีกครั้ง</button>
-                                <button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle me-1"></i>ยืนยันการจ่ายบิล</button>
+                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸­à¸µà¸à¸„à¸£à¸±à¹‰à¸‡</button>
+                                <button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle me-1"></i>à¸¢à¸·à¸™à¸¢à¸±à¸™à¸à¸²à¸£à¸ˆà¹ˆà¸²à¸¢à¸šà¸´à¸¥</button>
                             </div>
                         </div>
                     </div>
@@ -192,31 +231,31 @@
 <section class="data-card mt-3 no-print">
     <div class="card-heading">
         <div>
-            <h2>ประวัติการจ่ายเงิน</h2>
-            <p>ดูรายการที่เคยชำระแล้ว และพิมพ์ใบเสร็จย้อนหลัง</p>
+            <h2>à¸›à¸£à¸°à¸§à¸±à¸•à¸´à¸à¸²à¸£à¸ˆà¹ˆà¸²à¸¢à¹€à¸‡à¸´à¸™</h2>
+            <p>à¸”à¸¹à¸£à¸²à¸¢à¸à¸²à¸£à¸—à¸µà¹ˆà¹€à¸„à¸¢à¸Šà¸³à¸£à¸°à¹à¸¥à¹‰à¸§ à¹à¸¥à¸°à¸žà¸´à¸¡à¸žà¹Œà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆà¸¢à¹‰à¸­à¸™à¸«à¸¥à¸±à¸‡</p>
         </div>
     </div>
     <form method="get" class="history-filter-card">
         <input type="hidden" asp-for="SearchText" />
         <div class="row g-2 align-items-end">
             <div class="col-lg-4">
-                <label class="form-label">ค้นหาประวัติ</label>
-                <input asp-for="HistorySearchText" class="form-control" placeholder="เลขใบเสร็จ ผู้ขาย เบอร์โทร หรือสถานที่" />
+                <label class="form-label">à¸„à¹‰à¸™à¸«à¸²à¸›à¸£à¸°à¸§à¸±à¸•à¸´</label>
+                <input asp-for="HistorySearchText" class="form-control" placeholder="à¹€à¸¥à¸‚à¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆ à¸œà¸¹à¹‰à¸‚à¸²à¸¢ à¹€à¸šà¸­à¸£à¹Œà¹‚à¸—à¸£ à¸«à¸£à¸·à¸­à¸ªà¸–à¸²à¸™à¸—à¸µà¹ˆ" />
             </div>
             <div class="col-lg-2">
-                <label class="form-label">วิธีชำระ</label>
+                <label class="form-label">à¸§à¸´à¸˜à¸µà¸Šà¸³à¸£à¸°</label>
                 <select asp-for="HistoryPaymentMethod" class="form-select">
-                    <option value="">ทั้งหมด</option>
-                    <option value="Cash">เงินสด</option>
-                    <option value="Transfer">โอนบัญชี</option>
+                    <option value="">à¸—à¸±à¹‰à¸‡à¸«à¸¡à¸”</option>
+                    <option value="Cash">à¹€à¸‡à¸´à¸™à¸ªà¸”</option>
+                    <option value="Transfer">à¹‚à¸­à¸™à¸šà¸±à¸à¸Šà¸µ</option>
                 </select>
             </div>
             <div class="col-lg-2">
-                <label class="form-label">จากวันที่</label>
+                <label class="form-label">à¸ˆà¸²à¸à¸§à¸±à¸™à¸—à¸µà¹ˆ</label>
                 <input asp-for="HistoryDateFrom" class="form-control" type="date" />
             </div>
             <div class="col-lg-2">
-                <label class="form-label">ถึงวันที่</label>
+                <label class="form-label">à¸–à¸¶à¸‡à¸§à¸±à¸™à¸—à¸µà¹ˆ</label>
                 <input asp-for="HistoryDateTo" class="form-control" type="date" />
             </div>
             <div class="col-lg-2 d-flex gap-2">
@@ -227,8 +266,8 @@
         @if (Model.HasHistoryFilter)
         {
             <div class="history-filter-summary">
-                <span>@Model.PaidHistory.Count รายการ</span>
-                <a asp-page="./Index" asp-route-SearchText="@Model.SearchText">ล้างตัวกรอง</a>
+                <span>@Model.PaidHistory.Count à¸£à¸²à¸¢à¸à¸²à¸£</span>
+                <a asp-page="./Index" asp-route-SearchText="@Model.SearchText">à¸¥à¹‰à¸²à¸‡à¸•à¸±à¸§à¸à¸£à¸­à¸‡</a>
             </div>
         }
     </form>
@@ -236,33 +275,33 @@
         <table class="table table-hover align-middle">
             <thead>
                 <tr>
-                    <th>เลขที่ใบเสร็จ</th>
-                    <th>วันที่จ่าย</th>
-                    <th>ผู้ขาย</th>
-                    <th>น้ำหนัก</th>
-                    <th>ยอดสุทธิ</th>
-                    <th>ชำระแล้ว</th>
-                    <th>วิธีชำระ</th>
-                    <th class="text-end">พิมพ์</th>
+                    <th>à¹€à¸¥à¸‚à¸—à¸µà¹ˆà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆ</th>
+                    <th>à¸§à¸±à¸™à¸—à¸µà¹ˆà¸ˆà¹ˆà¸²à¸¢</th>
+                    <th>à¸œà¸¹à¹‰à¸‚à¸²à¸¢</th>
+                    <th>à¸™à¹‰à¸³à¸«à¸™à¸±à¸</th>
+                    <th>à¸¢à¸­à¸”à¸ªà¸¸à¸—à¸˜à¸´</th>
+                    <th>à¸Šà¸³à¸£à¸°à¹à¸¥à¹‰à¸§</th>
+                    <th>à¸§à¸´à¸˜à¸µà¸Šà¸³à¸£à¸°</th>
+                    <th class="text-end">à¸žà¸´à¸¡à¸žà¹Œ</th>
                 </tr>
             </thead>
             <tbody>
             @if (!Model.PaidHistory.Any())
             {
-                <tr><td colspan="8"><div class="empty-state"><i class="bi bi-clock-history"></i><div class="fw-semibold">ยังไม่มีประวัติการจ่ายเงิน</div></div></td></tr>
+                <tr><td colspan="8"><div class="empty-state"><i class="bi bi-clock-history"></i><div class="fw-semibold">à¸¢à¸±à¸‡à¹„à¸¡à¹ˆà¸¡à¸µà¸›à¸£à¸°à¸§à¸±à¸•à¸´à¸à¸²à¸£à¸ˆà¹ˆà¸²à¸¢à¹€à¸‡à¸´à¸™</div></div></td></tr>
             }
             @foreach (var item in Model.PaidHistory)
             {
                 <tr>
                     <td><span class="code-badge mono">@(item.ReceiptNo ?? "-")</span></td>
                     <td>@CustomerPageHelpers.DateTimeText(item.PaidDate)</td>
-                    <td><span class="fw-semibold d-block">@item.CustomerName</span><span class="text-muted small">@item.CustomerCode · @(item.RubberAuctionLocationName ?? item.LocationName)</span></td>
+                    <td><span class="fw-semibold d-block">@item.CustomerName</span><span class="text-muted small">@item.CustomerCode Â· @(item.RubberAuctionLocationName ?? item.LocationName)</span></td>
                     <td>@item.WeightKg.ToString("N2") kg</td>
                     <td>@money(item.TotalAmount ?? 0)</td>
                     <td class="fw-semibold">@money(item.PaidAmount)</td>
                     <td>@PaymentText(item.PaymentMethod)</td>
                     <td class="text-end">
-                        <a class="btn btn-outline-secondary btn-sm" asp-page="./Index" asp-route-SearchText="@Model.SearchText" asp-route-HistorySearchText="@Model.HistorySearchText" asp-route-HistoryPaymentMethod="@Model.HistoryPaymentMethod" asp-route-HistoryDateFrom="@Model.HistoryDateFrom?.ToString("yyyy-MM-dd")" asp-route-HistoryDateTo="@Model.HistoryDateTo?.ToString("yyyy-MM-dd")" asp-route-ReceiptId="@item.RubberPurchaseHeaderId" asp-route-PromptPrint="true"><i class="bi bi-printer me-1"></i>ดู/พิมพ์</a>
+                        <a class="btn btn-outline-secondary btn-sm" asp-page="./Index" asp-route-SearchText="@Model.SearchText" asp-route-HistorySearchText="@Model.HistorySearchText" asp-route-HistoryPaymentMethod="@Model.HistoryPaymentMethod" asp-route-HistoryDateFrom="@Model.HistoryDateFrom?.ToString("yyyy-MM-dd")" asp-route-HistoryDateTo="@Model.HistoryDateTo?.ToString("yyyy-MM-dd")" asp-route-ReceiptId="@item.RubberPurchaseHeaderId" asp-route-PromptPrint="true"><i class="bi bi-printer me-1"></i>à¸”à¸¹/à¸žà¸´à¸¡à¸žà¹Œ</a>
                     </td>
                 </tr>
             }
@@ -276,10 +315,10 @@
     <section class="data-card mt-3 no-print">
         <div class="card-heading">
             <div>
-                <h2>ใบเสร็จล่าสุด</h2>
+                <h2>à¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆà¸¥à¹ˆà¸²à¸ªà¸¸à¸”</h2>
                 <p>@receipt.ReceiptNo</p>
             </div>
-            <button class="btn btn-primary" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i>พิมพ์ใบเสร็จ</button>
+            <button class="btn btn-primary" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i>à¸žà¸´à¸¡à¸žà¹Œà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆ</button>
         </div>
         <div class="rubber-receipt-preview">
             <partial name="_RubberBillReceipt" model="receipt" />
@@ -290,21 +329,21 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content print-prompt-modal">
                 <div class="modal-header">
-                    <h2 class="modal-title h5" id="printReceiptPromptTitle">ต้องการพิมพ์ใบเสร็จไหม?</h2>
+                    <h2 class="modal-title h5" id="printReceiptPromptTitle">à¸•à¹‰à¸­à¸‡à¸à¸²à¸£à¸žà¸´à¸¡à¸žà¹Œà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆà¹„à¸«à¸¡?</h2>
                     <button class="btn-close" data-bs-dismiss="modal" type="button" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <div class="print-prompt-icon"><i class="bi bi-printer"></i></div>
                     <div class="print-prompt-receipt">@(receipt.ReceiptNo ?? "-")</div>
                     <dl class="confirm-payment-list">
-                        <dt>ผู้ขาย</dt><dd>@receipt.CustomerName</dd>
-                        <dt>ยอดชำระ</dt><dd>@money(receipt.PaidAmount) บาท</dd>
-                        <dt>วิธีชำระ</dt><dd>@PaymentText(receipt.PaymentMethod)</dd>
+                        <dt>à¸œà¸¹à¹‰à¸‚à¸²à¸¢</dt><dd>@receipt.CustomerName</dd>
+                        <dt>à¸¢à¸­à¸”à¸Šà¸³à¸£à¸°</dt><dd>@money(receipt.PaidAmount) à¸šà¸²à¸—</dd>
+                        <dt>à¸§à¸´à¸˜à¸µà¸Šà¸³à¸£à¸°</dt><dd>@PaymentText(receipt.PaymentMethod)</dd>
                     </dl>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">ยังไม่พิมพ์</button>
-                    <button class="btn btn-primary" type="button" data-bs-dismiss="modal" onclick="window.print()"><i class="bi bi-printer me-1"></i>พิมพ์ใบเสร็จ</button>
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">à¸¢à¸±à¸‡à¹„à¸¡à¹ˆà¸žà¸´à¸¡à¸žà¹Œ</button>
+                    <button class="btn btn-primary" type="button" data-bs-dismiss="modal" onclick="window.print()"><i class="bi bi-printer me-1"></i>à¸žà¸´à¸¡à¸žà¹Œà¹ƒà¸šà¹€à¸ªà¸£à¹‡à¸ˆ</button>
                 </div>
             </div>
         </div>
@@ -320,6 +359,210 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+    (() => {
+      const languageKey = 'aphiwatpos.language';
+      const copy = {
+        en: {
+          title: 'Pay Rubber Bills',
+          subtitle: 'Select a rubber purchase bill, record payment, and print the receipt.',
+          customerDisplay: 'Customer Display',
+          dueBills: 'Due bills',
+          outstandingTotal: 'Total outstanding',
+          latestReceipt: 'Latest receipt',
+          billList: 'Bills to pay',
+          billListHelp: 'Search by member code, seller name, or phone number.',
+          payment: 'Payment',
+          paymentHelp: 'Review the bill amount, take payment, and print the receipt.',
+          noBillSelected: 'Select a bill to pay.',
+          fullPaymentOnly: 'This cashier flow accepts full payment only.',
+          paymentMethod: 'Payment method',
+          cash: 'Cash',
+          cashHelp: 'Receive cash and print receipt immediately.',
+          transfer: 'Bank transfer',
+          transferHelp: 'Record the transfer reference in the remark.',
+          remark: 'Remark',
+          payFull: 'Pay full bill',
+          history: 'Payment history'
+        },
+        th: {
+          title: 'จ่ายบิลยางพารา',
+          subtitle: 'เลือกบิลรับซื้อยาง บันทึกการชำระเงิน และพิมพ์ใบเสร็จรับเงิน',
+          customerDisplay: 'จอลูกค้า',
+          dueBills: 'บิลรอจ่าย',
+          outstandingTotal: 'ยอดค้างรวม',
+          latestReceipt: 'ใบเสร็จล่าสุด',
+          billList: 'บิลที่รอชำระ',
+          billListHelp: 'ค้นหาจากรหัสสมาชิก ชื่อผู้ขาย หรือเบอร์โทร',
+          payment: 'ชำระเงิน',
+          paymentHelp: 'ตรวจสอบยอดก่อนบันทึกและพิมพ์ใบเสร็จ',
+          noBillSelected: 'เลือกบิลเพื่อชำระเงิน',
+          fullPaymentOnly: 'ระบบนี้จ่ายเต็มจำนวนเท่านั้น',
+          paymentMethod: 'วิธีชำระเงิน',
+          cash: 'เงินสด',
+          cashHelp: 'รับเงินสดและออกใบเสร็จทันที',
+          transfer: 'โอนบัญชี',
+          transferHelp: 'บันทึกเลขอ้างอิงในหมายเหตุ',
+          remark: 'หมายเหตุ',
+          payFull: 'จ่ายบิลเต็มจำนวน',
+          history: 'ประวัติการจ่ายเงิน'
+        }
+      };
+      const language = () => localStorage.getItem(languageKey) === 'th' ? 'th' : 'en';
+      const set = (selector, value) => {
+        const element = document.querySelector(selector);
+        if (element) element.textContent = value;
+      };
+      const setPlaceholder = (selector, value) => {
+        const element = document.querySelector(selector);
+        if (element) element.placeholder = value;
+      };
+      function applyRubberPayLanguage() {
+        const t = copy[language()];
+        set('.page-header h1', t.title);
+        set('.page-header p', t.subtitle);
+        set('[data-open-rubber-display] span', t.customerDisplay);
+        set('.summary-grid .summary-card:nth-child(1) .metric-label', t.dueBills);
+        set('.summary-grid .summary-card:nth-child(2) .metric-label', t.outstandingTotal);
+        set('.summary-grid .summary-card:nth-child(3) .metric-label', t.latestReceipt);
+        set('.rubber-pay-layout > section:nth-child(1) .card-heading h2', t.billList);
+        set('.rubber-pay-layout > section:nth-child(1) .card-heading p', t.billListHelp);
+        set('.rubber-pay-layout > section:nth-child(2) .card-heading h2', t.payment);
+        set('.rubber-pay-layout > section:nth-child(2) .card-heading p', t.paymentHelp);
+        set('.full-pay-banner span', t.fullPaymentOnly);
+        set('.rubber-payment-form .form-label', t.paymentMethod);
+        set('.payment-method-option:nth-child(1) strong', t.cash);
+        set('.payment-method-option:nth-child(1) small', t.cashHelp);
+        set('.payment-method-option:nth-child(2) strong', t.transfer);
+        set('.payment-method-option:nth-child(2) small', t.transferHelp);
+        set('.rubber-payment-form > div:nth-of-type(3) .form-label', t.remark);
+        set('.rubber-payment-form .btn-primary.btn-lg', t.payFull);
+        set('.data-card.mt-3 .card-heading h2', t.history);
+        setPlaceholder('input[name="SearchText"]', language() === 'th' ? 'ค้นหาผู้ขาย' : 'Search seller');
+        setPlaceholder('input[name="Input.PaymentRemark"]', language() === 'th' ? 'เลขอ้างอิงหรือหมายเหตุเพิ่มเติม' : 'Reference number or additional note');
+      }
+      window.addEventListener('aphiwatpos:languagechange', applyRubberPayLanguage);
+      window.addEventListener('storage', event => { if (event.key === languageKey) applyRubberPayLanguage(); });
+      applyRubberPayLanguage();
+    })();
+    </script>
+    <script>
+    (() => {
+      const selectedBill = @Html.Raw(JsonSerializer.Serialize(selectedDisplayPayload, jsonOptions));
+      const receiptBill = @Html.Raw(JsonSerializer.Serialize(receiptDisplayPayload, jsonOptions));
+      const displayChannelName = 'aphiwatpos-customer-display';
+      const displayStorageKey = 'aphiwatpos:customer-display';
+      const terminalStorageKey = 'aphiwatpos:terminal-id';
+      const customerDisplayUrl = '@Url.Page("/Sales/CustomerDisplay/Index")';
+      const by = selector => document.querySelector(selector);
+      const terminalId = (() => {
+        try {
+          let id = localStorage.getItem(terminalStorageKey);
+          if (!id) {
+            id = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+            localStorage.setItem(terminalStorageKey, id);
+          }
+          return id;
+        } catch { return 'default'; }
+      })();
+      const channel = 'BroadcastChannel' in window ? new BroadcastChannel(displayChannelName) : null;
+      let displaySocket = null;
+      let displayInvocationId = 0;
+
+      function checkedPaymentMethod() {
+        return document.querySelector('input[name="Input.PaymentMethod"]:checked')?.value || 'Cash';
+      }
+
+      function paymentMethodText(value) {
+        return value === 'Transfer' ? 'Transfer' : 'Cash';
+      }
+
+      function creditCheckbox() {
+        return document.querySelector('input[name="Input.PayCustomerCredit"]');
+      }
+
+      function currentPayload(state = 'RubberBillSelected', event = 'RubberBillSelected', message = 'Please confirm the rubber bill amount before payment.') {
+        const bill = selectedBill || receiptBill || {};
+        const fullAmount = Number(bill.totalAmount || bill.remainingAmount || 0);
+        const outstandingCredit = Number(bill.outstandingCreditAmount || 0);
+        const creditDeducted = creditCheckbox()?.checked ? Math.min(fullAmount, Math.max(0, outstandingCredit)) : Number(bill.creditDeductedAmount || 0);
+        const amountToSeller = Math.max(0, fullAmount - creditDeducted);
+        return {
+          type:'rubber-pay-bill',
+          terminalId,
+          event,
+          displayState:state,
+          title:'Rubber Bill Payment',
+          message,
+          receiptNo: bill.receiptNo || '',
+          rubberBill: bill,
+          payment:{
+            method: paymentMethodText(checkedPaymentMethod() || bill.paymentMethod),
+            paidAmount: amountToSeller,
+            amountToSeller,
+            creditDeductedAmount: creditDeducted
+          },
+          updatedAt:new Date().toISOString()
+        };
+      }
+
+      function publishDisplay(payload) {
+        if (!payload) return;
+        try { localStorage.setItem(displayStorageKey, JSON.stringify(payload)); } catch {}
+        channel?.postMessage(payload);
+        if (displaySocket?.readyState === WebSocket.OPEN) {
+          displaySocket.send(JSON.stringify({ type:1, invocationId:String(++displayInvocationId), target:'SendDisplayUpdate', arguments:[terminalId, payload] }) + '\u001e');
+        }
+      }
+
+      async function startDisplayHub() {
+        if (!('WebSocket' in window) || displaySocket) return;
+        try {
+          const response = await fetch('/pos-display-hub/negotiate?negotiateVersion=1', { method:'POST', credentials:'same-origin' });
+          const negotiate = await response.json();
+          const token = encodeURIComponent(negotiate.connectionToken || negotiate.connectionId);
+          const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+          displaySocket = new WebSocket(`${wsProtocol}//${location.host}/pos-display-hub?id=${token}`);
+          displaySocket.onopen = () => {
+            displaySocket.send('{"protocol":"json","version":1}\u001e');
+            displaySocket.send(JSON.stringify({ type:1, invocationId:String(++displayInvocationId), target:'JoinDisplay', arguments:[terminalId] }) + '\u001e');
+            publishDisplay(receiptBill
+              ? currentPayload('RubberPaymentSuccess', 'RubberPaymentCompleted', 'Rubber bill payment completed successfully.')
+              : selectedBill ? currentPayload() : null);
+          };
+          displaySocket.onclose = () => { displaySocket = null; setTimeout(startDisplayHub, 1500); };
+        } catch {
+          displaySocket = null;
+        }
+      }
+
+      function openCustomerDisplay() {
+        const separator = customerDisplayUrl.includes('?') ? '&' : '?';
+        window.open(`${customerDisplayUrl}${separator}terminalId=${encodeURIComponent(terminalId)}`, 'aphiwatposCustomerDisplay', 'popup=yes,width=1200,height=820');
+        setTimeout(() => publishDisplay(receiptBill
+          ? currentPayload('RubberPaymentSuccess', 'RubberPaymentCompleted', 'Rubber bill payment completed successfully.')
+          : selectedBill ? currentPayload() : null), 500);
+      }
+
+      by('[data-open-rubber-display]')?.addEventListener('click', openCustomerDisplay);
+      document.querySelectorAll('input[name="Input.PaymentMethod"]').forEach(input => input.addEventListener('change', () => {
+        publishDisplay(currentPayload('RubberBillSelected', 'RubberPaymentMethodChanged'));
+      }));
+      creditCheckbox()?.addEventListener('change', () => publishDisplay(currentPayload('RubberBillSelected', 'RubberPaymentMethodChanged')));
+      by('#confirmRubberPayment')?.addEventListener('show.bs.modal', () => {
+        publishDisplay(currentPayload('RubberPaymentConfirming', 'RubberPaymentConfirming', 'Please confirm this full payment.'));
+      });
+      document.querySelector('.rubber-payment-form')?.addEventListener('submit', () => {
+        publishDisplay(currentPayload('RubberPaymentProcessing', 'RubberPaymentProcessing', 'Saving payment and preparing receipt...'));
+      });
+      if (receiptBill) {
+        publishDisplay(currentPayload('RubberPaymentSuccess', 'RubberPaymentCompleted', 'Rubber bill payment completed successfully.'));
+      } else if (selectedBill) {
+        publishDisplay(currentPayload());
+      }
+      startDisplayHub();
+    })();
+    </script>
     @if (receipt is not null && Model.PromptPrint)
     {
         <script>
@@ -334,7 +577,7 @@
 }
 
 @functions {
-    string PaymentText(string? method) => method == "Transfer" ? "โอนบัญชี" : "เงินสด";
+    string PaymentText(string? method) => method == "Transfer" ? "à¹‚à¸­à¸™à¸šà¸±à¸à¸Šà¸µ" : "à¹€à¸‡à¸´à¸™à¸ªà¸”";
 }
 
 <style>
@@ -399,7 +642,7 @@
 .receipt-total-panel{background:#f8fcf9;border:1px solid #d7eadc;display:grid;gap:0;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:18px}.receipt-total-panel div{padding:14px}.receipt-total-panel div+div{border-left:1px solid #d7eadc}.receipt-total-panel span{color:#64756a;display:block;font-size:.78rem;font-weight:800}.receipt-total-panel strong{color:#08752e;display:block;font-size:1.08rem;font-weight:900;margin-top:4px}
 .receipt-balance-due{align-items:center;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;display:flex;font-weight:900;justify-content:space-between;margin-top:12px;padding:12px 14px}
 .receipt-payment-row{align-items:center;border:1px solid #d7eadc;display:flex;justify-content:space-between;margin-top:18px;padding:12px 14px}.receipt-payment-row>span{color:#64756a;font-weight:900}.receipt-payment-row label{color:#123524;font-weight:800;margin-left:18px}
-.check-box{border:1.5px solid #08752e;display:inline-block;height:13px;margin:0 5px 0 0;vertical-align:-2px;width:13px;border-radius:3px}.check-box.checked{background:#08752e;color:#fff}.check-box.checked:after{content:"✓";display:block;font-size:12px;line-height:12px;text-align:center}
+.check-box{border:1.5px solid #08752e;display:inline-block;height:13px;margin:0 5px 0 0;vertical-align:-2px;width:13px;border-radius:3px}.check-box.checked{background:#08752e;color:#fff}.check-box.checked:after{content:"âœ“";display:block;font-size:12px;line-height:12px;text-align:center}
 .receipt-signature-row{display:grid;gap:60px;grid-template-columns:1fr 1fr;margin-top:44px}.receipt-signature-row span{border-bottom:1px solid #123524;display:block;height:24px}.receipt-signature-row p{color:#64756a;font-weight:800;margin:8px 0 0;text-align:center}
 .print-only{display:none}
 @@media(max-width:992px){.rubber-pay-layout{grid-template-columns:1fr}.rubber-pay-detail dl{grid-template-columns:1fr}.rubber-pay-detail dd{text-align:left}}

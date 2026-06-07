@@ -1,4 +1,4 @@
-@page
+﻿@page
 @{
     Layout = null;
     ViewData["Title"] = "Customer Display";
@@ -108,8 +108,36 @@
         .repayment-footer{background:#fff;border:1px solid var(--line);font-size:clamp(1.2rem,2vw,2.2rem);font-weight:900;padding:16px 20px;text-align:center}
         .repayment-footer.warning{background:#fffbeb;border-color:#fcd34d;color:#92400e}
         .repayment-footer.fail{background:#fef2f2;border-color:#fca5a5;color:#b91c1c}
-        @@media(max-width:1180px){.main-grid{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}.payment-panel{grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr}.payment-panel .panel-head{grid-column:1/-1}.qr-box{margin:14px 16px}.item-row,.item-header{grid-template-columns:minmax(280px,1fr) 90px 135px 115px 145px}}
-        @@media(max-width:800px){.display-shell{gap:10px;padding:10px}.topbar{align-items:stretch;display:grid;min-height:auto}.status{min-width:0}.payment-panel{display:block}.item-header{display:none}.item-row{grid-template-columns:1fr 1fr;gap:8px}.product-cell{grid-column:1/-1}.num{text-align:left}.line.total strong{font-size:2.2rem}.success-meta{grid-template-columns:1fr}.success-meta .full{grid-column:auto}.success-meta div{display:grid;text-align:center}.success-meta strong{text-align:center}.repayment-grid{grid-template-columns:1fr}.repayment-hero{align-items:flex-start;display:grid}.repayment-state{overflow:auto}}
+        .rubber-state{background:#f7fbf5;display:none;height:100vh;overflow:hidden;padding:clamp(18px,2.3vw,32px);width:100vw}
+        .display-shell.is-rubber{display:block;padding:0}
+        .display-shell.is-rubber .rubber-state{display:grid}
+        .display-shell.is-rubber .topbar,.display-shell.is-rubber .main-grid,.display-shell.is-rubber .message-bar{display:none}
+        .rubber-layout{display:grid;gap:16px;grid-template-rows:auto minmax(0,1fr) auto;height:100%;min-height:0}
+        .rubber-hero{align-items:center;background:#115e36;color:#fff;display:flex;gap:18px;justify-content:space-between;padding:20px 24px}
+        .rubber-hero h1{font-size:clamp(2rem,4vw,4.8rem);font-weight:900;line-height:1;margin:0}
+        .rubber-hero p{font-size:clamp(1.05rem,1.7vw,1.9rem);font-weight:800;margin:7px 0 0;opacity:.9}
+        .rubber-badge{background:#ecfdf5;color:#065f46;font-size:clamp(1rem,1.45vw,1.55rem);font-weight:900;padding:12px 16px;text-align:center;text-transform:uppercase}
+        .rubber-grid{display:grid;gap:16px;grid-template-columns:minmax(0,1fr) minmax(390px,.9fr);min-height:0}
+        .rubber-card{background:#fff;border:1px solid var(--line);display:grid;min-height:0;padding:18px}
+        .rubber-card h2{font-size:clamp(1.25rem,1.85vw,2rem);font-weight:900;margin:0 0 14px}
+        .rubber-seller{align-items:center;background:#f8fafc;border:1px solid #dbe7df;display:flex;gap:16px;margin-bottom:14px;padding:16px}
+        .rubber-avatar{align-items:center;background:#dcfce7;color:#166534;display:flex;font-size:clamp(1.7rem,2.8vw,3rem);font-weight:900;height:86px;justify-content:center;width:86px}
+        .rubber-seller strong{display:block;font-size:clamp(1.7rem,3vw,3.6rem);font-weight:900;line-height:1.05}
+        .rubber-seller span{color:var(--muted);display:block;font-size:clamp(1rem,1.35vw,1.45rem);font-weight:800;margin-top:6px}
+        .rubber-row{align-items:center;border-bottom:1px solid #e2e8f0;display:flex;gap:12px;justify-content:space-between;padding:11px 0}
+        .rubber-row:last-child{border-bottom:0}
+        .rubber-row span{color:var(--muted);font-size:clamp(.98rem,1.25vw,1.35rem);font-weight:900}
+        .rubber-row strong{font-size:clamp(1.1rem,1.55vw,1.8rem);font-weight:900;text-align:right}
+        .rubber-amount-panel{align-items:center;background:#ecfdf5;border:1px solid #86efac;display:grid;gap:8px;justify-items:center;margin-bottom:14px;padding:28px;text-align:center}
+        .rubber-amount-panel span{color:#065f46;font-size:clamp(1.1rem,1.55vw,1.7rem);font-weight:900;text-transform:uppercase}
+        .rubber-amount-panel strong{color:#047857;font-size:clamp(3.4rem,6.5vw,7.8rem);font-weight:900;line-height:1}
+        .rubber-credit-note{background:#fff7ed;border:1px solid #fdba74;color:#9a3412;font-size:clamp(1rem,1.35vw,1.45rem);font-weight:900;margin-top:14px;padding:14px;text-align:center}
+        .rubber-footer{background:#fff;border:1px solid var(--line);font-size:clamp(1.2rem,2vw,2.2rem);font-weight:900;padding:16px 20px;text-align:center}
+        .rubber-footer.warning{background:#fffbeb;border-color:#fcd34d;color:#92400e}
+        .rubber-footer.success{background:#ecfdf5;border-color:#86efac;color:#047857}
+        .rubber-footer.fail{background:#fef2f2;border-color:#fca5a5;color:#b91c1c}
+        @@media(max-width:1180px){.main-grid{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}.payment-panel{grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr}.payment-panel .panel-head{grid-column:1/-1}.qr-box{margin:14px 16px}.item-row,.item-header{grid-template-columns:minmax(280px,1fr) 90px 135px 115px 145px}.rubber-grid{grid-template-columns:1fr}}
+        @@media(max-width:800px){.display-shell{gap:10px;padding:10px}.topbar{align-items:stretch;display:grid;min-height:auto}.status{min-width:0}.payment-panel{display:block}.item-header{display:none}.item-row{grid-template-columns:1fr 1fr;gap:8px}.product-cell{grid-column:1/-1}.num{text-align:left}.line.total strong{font-size:2.2rem}.success-meta{grid-template-columns:1fr}.success-meta .full{grid-column:auto}.success-meta div{display:grid;text-align:center}.success-meta strong{text-align:center}.repayment-grid{grid-template-columns:1fr}.repayment-hero{align-items:flex-start;display:grid}.repayment-state{overflow:auto}.rubber-state{overflow:auto}.rubber-hero{align-items:flex-start;display:grid}.rubber-seller{display:grid;text-align:center}.rubber-avatar{justify-self:center}}
     </style>
 </head>
 <body>
@@ -172,6 +200,44 @@
                 <footer class="repayment-footer" data-repayment-message>Please confirm your repayment amount with the cashier.</footer>
             </div>
         </section>
+        <section class="rubber-state" aria-label="Rubber Bill Payment">
+            <div class="rubber-layout">
+                <header class="rubber-hero">
+                    <div>
+                        <h1 data-rubber-title>Rubber Bill Payment</h1>
+                        <p data-rubber-subtitle>Please confirm the bill with the cashier.</p>
+                    </div>
+                    <div class="rubber-badge" data-rubber-status>Bill selected</div>
+                </header>
+                <section class="rubber-grid">
+                    <div class="rubber-card">
+                        <h2>Seller Information</h2>
+                        <div class="rubber-seller">
+                            <div class="rubber-avatar">R</div>
+                            <div>
+                                <strong data-rubber-seller-name>-</strong>
+                                <span data-rubber-seller-meta>-</span>
+                            </div>
+                        </div>
+                        <div class="rubber-row"><span>Purchase date</span><strong data-rubber-date>-</strong></div>
+                        <div class="rubber-row"><span>Purchase location</span><strong data-rubber-location>-</strong></div>
+                        <div class="rubber-row"><span>Weight</span><strong data-rubber-weight>-</strong></div>
+                        <div class="rubber-row"><span>Price per kg</span><strong data-rubber-price>-</strong></div>
+                        <div class="rubber-row"><span>Deduction</span><strong data-rubber-deduction>-</strong></div>
+                    </div>
+                    <div class="rubber-card">
+                        <h2>Payment Summary</h2>
+                        <div class="rubber-amount-panel"><span>Amount to seller</span><strong data-rubber-pay-amount>THB 0.00</strong></div>
+                        <div class="rubber-row"><span>Full bill amount</span><strong data-rubber-full-amount>THB 0.00</strong></div>
+                        <div class="rubber-row"><span>Credit deducted</span><strong data-rubber-credit-deducted>THB 0.00</strong></div>
+                        <div class="rubber-row"><span>Payment method</span><strong data-rubber-method>-</strong></div>
+                        <div class="rubber-row"><span>Receipt number</span><strong data-rubber-receipt>-</strong></div>
+                        <div class="rubber-credit-note" data-rubber-credit-note hidden>Customer credit will be deducted from this bill.</div>
+                    </div>
+                </section>
+                <footer class="rubber-footer" data-rubber-message>Please confirm the rubber bill amount before payment.</footer>
+            </div>
+        </section>
         <header class="topbar">
             <div class="brand">AphiwatPOS</div>
             <div class="status" data-display-status>Scanning Items</div>
@@ -220,30 +286,30 @@
       const phrases = {
         th: {
           'AphiwatPOS': 'AphiwatPOS',
-          'Change Amount': 'เงินทอน',
-          'Current Cart': 'ตะกร้าปัจจุบัน',
-          'Discount': 'ส่วนลด',
-          'Grand Total': 'ยอดรวมสุทธิ',
-          'Line Total': 'ยอดรวมรายการ',
-          'Method': 'วิธีชำระเงิน',
-          'Paid Amount': 'ยอดที่ชำระ',
-          'Payment': 'การชำระเงิน',
-          'Payment Failed': 'ชำระเงินไม่สำเร็จ',
-          'Payment Successful': 'ชำระเงินสำเร็จ',
+          'Change Amount': 'à¹€à¸‡à¸´à¸™à¸—à¸­à¸™',
+          'Current Cart': 'à¸•à¸°à¸à¸£à¹‰à¸²à¸›à¸±à¸ˆà¸ˆà¸¸à¸šà¸±à¸™',
+          'Discount': 'à¸ªà¹ˆà¸§à¸™à¸¥à¸”',
+          'Grand Total': 'à¸¢à¸­à¸”à¸£à¸§à¸¡à¸ªà¸¸à¸—à¸˜à¸´',
+          'Line Total': 'à¸¢à¸­à¸”à¸£à¸§à¸¡à¸£à¸²à¸¢à¸à¸²à¸£',
+          'Method': 'à¸§à¸´à¸˜à¸µà¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™',
+          'Paid Amount': 'à¸¢à¸­à¸”à¸—à¸µà¹ˆà¸Šà¸³à¸£à¸°',
+          'Payment': 'à¸à¸²à¸£à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™',
+          'Payment Failed': 'à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™à¹„à¸¡à¹ˆà¸ªà¸³à¹€à¸£à¹‡à¸ˆ',
+          'Payment Successful': 'à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™à¸ªà¸³à¹€à¸£à¹‡à¸ˆ',
           'POS': 'POS',
-          'Product': 'สินค้า',
-          'Qty': 'จำนวน',
-          'Ready to complete payment.': 'พร้อมรับชำระเงิน',
-          'Remaining': 'คงเหลือ',
-          'Scan the QR code to pay with mobile banking.': 'สแกน QR เพื่อชำระผ่านโมบายแบงก์กิ้ง',
-          'Scanning Items': 'กำลังสแกนสินค้า',
-          'Thank you for your purchase. Payment successful.': 'ขอบคุณสำหรับการซื้อ ชำระเงินสำเร็จ',
-          'Unit Price': 'ราคาต่อหน่วย',
-          'Waiting for Payment': 'รอการชำระเงิน',
-          'Waiting for payment.': 'รอการชำระเงิน',
-          'Waiting for scanned items': 'รอรายการสินค้าที่สแกน',
-          'Walk-in Customer': 'ลูกค้าทั่วไป',
-          'Welcome. Your purchase details will appear here.': 'ยินดีต้อนรับ รายละเอียดการซื้อจะแสดงที่นี่'
+          'Product': 'à¸ªà¸´à¸™à¸„à¹‰à¸²',
+          'Qty': 'à¸ˆà¸³à¸™à¸§à¸™',
+          'Ready to complete payment.': 'à¸žà¸£à¹‰à¸­à¸¡à¸£à¸±à¸šà¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™',
+          'Remaining': 'à¸„à¸‡à¹€à¸«à¸¥à¸·à¸­',
+          'Scan the QR code to pay with mobile banking.': 'à¸ªà¹à¸à¸™ QR à¹€à¸žà¸·à¹ˆà¸­à¸Šà¸³à¸£à¸°à¸œà¹ˆà¸²à¸™à¹‚à¸¡à¸šà¸²à¸¢à¹à¸šà¸‡à¸à¹Œà¸à¸´à¹‰à¸‡',
+          'Scanning Items': 'à¸à¸³à¸¥à¸±à¸‡à¸ªà¹à¸à¸™à¸ªà¸´à¸™à¸„à¹‰à¸²',
+          'Thank you for your purchase. Payment successful.': 'à¸‚à¸­à¸šà¸„à¸¸à¸“à¸ªà¸³à¸«à¸£à¸±à¸šà¸à¸²à¸£à¸‹à¸·à¹‰à¸­ à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™à¸ªà¸³à¹€à¸£à¹‡à¸ˆ',
+          'Unit Price': 'à¸£à¸²à¸„à¸²à¸•à¹ˆà¸­à¸«à¸™à¹ˆà¸§à¸¢',
+          'Waiting for Payment': 'à¸£à¸­à¸à¸²à¸£à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™',
+          'Waiting for payment.': 'à¸£à¸­à¸à¸²à¸£à¸Šà¸³à¸£à¸°à¹€à¸‡à¸´à¸™',
+          'Waiting for scanned items': 'à¸£à¸­à¸£à¸²à¸¢à¸à¸²à¸£à¸ªà¸´à¸™à¸„à¹‰à¸²à¸—à¸µà¹ˆà¸ªà¹à¸à¸™',
+          'Walk-in Customer': 'à¸¥à¸¹à¸à¸„à¹‰à¸²à¸—à¸±à¹ˆà¸§à¹„à¸›',
+          'Welcome. Your purchase details will appear here.': 'à¸¢à¸´à¸™à¸”à¸µà¸•à¹‰à¸­à¸™à¸£à¸±à¸š à¸£à¸²à¸¢à¸¥à¸°à¹€à¸­à¸µà¸¢à¸”à¸à¸²à¸£à¸‹à¸·à¹‰à¸­à¸ˆà¸°à¹à¸ªà¸”à¸‡à¸—à¸µà¹ˆà¸™à¸µà¹ˆ'
         }
       };
       const language = () => localStorage.getItem(languageKey) === 'th' ? 'th' : 'en';
@@ -254,9 +320,9 @@
         if (!source) return value;
         if (phrases.th[source]) return value.replace(source, phrases.th[source]);
         const itemMatch = source.match(/^(\d+)\s+items?$/i);
-        if (itemMatch) return value.replace(source, `${itemMatch[1]} รายการ`);
+        if (itemMatch) return value.replace(source, `${itemMatch[1]} à¸£à¸²à¸¢à¸à¸²à¸£`);
         const saleMatch = source.match(/^Sale\s+(.+)$/i);
-        if (saleMatch) return value.replace(source, `บิล ${saleMatch[1]}`);
+        if (saleMatch) return value.replace(source, `à¸šà¸´à¸¥ ${saleMatch[1]}`);
         return value;
       };
       window.applyCustomerDisplayLanguage = () => {
@@ -358,6 +424,11 @@
         if (message?.event === 'CreditRepaymentStarted' || raw === 'creditrepaymentstarted') return 'CreditRepaymentStarted';
         if (message?.event === 'CreditCustomerSelected' || raw === 'customerselected') return 'CustomerSelected';
         if (message?.event === 'CreditRepaymentAmountUpdated' || raw === 'amountentered') return 'AmountEntered';
+        if (message?.event === 'RubberPaymentCompleted' || raw === 'rubberpaymentsuccess') return 'RubberPaymentSuccess';
+        if (message?.event === 'RubberPaymentFailed' || raw === 'rubberpaymentfailed') return 'RubberPaymentFailed';
+        if (message?.event === 'RubberPaymentProcessing' || raw === 'rubberpaymentprocessing') return 'RubberPaymentProcessing';
+        if (message?.event === 'RubberPaymentConfirming' || raw === 'rubberpaymentconfirming') return 'RubberPaymentConfirming';
+        if (message?.event === 'RubberBillSelected' || message?.event === 'RubberPaymentMethodChanged' || raw === 'rubberbillselected') return 'RubberBillSelected';
         if (message?.event === 'SaleCompleted' || raw === 'paymentsuccess' || (message?.type === 'payment-result' && message?.status === 'success')) return 'PaymentSuccess';
         if (message?.event === 'SaleFailed' || raw === 'paymentfailed' || raw === 'fail' || (message?.type === 'payment-result' && message?.status === 'fail')) return 'PaymentFailed';
         if (message?.event === 'PaymentProcessing' || raw === 'processingpayment' || raw === 'paymentprocessing') return 'ProcessingPayment';
@@ -371,6 +442,7 @@
         shell.classList.toggle('is-ready', state === 'Ready');
         shell.classList.toggle('is-success', state === 'PaymentSuccess');
         shell.classList.toggle('is-repayment', ['CreditRepaymentStarted', 'CustomerSelected', 'AmountEntered', 'ProcessingRepayment', 'RepaymentFailed'].includes(state));
+        shell.classList.toggle('is-rubber', ['RubberBillSelected', 'RubberPaymentConfirming', 'RubberPaymentProcessing', 'RubberPaymentFailed'].includes(state));
       }
 
       function renderReady() {
@@ -446,6 +518,49 @@
         window.applyCustomerDisplayLanguage?.();
       }
 
+      function renderRubberPayment(message, state) {
+        const rubber = message.rubberBill || {};
+        const payment = message.payment || {};
+        const creditDeducted = Number(payment.creditDeductedAmount || 0);
+        const sellerAmount = Number(payment.amountToSeller ?? payment.paidAmount ?? rubber.remainingAmount ?? rubber.totalAmount ?? 0);
+        const fullAmount = Number(rubber.totalAmount ?? sellerAmount + creditDeducted);
+        const footer = by('[data-rubber-message]');
+        setShellState(state);
+        by('[data-rubber-title]').textContent = 'Rubber Bill Payment';
+        by('[data-rubber-subtitle]').textContent = state === 'RubberPaymentProcessing'
+          ? 'Saving payment and preparing receipt...'
+          : state === 'RubberPaymentFailed'
+            ? 'Payment could not be completed.'
+            : state === 'RubberPaymentConfirming'
+              ? 'Please confirm this full payment.'
+              : 'Please confirm the bill with the cashier.';
+        by('[data-rubber-status]').textContent = state === 'RubberPaymentProcessing'
+          ? 'Processing'
+          : state === 'RubberPaymentFailed'
+            ? 'Failed'
+            : state === 'RubberPaymentConfirming'
+              ? 'Confirm payment'
+              : 'Bill selected';
+        by('[data-rubber-seller-name]').textContent = rubber.sellerName || '-';
+        by('[data-rubber-seller-meta]').textContent = [rubber.sellerCode, rubber.phoneNumber].filter(Boolean).join(' - ') || '-';
+        by('[data-rubber-date]').textContent = rubber.purchaseDate || '-';
+        by('[data-rubber-location]').textContent = rubber.locationName || '-';
+        by('[data-rubber-weight]').textContent = `${money(rubber.weightKg)} kg`;
+        by('[data-rubber-price]').textContent = `THB ${money(rubber.pricePerKg)} / kg`;
+        by('[data-rubber-deduction]').textContent = `${money(rubber.deductionPercent)}%`;
+        by('[data-rubber-pay-amount]').textContent = thb(sellerAmount);
+        by('[data-rubber-full-amount]').textContent = thb(fullAmount);
+        by('[data-rubber-credit-deducted]').textContent = thb(creditDeducted);
+        by('[data-rubber-method]').textContent = payment.method || '-';
+        by('[data-rubber-receipt]').textContent = message.receiptNo || rubber.receiptNo || '-';
+        const note = by('[data-rubber-credit-note]');
+        note.hidden = creditDeducted <= 0;
+        note.textContent = creditDeducted > 0 ? `Customer credit deduction: ${thb(creditDeducted)}` : '';
+        footer.textContent = message.errorMessage || message.message || 'Please confirm the rubber bill amount before payment.';
+        footer.className = `rubber-footer ${state === 'RubberPaymentFailed' ? 'fail' : state === 'RubberPaymentProcessing' || state === 'RubberPaymentConfirming' ? 'warning' : ''}`.trim();
+        window.applyCustomerDisplayLanguage?.();
+      }
+
       function renderVisual(message, totals) {
         const visual = by('[data-visual]');
         const isResult = message?.type === 'payment-result';
@@ -494,6 +609,20 @@
         }
         if (['CreditRepaymentStarted', 'CustomerSelected', 'AmountEntered', 'ProcessingRepayment', 'RepaymentFailed'].includes(state)) {
           renderRepayment(message, state);
+          return;
+        }
+        if (state === 'RubberPaymentSuccess') {
+          const rubber = message.rubberBill || {};
+          const payment = message.payment || {};
+          renderSuccess({
+            ...message,
+            receiptNo: message.receiptNo || rubber.receiptNo,
+            amount: payment.amountToSeller ?? payment.paidAmount ?? rubber.totalAmount
+          }, { net: payment.amountToSeller ?? payment.paidAmount ?? rubber.totalAmount, change: 0 }, { method: payment.method, changeAmount: 0 });
+          return;
+        }
+        if (['RubberBillSelected', 'RubberPaymentConfirming', 'RubberPaymentProcessing', 'RubberPaymentFailed'].includes(state)) {
+          renderRubberPayment(message, state);
           return;
         }
         if (state === 'PaymentSuccess') {

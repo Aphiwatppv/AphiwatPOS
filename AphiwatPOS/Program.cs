@@ -9,6 +9,8 @@ using SalesEngine.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Host.UseWindowsService();
+
 // Add services to the container.
 builder.Services
     .AddRazorPages(options =>
