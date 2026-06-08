@@ -20,6 +20,7 @@ public sealed class DrawerConfigManagerForm : Form
     private readonly Button _reloadButton = new();
     private readonly Button _testButton = new();
     private readonly Button _printTestButton = new();
+    private readonly Button _printKickButton = new();
     private readonly Button _tryCommonButton = new();
     private readonly Button _openInstallFolderButton = new();
 
@@ -143,6 +144,11 @@ public sealed class DrawerConfigManagerForm : Form
         _printTestButton.Height = 36;
         _printTestButton.Click += (_, _) => PrintTest();
 
+        _printKickButton.Text = "Print + Kick";
+        _printKickButton.Width = 130;
+        _printKickButton.Height = 36;
+        _printKickButton.Click += (_, _) => PrintAndKick();
+
         _tryCommonButton.Text = "Try Common";
         _tryCommonButton.Width = 130;
         _tryCommonButton.Height = 36;
@@ -157,6 +163,7 @@ public sealed class DrawerConfigManagerForm : Form
         actions.Controls.Add(_reloadButton);
         actions.Controls.Add(_testButton);
         actions.Controls.Add(_printTestButton);
+        actions.Controls.Add(_printKickButton);
         actions.Controls.Add(_tryCommonButton);
         actions.Controls.Add(_openInstallFolderButton);
         return actions;
@@ -285,6 +292,29 @@ public sealed class DrawerConfigManagerForm : Form
         }
     }
 
+    private void PrintAndKick()
+    {
+        try
+        {
+            var config = ReadConfigFromForm();
+            if (!config.CashDrawerEnabled)
+            {
+                Log("Cash drawer is disabled. Enable it before testing.");
+                return;
+            }
+
+            var kickBytes = DrawerKickCommand.BuildBytes(config.DrawerKickCommand, config.DrawerPin);
+            var bytes = RawPrinter.BuildPrintAndKickBytes(kickBytes);
+            RawPrinter.SendBytes(config.PrinterName, bytes);
+            Log("Sent print + drawer command to " + config.PrinterName);
+        }
+        catch (Exception ex)
+        {
+            Log("ERROR: " + ex.Message);
+            MessageBox.Show(this, ex.Message, "Print + kick failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
     private async Task TryCommonCommandsAsync()
     {
         var printerName = _printerName.Text.Trim();
@@ -363,6 +393,7 @@ public sealed class DrawerConfigManagerForm : Form
         _reloadButton.Enabled = !isBusy;
         _testButton.Enabled = !isBusy;
         _printTestButton.Enabled = !isBusy;
+        _printKickButton.Enabled = !isBusy;
         _tryCommonButton.Enabled = !isBusy;
         _openInstallFolderButton.Enabled = !isBusy;
         Cursor = isBusy ? Cursors.WaitCursor : Cursors.Default;
@@ -488,6 +519,8 @@ public static class DrawerKickCommand
         new("ESC p pin 5 medium", "27,112,1,50,250", [27, 112, 1, 50, 250]),
         new("ESC p pin 2 long", "27,112,0,100,250", [27, 112, 0, 100, 250]),
         new("ESC p pin 5 long", "27,112,1,100,250", [27, 112, 1, 100, 250]),
+        new("ESC init + pin 2", "27,64,27,112,0,50,250", [27, 64, 27, 112, 0, 50, 250]),
+        new("ESC init + pin 5", "27,64,27,112,1,50,250", [27, 64, 27, 112, 1, 50, 250]),
         new("DLE DC4 pin 2", "16,20,1,0,1", [16, 20, 1, 0, 1]),
         new("DLE DC4 pin 5", "16,20,1,1,1", [16, 20, 1, 1, 1])
     ];
@@ -547,6 +580,18 @@ public static class RawPrinter
         });
 
         return System.Text.Encoding.ASCII.GetBytes(lines);
+    }
+
+    public static byte[] BuildPrintAndKickBytes(byte[] kickBytes)
+    {
+        var prefix = System.Text.Encoding.ASCII.GetBytes(
+            "\u001b@\r\nAphiwatPOS drawer test\r\nSending drawer pulse...\r\n");
+        var suffix = System.Text.Encoding.ASCII.GetBytes("\r\n\r\n");
+        var bytes = new byte[prefix.Length + kickBytes.Length + suffix.Length];
+        Buffer.BlockCopy(prefix, 0, bytes, 0, prefix.Length);
+        Buffer.BlockCopy(kickBytes, 0, bytes, prefix.Length, kickBytes.Length);
+        Buffer.BlockCopy(suffix, 0, bytes, prefix.Length + kickBytes.Length, suffix.Length);
+        return bytes;
     }
 
     public static void SendBytes(string printerName, byte[] bytes)

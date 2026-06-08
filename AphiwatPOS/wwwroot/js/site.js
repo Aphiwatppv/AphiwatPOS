@@ -1023,9 +1023,12 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll("[data-pricing-section]").forEach((section) => {
     const form = section.closest("form");
     const minimumCost = section.querySelector("[data-minimum-cost]");
+    const vatMode = section.querySelector("[data-vat-mode]");
     const vatPercentage = section.querySelector("[data-vat-percentage]");
     const vatAmount = section.querySelector("[data-vat-amount]");
     const taxRate = section.querySelector("[data-tax-rate]");
+    const vatModeHelper = section.querySelector("[data-vat-mode-helper]");
+    const vatFormula = section.querySelector("[data-vat-formula]");
     const minimumSellingPrice = section.querySelector("[data-minimum-selling-price]");
     const minimumSellingDisplay = section.querySelector("[data-minimum-selling-display]");
     const sellingPrice = section.querySelector("[data-selling-price]");
@@ -1034,16 +1037,39 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const updatePricing = () => {
       const minimumCostValue = Number.parseFloat(minimumCost?.value || "0") || 0;
-      const vatPercentageValue = Number.parseFloat(vatPercentage?.value || "0") || 0;
+      const modeValue = vatMode?.value || "VatExcluded";
+      const vatPercentageValue = modeValue === "NoVat" ? 0 : Number.parseFloat(vatPercentage?.value || "0") || 0;
       const sellingPriceValue = Number.parseFloat(sellingPrice?.value || "0") || 0;
-      const vatAmountValue = minimumCostValue * vatPercentageValue / 100;
-      const minimumSellingValue = minimumCostValue + vatAmountValue;
+      const vatAmountValue = modeValue === "NoVat"
+        ? 0
+        : modeValue === "VatIncluded" && vatPercentageValue > 0
+          ? minimumCostValue * vatPercentageValue / (100 + vatPercentageValue)
+          : minimumCostValue * vatPercentageValue / 100;
+      const minimumSellingValue = modeValue === "VatExcluded" ? minimumCostValue + vatAmountValue : minimumCostValue;
       const isValid = sellingPriceValue >= minimumSellingValue;
 
       if (vatAmount) vatAmount.value = vatAmountValue.toFixed(2);
       if (minimumSellingPrice) minimumSellingPrice.value = minimumSellingValue.toFixed(2);
       if (minimumSellingDisplay) minimumSellingDisplay.textContent = minimumSellingValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       if (taxRate) taxRate.value = vatPercentageValue.toFixed(2);
+      if (vatPercentage) {
+        vatPercentage.disabled = modeValue === "NoVat";
+        if (modeValue === "NoVat") vatPercentage.value = "0.00";
+      }
+      if (vatModeHelper) {
+        vatModeHelper.textContent = modeValue === "NoVat"
+          ? "No VAT keeps minimum selling price equal to minimum cost."
+          : modeValue === "VatIncluded"
+            ? "VAT included extracts VAT from the minimum cost."
+            : "VAT excluded adds VAT on top of minimum cost.";
+      }
+      if (vatFormula) {
+        vatFormula.textContent = modeValue === "NoVat"
+          ? "VAT amount is 0."
+          : modeValue === "VatIncluded"
+            ? "Minimum Cost x VAT Percentage / (100 + VAT Percentage)."
+            : "Minimum Cost x VAT Percentage / 100.";
+      }
       sellingPrice?.classList.toggle("is-invalid", !isValid);
       error?.classList.toggle("d-none", isValid);
       if (saveButton) saveButton.disabled = !isValid;
@@ -1051,6 +1077,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     [minimumCost, vatPercentage, sellingPrice].forEach((input) => input?.addEventListener("input", updatePricing));
+    vatMode?.addEventListener("change", updatePricing);
     form?.addEventListener("submit", (event) => {
       if (updatePricing()) return;
       event.preventDefault();

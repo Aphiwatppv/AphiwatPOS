@@ -25,6 +25,7 @@ builder.Services
         options.Conventions.AuthorizeFolder("/Customer", "CustomerManage");
         options.Conventions.AuthorizeFolder("/Customers", "CustomerManage");
         options.Conventions.AuthorizePage("/Sales/DailyClosing/Index", "ReportView");
+        options.Conventions.AuthorizePage("/Sales/VatReport/Index", "ReportView");
         options.Conventions.AuthorizeFolder("/Employees", "AdminOnly");
     });
 

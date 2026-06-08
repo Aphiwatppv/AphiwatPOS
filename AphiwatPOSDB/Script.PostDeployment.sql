@@ -1,6 +1,8 @@
 :r ".\Seed\Authentication & User Management\AccessSeed.sql"
 :r ".\Seed\Product Management\CategorySeed.sql"
 :r ".\Seed\Product Management\UnitSeed.sql"
+:r ".\Script\MinimumSellingPriceMigration.sql"
+:r ".\Script\ProductVatModeRuntimeUpdate.sql"
 :r ".\Script\InventoryManagement.sql"
 :r ".\Script\CustomerManagement.sql"
 :r ".\Script\CustomerMemberModule.sql"

@@ -29,7 +29,12 @@ BEGIN
             CAST(s.SaleDate AS DATE) AS SaleDate,
             SUM(si.Quantity * si.CostPriceSnapshot) AS CostOfGoodsSold,
             SUM(si.LineTotal - (si.Quantity * si.CostPriceSnapshot)) AS GrossProfitAmount,
-            SUM(si.Quantity * si.CostPriceSnapshot * (ISNULL(p.VatPercentage, 0) / 100.0)) AS VatInAmount
+            SUM(CASE
+                WHEN ISNULL(p.VatMode, N'VatExcluded') = N'NoVat' THEN 0
+                WHEN ISNULL(p.VatMode, N'VatExcluded') = N'VatIncluded' AND ISNULL(p.VatPercentage, 0) > 0 THEN si.Quantity * si.CostPriceSnapshot * (p.VatPercentage / (100.0 + p.VatPercentage))
+                WHEN ISNULL(p.VatMode, N'VatExcluded') = N'VatIncluded' THEN 0
+                ELSE si.Quantity * si.CostPriceSnapshot * (ISNULL(p.VatPercentage, 0) / 100.0)
+            END) AS VatInAmount
         FROM SaleScope s
         JOIN dbo.SalesItem si ON si.SalesHeaderId = s.SalesHeaderId
         JOIN dbo.Product p ON p.ProductId = si.ProductId

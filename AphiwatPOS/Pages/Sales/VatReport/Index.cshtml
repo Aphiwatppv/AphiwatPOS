@@ -1,0 +1,175 @@
+@page
+@model AphiwatPOS.Pages.Sales.VatReport.IndexModel
+@{
+    ViewData["Title"] = "VAT Report";
+    ViewData["Subtitle"] = "Daily, monthly, bill-level, and revenue filing VAT data.";
+    var dailyRows = Model.DailyRows.ToArray();
+    var monthlyRows = Model.MonthlyRows.ToArray();
+    var billRows = Model.BillRows.ToArray();
+}
+
+<div class="page-header d-flex align-items-start justify-content-between gap-3">
+    <div>
+        <h1>VAT Report</h1>
+        <p>รายงาน VAT รายเดือน รายวัน รายบิล และข้อมูลสำหรับส่งสรรพากร</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" asp-page="/Sales/SalesHistory/Index" asp-route-FromDate="@Model.EffectiveFromDate.ToString("yyyy-MM-dd")" asp-route-ToDate="@Model.EffectiveToDate.ToString("yyyy-MM-dd")" asp-route-CashierUserId="@Model.CashierUserId">
+            <i class="bi bi-receipt me-1"></i>Sales History
+        </a>
+        <a class="btn btn-primary" asp-page-handler="ExportRevenueCsv" asp-route-FromDate="@Model.EffectiveFromDate.ToString("yyyy-MM-dd")" asp-route-ToDate="@Model.EffectiveToDate.ToString("yyyy-MM-dd")" asp-route-CashierUserId="@Model.CashierUserId">
+            <i class="bi bi-download me-1"></i>Export CSV
+        </a>
+    </div>
+</div>
+
+<form method="get" class="filter-card mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label" asp-for="FromDate">Date from</label>
+            <input class="form-control" asp-for="FromDate" type="date" value="@Model.EffectiveFromDate.ToString("yyyy-MM-dd")" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" asp-for="ToDate">Date to</label>
+            <input class="form-control" asp-for="ToDate" type="date" value="@Model.EffectiveToDate.ToString("yyyy-MM-dd")" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" asp-for="CashierUserId">Cashier</label>
+            <select class="form-select" asp-for="CashierUserId">
+                <option value="">All cashiers</option>
+                @foreach (var cashier in Model.Cashiers)
+                {
+                    <option value="@cashier.UserId">@cashier.DisplayName (@cashier.Username)</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+            <button class="btn btn-primary w-100" type="submit"><i class="bi bi-search me-1"></i>Load</button>
+            <a class="btn btn-outline-secondary" asp-page="./Index"><i class="bi bi-x-lg"></i></a>
+        </div>
+    </div>
+</form>
+
+<div class="summary-grid">
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-bank"></i></span><div><div class="metric-label">VAT Payable</div><div class="metric-value @(Model.TotalVatPayableAmount < 0 ? "text-success" : "")">@Model.TotalVatPayableAmount.ToString("N2")</div><div class="metric-helper">VAT Out - VAT In</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-box-arrow-up"></i></span><div><div class="metric-label">VAT Out</div><div class="metric-value">@Model.TotalVatOutAmount.ToString("N2")</div><div class="metric-helper">ภาษีขาย</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-box-arrow-in-down"></i></span><div><div class="metric-label">VAT In</div><div class="metric-value">@Model.TotalVatInAmount.ToString("N2")</div><div class="metric-helper">ภาษีซื้อ</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-file-earmark-spreadsheet"></i></span><div><div class="metric-label">Taxable Base</div><div class="metric-value">@Model.TotalTaxableAmount.ToString("N2")</div><div class="metric-helper">Net before VAT</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-cash-stack"></i></span><div><div class="metric-label">Net Sales</div><div class="metric-value">@Model.TotalNetAmount.ToString("N2")</div><div class="metric-helper">Selected range</div></div></div>
+    <div class="summary-card"><span class="metric-icon"><i class="bi bi-arrow-counterclockwise"></i></span><div><div class="metric-label">Refunds</div><div class="metric-value">@Model.TotalRefundAmount.ToString("N2")</div><div class="metric-helper">Completed returns</div></div></div>
+</div>
+
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#monthlyVat" type="button" role="tab">Monthly</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#dailyVat" type="button" role="tab">Daily</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#billVat" type="button" role="tab">Bill</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#revenueVat" type="button" role="tab">Revenue Data</button></li>
+</ul>
+
+<div class="tab-content">
+    <section class="tab-pane fade show active data-card" id="monthlyVat" role="tabpanel">
+        <div class="section-title-row"><div><h2 class="h5 mb-1">Monthly VAT</h2><p class="text-muted mb-0">VAT by filing month.</p></div></div>
+        <div class="table-responsive mt-3">
+            <table class="table table-hover align-middle">
+                <thead><tr><th>Month</th><th class="text-end">Transactions</th><th class="text-end">Gross</th><th class="text-end">Discount</th><th class="text-end">VAT In</th><th class="text-end">VAT Out</th><th class="text-end">VAT Payable</th><th class="text-end">Net</th></tr></thead>
+                <tbody>
+                @if (!monthlyRows.Any())
+                {
+                    <tr><td colspan="8"><div class="empty-state"><i class="bi bi-bank"></i><div class="fw-semibold">No VAT data found</div><div>Try another date range.</div></div></td></tr>
+                }
+                @foreach (var row in monthlyRows)
+                {
+                    <tr>
+                        <td>@row.Month.ToString("yyyy-MM")</td>
+                        <td class="text-end">@row.TransactionCount</td>
+                        <td class="text-end">@row.GrossAmount.ToString("N2")</td>
+                        <td class="text-end">@row.DiscountAmount.ToString("N2")</td>
+                        <td class="text-end">@row.VatInAmount.ToString("N2")</td>
+                        <td class="text-end">@row.VatOutAmount.ToString("N2")</td>
+                        <td class="text-end fw-semibold @(row.VatPayableAmount < 0 ? "text-success" : "")">@row.VatPayableAmount.ToString("N2")</td>
+                        <td class="text-end">@row.NetAmount.ToString("N2")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="tab-pane fade data-card" id="dailyVat" role="tabpanel">
+        <div class="section-title-row"><div><h2 class="h5 mb-1">Daily VAT</h2><p class="text-muted mb-0">VAT by sale date.</p></div></div>
+        <div class="table-responsive mt-3">
+            <table class="table table-hover align-middle">
+                <thead><tr><th>Date</th><th class="text-end">Transactions</th><th class="text-end">Gross</th><th class="text-end">Discount</th><th class="text-end">VAT In</th><th class="text-end">VAT Out</th><th class="text-end">VAT Payable</th><th class="text-end">Net</th></tr></thead>
+                <tbody>
+                @foreach (var row in dailyRows)
+                {
+                    var payable = row.VatOutAmount - row.VatInAmount;
+                    <tr>
+                        <td>@row.SaleDate.ToString("yyyy-MM-dd")</td>
+                        <td class="text-end">@row.TransactionCount</td>
+                        <td class="text-end">@row.GrossAmount.ToString("N2")</td>
+                        <td class="text-end">@row.DiscountAmount.ToString("N2")</td>
+                        <td class="text-end">@row.VatInAmount.ToString("N2")</td>
+                        <td class="text-end">@row.VatOutAmount.ToString("N2")</td>
+                        <td class="text-end fw-semibold @(payable < 0 ? "text-success" : "")">@payable.ToString("N2")</td>
+                        <td class="text-end">@row.NetAmount.ToString("N2")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="tab-pane fade data-card" id="billVat" role="tabpanel">
+        <div class="section-title-row"><div><h2 class="h5 mb-1">Bill VAT</h2><p class="text-muted mb-0">VAT by sale bill.</p></div></div>
+        <div class="table-responsive mt-3">
+            <table class="table table-hover align-middle">
+                <thead><tr><th>Bill No</th><th>Date</th><th>Customer</th><th>Cashier</th><th class="text-end">Taxable</th><th class="text-end">VAT Out</th><th class="text-end">VAT In</th><th class="text-end">Payable</th><th class="text-end">Net</th></tr></thead>
+                <tbody>
+                @foreach (var row in billRows)
+                {
+                    <tr>
+                        <td><span class="code-badge mono">@row.SaleNo</span></td>
+                        <td>@row.SaleDate.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@row.CustomerName</td>
+                        <td>@row.CashierName</td>
+                        <td class="text-end">@row.TaxableAmount.ToString("N2")</td>
+                        <td class="text-end">@row.VatOutAmount.ToString("N2")</td>
+                        <td class="text-end">@row.VatInAmount.ToString("N2")</td>
+                        <td class="text-end fw-semibold @(row.VatPayableAmount < 0 ? "text-success" : "")">@row.VatPayableAmount.ToString("N2")</td>
+                        <td class="text-end">@row.NetAmount.ToString("N2")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="tab-pane fade data-card" id="revenueVat" role="tabpanel">
+        <div class="section-title-row">
+            <div><h2 class="h5 mb-1">Revenue Filing Data</h2><p class="text-muted mb-0">ข้อมูลตรวจทานก่อนยื่น ภ.พ.30</p></div>
+            <a class="btn btn-outline-secondary btn-sm" asp-page-handler="ExportRevenueCsv" asp-route-FromDate="@Model.EffectiveFromDate.ToString("yyyy-MM-dd")" asp-route-ToDate="@Model.EffectiveToDate.ToString("yyyy-MM-dd")" asp-route-CashierUserId="@Model.CashierUserId"><i class="bi bi-download me-1"></i>CSV</a>
+        </div>
+        <div class="table-responsive mt-3">
+            <table class="table table-hover align-middle">
+                <thead><tr><th>วันที่</th><th>เลขที่เอกสาร</th><th>ชื่อลูกค้า</th><th>เลขผู้เสียภาษี</th><th class="text-end">มูลค่าก่อน VAT</th><th class="text-end">ภาษีขาย</th><th class="text-end">ภาษีซื้อ</th><th class="text-end">ภาษีที่ต้องชำระ</th><th class="text-end">ยอดสุทธิ</th></tr></thead>
+                <tbody>
+                @foreach (var row in billRows)
+                {
+                    <tr>
+                        <td>@row.SaleDate.ToString("yyyy-MM-dd")</td>
+                        <td><span class="code-badge mono">@row.SaleNo</span></td>
+                        <td>@row.CustomerName</td>
+                        <td>@(string.IsNullOrWhiteSpace(row.CustomerTaxId) ? "-" : row.CustomerTaxId)</td>
+                        <td class="text-end">@row.TaxableAmount.ToString("N2")</td>
+                        <td class="text-end">@row.VatOutAmount.ToString("N2")</td>
+                        <td class="text-end">@row.VatInAmount.ToString("N2")</td>
+                        <td class="text-end fw-semibold @(row.VatPayableAmount < 0 ? "text-success" : "")">@row.VatPayableAmount.ToString("N2")</td>
+                        <td class="text-end">@row.NetAmount.ToString("N2")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

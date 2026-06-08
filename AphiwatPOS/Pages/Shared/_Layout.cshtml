@@ -24,7 +24,7 @@
         currentPage.StartsWith("/Customers", StringComparison.OrdinalIgnoreCase);
     var rubberPlantationExpanded = currentPage.StartsWith("/RubberPlantation", StringComparison.OrdinalIgnoreCase);
     var hasSalesAccess = User.IsInRole("Admin") ||
-        User.Claims.Any(claim => claim.Type == "Permission" && claim.Value.StartsWith("SALES_", StringComparison.OrdinalIgnoreCase));
+        User.Claims.Any(claim => claim.Type == "Permission" && (claim.Value.StartsWith("SALES_", StringComparison.OrdinalIgnoreCase) || claim.Value == "REPORT_VIEW" || claim.Value == "CASH_CLOSING"));
     var hasInventoryAccess = User.IsInRole("Admin") ||
         User.Claims.Any(claim => claim.Type == "Permission" && claim.Value.StartsWith("INVENTORY_", StringComparison.OrdinalIgnoreCase));
     var isPosCheckout = currentPage.StartsWith("/Sales/POSCheckout", StringComparison.OrdinalIgnoreCase);
@@ -100,6 +100,7 @@
                                 @if (User.IsInRole("Admin") || User.Claims.Any(claim => claim.Type == "Permission" && (claim.Value == "REPORT_VIEW" || claim.Value == "CASH_CLOSING")))
                                 {
                                     <a class="@isActive("/Sales/DailyClosing")" asp-page="/Sales/DailyClosing/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="Daily Closing" data-i18n-title="nav.dailyClosing"><span class="nav-icon"><i class="bi bi-clipboard2-check"></i></span><span class="nav-label" data-i18n="nav.dailyClosing">Daily Closing</span></a>
+                                    <a class="@isActive("/Sales/VatReport")" asp-page="/Sales/VatReport/Index" data-bs-toggle="tooltip" data-bs-placement="right" title="VAT Report"><span class="nav-icon"><i class="bi bi-bank"></i></span><span class="nav-label">VAT Report</span></a>
                                 }
                             </div>
                         </div>

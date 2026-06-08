@@ -114,6 +114,7 @@ public sealed class IndexModel : PageModel
                 UnitId = ProductInput.UnitId,
                 CostPrice = ProductInput.CostPrice,
                 MinimumCost = ProductInput.MinimumCost,
+                VatMode = ProductInput.VatMode,
                 VatPercentage = ProductInput.VatPercentage,
                 VatAmount = ProductInput.VatAmount,
                 MinimumSellingPrice = ProductInput.MinimumSellingPrice,
@@ -175,6 +176,7 @@ public sealed class IndexModel : PageModel
                 UnitId = ProductInput.UnitId,
                 CostPrice = ProductInput.CostPrice,
                 MinimumCost = ProductInput.MinimumCost,
+                VatMode = ProductInput.VatMode,
                 VatPercentage = ProductInput.VatPercentage,
                 VatAmount = ProductInput.VatAmount,
                 MinimumSellingPrice = ProductInput.MinimumSellingPrice,
@@ -347,11 +349,28 @@ public sealed class IndexModel : PageModel
 
     private bool ValidatePricingInput()
     {
-        var vatAmount = ProductInput.MinimumCost * ProductInput.VatPercentage / 100;
-        var minimumSellingPrice = ProductInput.MinimumCost + vatAmount;
+        ProductInput.VatMode = ProductInput.VatMode switch
+        {
+            "NoVat" or "VatIncluded" or "VatExcluded" => ProductInput.VatMode,
+            _ => "VatExcluded"
+        };
+
+        if (ProductInput.VatMode == "NoVat")
+        {
+            ProductInput.VatPercentage = 0;
+        }
+
+        var vatAmount = ProductInput.VatMode switch
+        {
+            "NoVat" => 0,
+            "VatIncluded" when ProductInput.VatPercentage > 0 => ProductInput.MinimumCost * ProductInput.VatPercentage / (100 + ProductInput.VatPercentage),
+            "VatIncluded" => 0,
+            _ => ProductInput.MinimumCost * ProductInput.VatPercentage / 100
+        };
+        var minimumSellingPrice = ProductInput.VatMode == "VatExcluded" ? ProductInput.MinimumCost + vatAmount : ProductInput.MinimumCost;
         ProductInput.VatAmount = vatAmount;
         ProductInput.MinimumSellingPrice = minimumSellingPrice;
-        ProductInput.TaxRate = ProductInput.VatPercentage;
+        ProductInput.TaxRate = ProductInput.VatMode == "NoVat" ? 0 : ProductInput.VatPercentage;
         return ProductInput.SellingPrice >= minimumSellingPrice;
     }
 
@@ -367,6 +386,7 @@ public sealed class IndexModel : PageModel
         [Range(1, int.MaxValue)] public int UnitId { get; set; }
         [Range(0, double.MaxValue)] public decimal CostPrice { get; set; }
         [Range(0, double.MaxValue)] public decimal MinimumCost { get; set; }
+        public string VatMode { get; set; } = "VatExcluded";
         [Range(0, 100)] public decimal VatPercentage { get; set; }
         [Range(0, double.MaxValue)] public decimal VatAmount { get; set; }
         [Range(0, double.MaxValue)] public decimal MinimumSellingPrice { get; set; }

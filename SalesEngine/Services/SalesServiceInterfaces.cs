@@ -28,6 +28,7 @@ public interface ISalesHistoryService
     Task<IReadOnlyCollection<SalesItemModel>> GetItemsAsync(long salesHeaderId, CancellationToken cancellationToken = default);
     Task<IReadOnlyCollection<SalesPaymentModel>> GetPaymentsAsync(long salesHeaderId, CancellationToken cancellationToken = default);
     Task<IReadOnlyCollection<SalesSummaryModel>> GetSummaryByDateRangeAsync(DateTime fromDate, DateTime toDate, int? cashierUserId = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<SalesVatBillReportModel>> GetVatBillReportAsync(DateTime fromDate, DateTime toDate, int? cashierUserId = null, CancellationToken cancellationToken = default);
     Task VoidAsync(SalesVoidModel model, CancellationToken cancellationToken = default);
     Task<ReceiptPrintHistoryModel> ReprintReceiptAsync(long salesHeaderId, int printedByUserId, CancellationToken cancellationToken = default);
 }

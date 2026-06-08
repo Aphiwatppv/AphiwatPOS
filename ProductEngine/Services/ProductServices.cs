@@ -266,7 +266,7 @@ public sealed class ProductService : IProductService
 
     public Task<int> CreateAsync(ProductCreateModel model, CancellationToken cancellationToken = default)
     {
-        var pricing = ProductServiceHelpers.CalculatePricing(model.MinimumCost, model.VatPercentage, model.SellingPrice);
+        var pricing = ProductServiceHelpers.CalculatePricing(model.MinimumCost, model.VatPercentage, model.SellingPrice, model.VatMode);
 
         return _accessService.QuerySingleAsync<int, object>("dbo.spProductCreate", new
         {
@@ -279,6 +279,7 @@ public sealed class ProductService : IProductService
             model.UnitId,
             model.CostPrice,
             pricing.MinimumCost,
+            pricing.VatMode,
             pricing.VatPercentage,
             pricing.VatAmount,
             pricing.MinimumSellingPrice,
@@ -299,7 +300,7 @@ public sealed class ProductService : IProductService
 
     public Task UpdateAsync(ProductUpdateModel model, CancellationToken cancellationToken = default)
     {
-        var pricing = ProductServiceHelpers.CalculatePricing(model.MinimumCost, model.VatPercentage, model.SellingPrice);
+        var pricing = ProductServiceHelpers.CalculatePricing(model.MinimumCost, model.VatPercentage, model.SellingPrice, model.VatMode);
 
         return _accessService.ExecuteAsync("dbo.spProductUpdate", new
         {
@@ -313,6 +314,7 @@ public sealed class ProductService : IProductService
             model.UnitId,
             model.CostPrice,
             pricing.MinimumCost,
+            pricing.VatMode,
             pricing.VatPercentage,
             pricing.VatAmount,
             pricing.MinimumSellingPrice,
@@ -438,18 +440,36 @@ internal static class ProductServiceHelpers
         };
     }
 
-    public static ProductPricingCalculation CalculatePricing(decimal minimumCost, decimal vatPercentage, decimal sellingPrice)
+    public static string NormalizeVatMode(string? value)
     {
-        var vatAmount = minimumCost * vatPercentage / 100;
-        var minimumSellingPrice = minimumCost + vatAmount;
+        var vatMode = value?.Trim();
+        return vatMode switch
+        {
+            "NoVat" or "VatIncluded" or "VatExcluded" => vatMode,
+            _ => "VatExcluded"
+        };
+    }
+
+    public static ProductPricingCalculation CalculatePricing(decimal minimumCost, decimal vatPercentage, decimal sellingPrice, string? vatMode)
+    {
+        var normalizedVatMode = NormalizeVatMode(vatMode);
+        var normalizedVatPercentage = normalizedVatMode == "NoVat" ? 0 : vatPercentage;
+        var vatAmount = normalizedVatMode switch
+        {
+            "NoVat" => 0,
+            "VatIncluded" when normalizedVatPercentage > 0 => minimumCost * normalizedVatPercentage / (100 + normalizedVatPercentage),
+            "VatIncluded" => 0,
+            _ => minimumCost * normalizedVatPercentage / 100
+        };
+        var minimumSellingPrice = normalizedVatMode == "VatExcluded" ? minimumCost + vatAmount : minimumCost;
 
         if (sellingPrice < minimumSellingPrice)
         {
             throw new InvalidOperationException("Selling price cannot be lower than minimum selling price.");
         }
 
-        return new ProductPricingCalculation(minimumCost, vatPercentage, vatAmount, minimumSellingPrice);
+        return new ProductPricingCalculation(minimumCost, normalizedVatMode, normalizedVatPercentage, vatAmount, minimumSellingPrice);
     }
 }
 
-internal readonly record struct ProductPricingCalculation(decimal MinimumCost, decimal VatPercentage, decimal VatAmount, decimal MinimumSellingPrice);
+internal readonly record struct ProductPricingCalculation(decimal MinimumCost, string VatMode, decimal VatPercentage, decimal VatAmount, decimal MinimumSellingPrice);

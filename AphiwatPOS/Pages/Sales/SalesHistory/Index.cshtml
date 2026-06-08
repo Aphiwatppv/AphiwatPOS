@@ -10,6 +10,9 @@
     var net = Model.Summary.Sum(x => x.NetAmount);
     var discount = Model.Summary.Sum(x => x.DiscountAmount);
     var tax = Model.Summary.Sum(x => x.TaxAmount);
+    var vatIn = Model.Summary.Sum(x => x.VatInAmount);
+    var vatOut = Model.Summary.Sum(x => x.VatOutAmount);
+    var vatPayable = vatOut - vatIn;
     var refund = Model.Summary.Sum(x => x.RefundAmount);
     var creditSales = Model.CustomerCreditSalesAmount;
 }
@@ -29,6 +32,43 @@
     <div class="summary-card"><span class="metric-icon"><i class="bi bi-arrow-counterclockwise"></i></span><div><div class="metric-label">Refunded amount</div><div class="metric-value">@refund.ToString("N2")</div><div class="metric-helper">Completed refunds</div></div></div>
     <div class="summary-card"><span class="metric-icon"><i class="bi bi-list-check"></i></span><div><div class="metric-label">Transactions</div><div class="metric-value">@txCount</div><div class="metric-helper">Completed sale count</div></div></div>
 </div>
+
+<section class="data-card mb-3">
+    <div class="section-title-row">
+        <div>
+            <h2 class="h5 mb-1">VAT Report</h2>
+            <p class="text-muted mb-0">VAT in, VAT out, and payable VAT for the selected date range.</p>
+        </div>
+    </div>
+    <div class="summary-grid mt-3">
+        <div class="summary-card"><span class="metric-icon"><i class="bi bi-box-arrow-in-down"></i></span><div><div class="metric-label">VAT In</div><div class="metric-value">@vatIn.ToString("N2")</div><div class="metric-helper">Input VAT from product cost</div></div></div>
+        <div class="summary-card"><span class="metric-icon"><i class="bi bi-box-arrow-up"></i></span><div><div class="metric-label">VAT Out</div><div class="metric-value">@vatOut.ToString("N2")</div><div class="metric-helper">Output VAT from sales</div></div></div>
+        <div class="summary-card"><span class="metric-icon"><i class="bi bi-calculator"></i></span><div><div class="metric-label">VAT Payable</div><div class="metric-value @(vatPayable < 0 ? "text-success" : "")">@vatPayable.ToString("N2")</div><div class="metric-helper">VAT Out - VAT In</div></div></div>
+    </div>
+    <div class="table-responsive mt-3">
+        <table class="table table-sm align-middle">
+            <thead><tr><th>Date</th><th class="text-end">Gross Sales</th><th class="text-end">VAT In</th><th class="text-end">VAT Out</th><th class="text-end">Payable</th><th class="text-end">Transactions</th></tr></thead>
+            <tbody>
+            @if (!Model.Summary.Any())
+            {
+                <tr><td colspan="6"><div class="empty-state"><i class="bi bi-bank"></i><div class="fw-semibold">No VAT data found</div><div>Try a wider date range or clear filters.</div></div></td></tr>
+            }
+            @foreach (var day in Model.Summary)
+            {
+                var dayPayable = day.VatOutAmount - day.VatInAmount;
+                <tr>
+                    <td>@day.SaleDate.ToString("yyyy-MM-dd")</td>
+                    <td class="text-end">@day.GrossAmount.ToString("N2")</td>
+                    <td class="text-end">@day.VatInAmount.ToString("N2")</td>
+                    <td class="text-end">@day.VatOutAmount.ToString("N2")</td>
+                    <td class="text-end fw-semibold @(dayPayable < 0 ? "text-success" : "")">@dayPayable.ToString("N2")</td>
+                    <td class="text-end">@day.TransactionCount</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>
 
 <form method="get" class="filter-card mb-3">
     <div class="row g-3 align-items-end">

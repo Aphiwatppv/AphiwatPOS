@@ -209,6 +209,7 @@ public class ProductModel
     public string UnitName { get; init; } = string.Empty;
     public decimal CostPrice { get; init; }
     public decimal MinimumCost { get; init; }
+    public string VatMode { get; init; } = "VatExcluded";
     public decimal VatPercentage { get; init; }
     public decimal VatAmount { get; init; }
     public decimal MinimumSellingPrice { get; init; }
@@ -241,6 +242,7 @@ public sealed class ProductCreateModel
     public int UnitId { get; init; }
     public decimal CostPrice { get; init; }
     public decimal MinimumCost { get; init; }
+    public string VatMode { get; init; } = "VatExcluded";
     public decimal VatPercentage { get; init; }
     public decimal VatAmount { get; init; }
     public decimal MinimumSellingPrice { get; init; }
@@ -270,6 +272,7 @@ public sealed class ProductUpdateModel
     public int UnitId { get; init; }
     public decimal CostPrice { get; init; }
     public decimal MinimumCost { get; init; }
+    public string VatMode { get; init; } = "VatExcluded";
     public decimal VatPercentage { get; init; }
     public decimal VatAmount { get; init; }
     public decimal MinimumSellingPrice { get; init; }

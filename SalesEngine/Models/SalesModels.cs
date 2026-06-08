@@ -245,6 +245,24 @@ public sealed class SalesSummaryModel
     public decimal VatOutAmount { get; init; }
 }
 
+public sealed class SalesVatBillReportModel
+{
+    public long SalesHeaderId { get; init; }
+    public string SaleNo { get; init; } = string.Empty;
+    public DateTime SaleDate { get; init; }
+    public string CustomerName { get; init; } = string.Empty;
+    public string CustomerTaxId { get; init; } = string.Empty;
+    public string CashierName { get; init; } = string.Empty;
+    public decimal GrossAmount { get; init; }
+    public decimal DiscountAmount { get; init; }
+    public decimal TaxableAmount { get; init; }
+    public decimal VatOutAmount { get; init; }
+    public decimal VatInAmount { get; init; }
+    public decimal VatPayableAmount { get; init; }
+    public decimal NetAmount { get; init; }
+    public string Status { get; init; } = string.Empty;
+}
+
 public sealed class DailySalesClosingModel
 {
     public DateTime ClosingDate { get; init; }

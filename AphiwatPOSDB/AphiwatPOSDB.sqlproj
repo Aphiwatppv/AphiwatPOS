@@ -125,6 +125,7 @@
     <None Include="Seed\Product Management\UnitSeed.sql" />
     <None Include="Script\ProductManagement.sql" />
     <None Include="Script\MinimumSellingPriceMigration.sql" />
+    <None Include="Script\ProductVatModeRuntimeUpdate.sql" />
     <None Include="Script\InventoryManagement.sql" />
     <None Include="Script\CustomerManagement.sql" />
     <None Include="Script\CustomerMemberModule.sql" />
@@ -197,6 +198,7 @@
     <Build Include="dbo\Stored Procedures\Sales Management\spSalesGetPaymentsBySalesHeaderId.sql" />
     <Build Include="dbo\Stored Procedures\Sales Management\spSalesGetProductByBarcode.sql" />
     <Build Include="dbo\Stored Procedures\Sales Management\spSalesGetSummaryByDateRange.sql" />
+    <Build Include="dbo\Stored Procedures\Sales Management\spSalesVatBillReportGet.sql" />
     <Build Include="dbo\Stored Procedures\Sales Management\spSalesReprintReceipt.sql" />
     <Build Include="dbo\Stored Procedures\Sales Management\spSalesReturnAddItem.sql" />
     <Build Include="dbo\Stored Procedures\Sales Management\spSalesReturnApprove.sql" />

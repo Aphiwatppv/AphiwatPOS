@@ -179,6 +179,13 @@ public sealed class SalesHistoryService : ISalesHistoryService
         return rows.ToArray();
     }
 
+    public async Task<IReadOnlyCollection<SalesVatBillReportModel>> GetVatBillReportAsync(DateTime fromDate, DateTime toDate, int? cashierUserId = null, CancellationToken cancellationToken = default)
+    {
+        SalesGuard.ValidDateRange(fromDate, toDate);
+        var rows = await _accessService.QueryAsync<SalesVatBillReportModel, object>("dbo.spSalesVatBillReportGet", new { FromDate = fromDate, ToDate = toDate, CashierUserId = cashierUserId }, cancellationToken);
+        return rows.ToArray();
+    }
+
     public Task VoidAsync(SalesVoidModel model, CancellationToken cancellationToken = default)
     {
         SalesGuard.Positive(model.SalesHeaderId, nameof(model.SalesHeaderId));

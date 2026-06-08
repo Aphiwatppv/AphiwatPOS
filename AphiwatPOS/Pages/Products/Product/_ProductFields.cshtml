@@ -7,9 +7,14 @@
     var barcode = Model?.Barcode ?? ViewData["PrefillBarcode"] as string;
     var wholesaleMinQty = Model is not null && Model.WholesaleMinQty > 0 ? Model.WholesaleMinQty : 1;
     var minimumCost = Model?.MinimumCost ?? Model?.CostPrice ?? 0;
+    var vatMode = Model?.VatMode ?? "VatExcluded";
     var vatPercentage = Model?.VatPercentage ?? Model?.TaxRate ?? 0;
-    var vatAmount = Model?.VatAmount ?? minimumCost * vatPercentage / 100;
-    var minimumSellingPrice = Model?.MinimumSellingPrice ?? minimumCost + vatAmount;
+    if (vatMode == "NoVat")
+    {
+        vatPercentage = 0;
+    }
+    var vatAmount = Model?.VatAmount ?? (vatMode == "VatIncluded" && vatPercentage > 0 ? minimumCost * vatPercentage / (100 + vatPercentage) : vatMode == "NoVat" ? 0 : minimumCost * vatPercentage / 100);
+    var minimumSellingPrice = Model?.MinimumSellingPrice ?? (vatMode == "VatExcluded" ? minimumCost + vatAmount : minimumCost);
 }
 <input type="hidden" name="ProductInput.ProductId" value="@(Model?.ProductId ?? 0)" />
 <input type="hidden" name="ProductInput.ExistingImageUrl" value="@Model?.ProductImageUrl" />
@@ -26,7 +31,7 @@
         <div class="pricing-section-header">
             <div>
                 <h3>Pricing &amp; Cost Control</h3>
-                <p>Minimum selling price is calculated from minimum cost plus VAT.</p>
+                <p>Minimum selling price follows the selected VAT mode.</p>
             </div>
             <div class="minimum-price-badge">
                 <span>Minimum Selling Price</span>
@@ -42,18 +47,27 @@
             <div>
                 <label class="form-label">Minimum Cost</label>
                 <input class="form-control" name="ProductInput.MinimumCost" type="number" step="0.01" min="0" value="@minimumCost" data-minimum-cost />
-                <div class="text-muted small mt-1">Lowest acceptable product cost before VAT.</div>
+                <div class="text-muted small mt-1">Lowest acceptable product cost.</div>
+            </div>
+            <div>
+                <label class="form-label">VAT Mode</label>
+                <select class="form-select" name="ProductInput.VatMode" data-vat-mode>
+                    <option value="VatExcluded" selected="@(vatMode == "VatExcluded")">VAT Excluded</option>
+                    <option value="VatIncluded" selected="@(vatMode == "VatIncluded")">VAT Included</option>
+                    <option value="NoVat" selected="@(vatMode == "NoVat")">No VAT</option>
+                </select>
+                <div class="text-muted small mt-1" data-vat-mode-helper>VAT excluded adds VAT on top of minimum cost.</div>
             </div>
             <div>
                 <label class="form-label">VAT Percentage</label>
                 <div class="input-group"><input class="form-control" name="ProductInput.VatPercentage" type="number" step="0.01" min="0" max="100" value="@vatPercentage" data-vat-percentage /><span class="input-group-text">%</span></div>
                 <input type="hidden" name="ProductInput.TaxRate" value="@vatPercentage" data-tax-rate />
-                <div class="text-muted small mt-1">VAT rate applied to the minimum cost.</div>
+                <div class="text-muted small mt-1">VAT rate used for product pricing and sales VAT out.</div>
             </div>
             <div>
                 <label class="form-label">Calculated VAT Amount</label>
                 <input class="form-control" name="ProductInput.VatAmount" type="number" step="0.01" min="0" value="@vatAmount" readonly data-vat-amount />
-                <div class="text-muted small mt-1">Minimum Cost x VAT Percentage / 100.</div>
+                <div class="text-muted small mt-1" data-vat-formula>Minimum Cost x VAT Percentage / 100.</div>
             </div>
             <div class="minimum-selling-field">
                 <label class="form-label">Minimum Selling Price</label>
