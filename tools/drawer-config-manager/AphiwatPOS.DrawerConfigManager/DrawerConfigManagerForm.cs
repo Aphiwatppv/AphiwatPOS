@@ -19,6 +19,7 @@ public sealed class DrawerConfigManagerForm : Form
     private readonly Button _saveButton = new();
     private readonly Button _reloadButton = new();
     private readonly Button _testButton = new();
+    private readonly Button _printTestButton = new();
     private readonly Button _tryCommonButton = new();
     private readonly Button _openInstallFolderButton = new();
 
@@ -137,6 +138,11 @@ public sealed class DrawerConfigManagerForm : Form
         _testButton.Height = 36;
         _testButton.Click += (_, _) => TestDrawer();
 
+        _printTestButton.Text = "Print Test";
+        _printTestButton.Width = 130;
+        _printTestButton.Height = 36;
+        _printTestButton.Click += (_, _) => PrintTest();
+
         _tryCommonButton.Text = "Try Common";
         _tryCommonButton.Width = 130;
         _tryCommonButton.Height = 36;
@@ -150,6 +156,7 @@ public sealed class DrawerConfigManagerForm : Form
         actions.Controls.Add(_saveButton);
         actions.Controls.Add(_reloadButton);
         actions.Controls.Add(_testButton);
+        actions.Controls.Add(_printTestButton);
         actions.Controls.Add(_tryCommonButton);
         actions.Controls.Add(_openInstallFolderButton);
         return actions;
@@ -256,6 +263,28 @@ public sealed class DrawerConfigManagerForm : Form
         }
     }
 
+    private void PrintTest()
+    {
+        try
+        {
+            var printerName = _printerName.Text.Trim();
+            if (string.IsNullOrWhiteSpace(printerName))
+            {
+                Log("Select a printer before printing a test.");
+                return;
+            }
+
+            RawPrinter.SendBytes(printerName, RawPrinter.BuildDiagnosticReceiptBytes());
+            Log("Sent raw print test to " + printerName);
+            Log("If no paper printed, this printer queue/driver is not accepting RAW ESC/POS data.");
+        }
+        catch (Exception ex)
+        {
+            Log("ERROR: " + ex.Message);
+            MessageBox.Show(this, ex.Message, "Print test failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
     private async Task TryCommonCommandsAsync()
     {
         var printerName = _printerName.Text.Trim();
@@ -333,6 +362,7 @@ public sealed class DrawerConfigManagerForm : Form
         _saveButton.Enabled = !isBusy;
         _reloadButton.Enabled = !isBusy;
         _testButton.Enabled = !isBusy;
+        _printTestButton.Enabled = !isBusy;
         _tryCommonButton.Enabled = !isBusy;
         _openInstallFolderButton.Enabled = !isBusy;
         Cursor = isBusy ? Cursors.WaitCursor : Cursors.Default;
@@ -503,6 +533,22 @@ public sealed record DrawerCommandCandidate(string Name, string CommandText, byt
 
 public static class RawPrinter
 {
+    public static byte[] BuildDiagnosticReceiptBytes()
+    {
+        var lines = string.Join("\r\n", new[]
+        {
+            "\u001b@",
+            "AphiwatPOS printer test",
+            DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+            "If this prints, RAW printing works.",
+            "",
+            "",
+            ""
+        });
+
+        return System.Text.Encoding.ASCII.GetBytes(lines);
+    }
+
     public static void SendBytes(string printerName, byte[] bytes)
     {
         if (!OperatingSystem.IsWindows())
