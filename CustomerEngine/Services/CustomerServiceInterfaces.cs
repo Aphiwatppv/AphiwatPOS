@@ -56,6 +56,9 @@ public interface IRubberPriceService
     Task<IReadOnlyCollection<RubberPriceModel>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyCollection<RubberPriceModel>> GetActiveAsync(CancellationToken cancellationToken = default);
     Task<RubberPriceModel?> GetByIdAsync(int rubberPriceId, CancellationToken cancellationToken = default);
+    Task<int> CreateAsync(RubberPriceSaveModel model, CancellationToken cancellationToken = default);
+    Task UpdateAsync(RubberPriceUpdateModel model, CancellationToken cancellationToken = default);
+    Task ToggleActiveAsync(int rubberPriceId, bool isActive, CancellationToken cancellationToken = default);
 }
 
 public interface IRubberAuctionLocationService

@@ -25,6 +25,14 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "deployment", "deployment", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AphiwatPOS.Deployer", "tools\deployment\AphiwatPOS.Deployer\AphiwatPOS.Deployer.csproj", "{897E06CA-4270-4683-9E27-B2D14504080B}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "rubber-price-manager", "rubber-price-manager", "{F1A10CB8-1950-4A3B-B565-58A6D0982E68}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AphiwatPOS.RubberPriceManager", "tools\rubber-price-manager\AphiwatPOS.RubberPriceManager\AphiwatPOS.RubberPriceManager.csproj", "{E3955E99-0F1D-487A-AB70-4DBA3B8B1B5B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "drawer-config-manager", "drawer-config-manager", "{40D0F1B2-39F8-9755-477D-BF53181DD59D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AphiwatPOS.DrawerConfigManager", "tools\drawer-config-manager\AphiwatPOS.DrawerConfigManager\AphiwatPOS.DrawerConfigManager.csproj", "{065422D3-5E5F-439F-BE87-A25C6E7D81BC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -141,6 +149,30 @@ Global
 		{897E06CA-4270-4683-9E27-B2D14504080B}.Release|x64.Build.0 = Release|Any CPU
 		{897E06CA-4270-4683-9E27-B2D14504080B}.Release|x86.ActiveCfg = Release|Any CPU
 		{897E06CA-4270-4683-9E27-B2D14504080B}.Release|x86.Build.0 = Release|Any CPU
+		{E3955E99-0F1D-487A-AB70-4DBA3B8B1B5B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E3955E99-0F1D-487A-AB70-4DBA3B8B1B5B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E3955E99-0F1D-487A-AB70-4DBA3B8B1B5B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E3955E99-0F1D-487A-AB70-4DBA3B8B1B5B}.Debug|x64.Build.0 = Debug|Any CPU
+		{E3955E99-0F1D-487A-AB70-4DBA3B8B1B5B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E3955E99-0F1D-487A-AB70-4DBA3B8B1B5B}.Debug|x86.Build.0 = Debug|Any CPU
+		{E3955E99-0F1D-487A-AB70-4DBA3B8B1B5B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E3955E99-0F1D-487A-AB70-4DBA3B8B1B5B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E3955E99-0F1D-487A-AB70-4DBA3B8B1B5B}.Release|x64.ActiveCfg = Release|Any CPU
+		{E3955E99-0F1D-487A-AB70-4DBA3B8B1B5B}.Release|x64.Build.0 = Release|Any CPU
+		{E3955E99-0F1D-487A-AB70-4DBA3B8B1B5B}.Release|x86.ActiveCfg = Release|Any CPU
+		{E3955E99-0F1D-487A-AB70-4DBA3B8B1B5B}.Release|x86.Build.0 = Release|Any CPU
+		{065422D3-5E5F-439F-BE87-A25C6E7D81BC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{065422D3-5E5F-439F-BE87-A25C6E7D81BC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{065422D3-5E5F-439F-BE87-A25C6E7D81BC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{065422D3-5E5F-439F-BE87-A25C6E7D81BC}.Debug|x64.Build.0 = Debug|Any CPU
+		{065422D3-5E5F-439F-BE87-A25C6E7D81BC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{065422D3-5E5F-439F-BE87-A25C6E7D81BC}.Debug|x86.Build.0 = Debug|Any CPU
+		{065422D3-5E5F-439F-BE87-A25C6E7D81BC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{065422D3-5E5F-439F-BE87-A25C6E7D81BC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{065422D3-5E5F-439F-BE87-A25C6E7D81BC}.Release|x64.ActiveCfg = Release|Any CPU
+		{065422D3-5E5F-439F-BE87-A25C6E7D81BC}.Release|x64.Build.0 = Release|Any CPU
+		{065422D3-5E5F-439F-BE87-A25C6E7D81BC}.Release|x86.ActiveCfg = Release|Any CPU
+		{065422D3-5E5F-439F-BE87-A25C6E7D81BC}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -148,6 +180,10 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{B2F455E8-F4EB-344F-FCF0-572796676210} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 		{897E06CA-4270-4683-9E27-B2D14504080B} = {B2F455E8-F4EB-344F-FCF0-572796676210}
+		{F1A10CB8-1950-4A3B-B565-58A6D0982E68} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
+		{E3955E99-0F1D-487A-AB70-4DBA3B8B1B5B} = {F1A10CB8-1950-4A3B-B565-58A6D0982E68}
+		{40D0F1B2-39F8-9755-477D-BF53181DD59D} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
+		{065422D3-5E5F-439F-BE87-A25C6E7D81BC} = {40D0F1B2-39F8-9755-477D-BF53181DD59D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {95FC0B2F-7623-4151-AF97-4B7E104EAAAF}

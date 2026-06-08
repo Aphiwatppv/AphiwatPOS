@@ -197,6 +197,18 @@ public sealed class RubberPriceModel
     public DateTime? UpdatedDate { get; init; }
 }
 
+public class RubberPriceSaveModel
+{
+    public decimal PricePerKg { get; init; }
+    public decimal PercentageOfService { get; init; }
+    public bool IsActive { get; init; } = true;
+}
+
+public sealed class RubberPriceUpdateModel : RubberPriceSaveModel
+{
+    public int RubberPriceId { get; init; }
+}
+
 public sealed class RubberAuctionLocationModel
 {
     public int RubberAuctionLocationId { get; init; }

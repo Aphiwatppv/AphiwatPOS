@@ -706,6 +706,63 @@ BEGIN
 END
 GO
 
+CREATE OR ALTER PROCEDURE dbo.spRubberPriceCreate
+    @PricePerKg DECIMAL(18,2),
+    @PercentageOfService DECIMAL(5,2),
+    @IsActive BIT = 1
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF @PricePerKg < 0 THROW 54030, 'Rubber price must not be negative.', 1;
+    IF @PercentageOfService < 0 OR @PercentageOfService > 100 THROW 54031, 'Service percentage must be between 0 and 100.', 1;
+
+    INSERT dbo.RubberPrice(PricePerKg, PercentageOfService, IsActive)
+    VALUES(@PricePerKg, @PercentageOfService, @IsActive);
+
+    SELECT CONVERT(INT, SCOPE_IDENTITY()) AS RubberPriceId;
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.spRubberPriceUpdate
+    @RubberPriceId INT,
+    @PricePerKg DECIMAL(18,2),
+    @PercentageOfService DECIMAL(5,2),
+    @IsActive BIT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF @RubberPriceId <= 0 THROW 54032, 'Rubber price id is required.', 1;
+    IF @PricePerKg < 0 THROW 54030, 'Rubber price must not be negative.', 1;
+    IF @PercentageOfService < 0 OR @PercentageOfService > 100 THROW 54031, 'Service percentage must be between 0 and 100.', 1;
+
+    UPDATE dbo.RubberPrice
+    SET PricePerKg = @PricePerKg,
+        PercentageOfService = @PercentageOfService,
+        IsActive = @IsActive,
+        UpdatedDate = SYSDATETIME()
+    WHERE RubberPriceId = @RubberPriceId;
+
+    IF @@ROWCOUNT = 0 THROW 54033, 'Rubber price was not found.', 1;
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.spRubberPriceToggleActive
+    @RubberPriceId INT,
+    @IsActive BIT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF @RubberPriceId <= 0 THROW 54032, 'Rubber price id is required.', 1;
+
+    UPDATE dbo.RubberPrice
+    SET IsActive = @IsActive,
+        UpdatedDate = SYSDATETIME()
+    WHERE RubberPriceId = @RubberPriceId;
+
+    IF @@ROWCOUNT = 0 THROW 54033, 'Rubber price was not found.', 1;
+END
+GO
+
 CREATE OR ALTER PROCEDURE dbo.spRubberAuctionLocationGetAll
 AS
 BEGIN

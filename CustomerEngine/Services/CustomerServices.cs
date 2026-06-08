@@ -485,6 +485,42 @@ public sealed class RubberPriceService : IRubberPriceService
         CustomerValidation.RequirePositive(rubberPriceId, nameof(rubberPriceId));
         return _accessService.QuerySingleOrDefaultAsync<RubberPriceModel, object>("dbo.spRubberPriceGetById", new { RubberPriceId = rubberPriceId }, cancellationToken);
     }
+
+    public Task<int> CreateAsync(RubberPriceSaveModel model, CancellationToken cancellationToken = default)
+    {
+        ValidateRubberPrice(model.PricePerKg, model.PercentageOfService);
+        return _accessService.QuerySingleAsync<int, object>("dbo.spRubberPriceCreate", new
+        {
+            model.PricePerKg,
+            model.PercentageOfService,
+            model.IsActive
+        }, cancellationToken);
+    }
+
+    public Task UpdateAsync(RubberPriceUpdateModel model, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.RequirePositive(model.RubberPriceId, nameof(model.RubberPriceId));
+        ValidateRubberPrice(model.PricePerKg, model.PercentageOfService);
+        return _accessService.ExecuteAsync("dbo.spRubberPriceUpdate", new
+        {
+            model.RubberPriceId,
+            model.PricePerKg,
+            model.PercentageOfService,
+            model.IsActive
+        }, cancellationToken);
+    }
+
+    public Task ToggleActiveAsync(int rubberPriceId, bool isActive, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.RequirePositive(rubberPriceId, nameof(rubberPriceId));
+        return _accessService.ExecuteAsync("dbo.spRubberPriceToggleActive", new { RubberPriceId = rubberPriceId, IsActive = isActive }, cancellationToken);
+    }
+
+    private static void ValidateRubberPrice(decimal pricePerKg, decimal percentageOfService)
+    {
+        if (pricePerKg < 0) throw new ArgumentException("Rubber price cannot be negative.", nameof(pricePerKg));
+        if (percentageOfService < 0 || percentageOfService > 100) throw new ArgumentException("Service percentage must be between 0 and 100.", nameof(percentageOfService));
+    }
 }
 
 public sealed class RubberAuctionLocationService : IRubberAuctionLocationService
