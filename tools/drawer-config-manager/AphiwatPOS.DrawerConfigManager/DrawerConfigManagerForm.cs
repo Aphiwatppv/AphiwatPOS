@@ -19,6 +19,7 @@ public sealed class DrawerConfigManagerForm : Form
     private readonly Button _saveButton = new();
     private readonly Button _reloadButton = new();
     private readonly Button _testButton = new();
+    private readonly Button _tryCommonButton = new();
     private readonly Button _openInstallFolderButton = new();
 
     public DrawerConfigManagerForm()
@@ -136,6 +137,11 @@ public sealed class DrawerConfigManagerForm : Form
         _testButton.Height = 36;
         _testButton.Click += (_, _) => TestDrawer();
 
+        _tryCommonButton.Text = "Try Common";
+        _tryCommonButton.Width = 130;
+        _tryCommonButton.Height = 36;
+        _tryCommonButton.Click += async (_, _) => await TryCommonCommandsAsync();
+
         _openInstallFolderButton.Text = "Open Folder";
         _openInstallFolderButton.Width = 130;
         _openInstallFolderButton.Height = 36;
@@ -144,6 +150,7 @@ public sealed class DrawerConfigManagerForm : Form
         actions.Controls.Add(_saveButton);
         actions.Controls.Add(_reloadButton);
         actions.Controls.Add(_testButton);
+        actions.Controls.Add(_tryCommonButton);
         actions.Controls.Add(_openInstallFolderButton);
         return actions;
     }
@@ -249,6 +256,50 @@ public sealed class DrawerConfigManagerForm : Form
         }
     }
 
+    private async Task TryCommonCommandsAsync()
+    {
+        var printerName = _printerName.Text.Trim();
+        if (string.IsNullOrWhiteSpace(printerName))
+        {
+            Log("Select a printer before trying common commands.");
+            return;
+        }
+
+        var confirm = MessageBox.Show(
+            this,
+            "This will send several cash drawer test commands to the selected printer. Stop when the drawer opens and use the command shown in the log.",
+            "Try common drawer commands",
+            MessageBoxButtons.OKCancel,
+            MessageBoxIcon.Information);
+
+        if (confirm != DialogResult.OK)
+        {
+            return;
+        }
+
+        SetBusy(true);
+        try
+        {
+            foreach (var command in DrawerKickCommand.CommonCommands)
+            {
+                Log($"Trying {command.Name}: {command.CommandText}");
+                RawPrinter.SendBytes(printerName, command.Bytes);
+                await Task.Delay(1800);
+            }
+
+            Log("Finished common command test. If one worked, copy that command into Kick command and save.");
+        }
+        catch (Exception ex)
+        {
+            Log("ERROR: " + ex.Message);
+            MessageBox.Show(this, ex.Message, "Common command test failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
     private DrawerConfig ReadConfigFromForm()
     {
         var printerName = _printerName.Text.Trim();
@@ -275,6 +326,16 @@ public sealed class DrawerConfigManagerForm : Form
         {
             Process.Start(new ProcessStartInfo(folder) { UseShellExecute = true });
         }
+    }
+
+    private void SetBusy(bool isBusy)
+    {
+        _saveButton.Enabled = !isBusy;
+        _reloadButton.Enabled = !isBusy;
+        _testButton.Enabled = !isBusy;
+        _tryCommonButton.Enabled = !isBusy;
+        _openInstallFolderButton.Enabled = !isBusy;
+        Cursor = isBusy ? Cursors.WaitCursor : Cursors.Default;
     }
 
     private void Log(string message)
@@ -389,6 +450,18 @@ public static class DrawerConfigFile
 
 public static class DrawerKickCommand
 {
+    public static IReadOnlyList<DrawerCommandCandidate> CommonCommands { get; } =
+    [
+        new("ESC p pin 2 short", "27,112,0,25,250", [27, 112, 0, 25, 250]),
+        new("ESC p pin 5 short", "27,112,1,25,250", [27, 112, 1, 25, 250]),
+        new("ESC p pin 2 medium", "27,112,0,50,250", [27, 112, 0, 50, 250]),
+        new("ESC p pin 5 medium", "27,112,1,50,250", [27, 112, 1, 50, 250]),
+        new("ESC p pin 2 long", "27,112,0,100,250", [27, 112, 0, 100, 250]),
+        new("ESC p pin 5 long", "27,112,1,100,250", [27, 112, 1, 100, 250]),
+        new("DLE DC4 pin 2", "16,20,1,0,1", [16, 20, 1, 0, 1]),
+        new("DLE DC4 pin 5", "16,20,1,1,1", [16, 20, 1, 1, 1])
+    ];
+
     public static void Validate(string command, int drawerPin)
     {
         if (drawerPin is not (2 or 5))
@@ -425,6 +498,8 @@ public static class DrawerKickCommand
         return bytes;
     }
 }
+
+public sealed record DrawerCommandCandidate(string Name, string CommandText, byte[] Bytes);
 
 public static class RawPrinter
 {

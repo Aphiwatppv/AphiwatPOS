@@ -25,3 +25,5 @@ C:\Program Files\AphiwatPOS\appsettings.json
 ```
 
 The app can save local drawer settings and test the drawer by sending the ESC/POS kick command to the selected printer.
+
+If pin 2 and pin 5 do not work, use **Try Common**. It sends several standard drawer pulse commands and logs each command. If one opens the drawer, copy that command into **Kick command** and save.

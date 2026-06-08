@@ -29,6 +29,7 @@ It manages the `ReceiptPrinter` cash drawer settings:
 - Allow manual drawer open
 
 Use **Test Drawer** to send the configured ESC/POS drawer command to the selected printer.
+Use **Try Common** if the usual pin 2 or pin 5 command does not open the drawer. It tries several standard ESC/POS pulse commands and logs each command.
 '@
 
 Set-Content -LiteralPath (Join-Path $output 'README.md') -Value $readme -Encoding UTF8
