@@ -19,6 +19,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CustomerEngine", "CustomerE
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SalesEngine", "SalesEngine\SalesEngine.csproj", "{5C6EB4E8-7171-4E05-9A5E-4ED976A49CE9}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{07C2787E-EAC7-C090-1BA3-A61EC2A24D84}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "deployment", "deployment", "{B2F455E8-F4EB-344F-FCF0-572796676210}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AphiwatPOS.Deployer", "tools\deployment\AphiwatPOS.Deployer\AphiwatPOS.Deployer.csproj", "{897E06CA-4270-4683-9E27-B2D14504080B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -123,9 +129,25 @@ Global
 		{5C6EB4E8-7171-4E05-9A5E-4ED976A49CE9}.Release|x64.Build.0 = Release|Any CPU
 		{5C6EB4E8-7171-4E05-9A5E-4ED976A49CE9}.Release|x86.ActiveCfg = Release|Any CPU
 		{5C6EB4E8-7171-4E05-9A5E-4ED976A49CE9}.Release|x86.Build.0 = Release|Any CPU
+		{897E06CA-4270-4683-9E27-B2D14504080B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{897E06CA-4270-4683-9E27-B2D14504080B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{897E06CA-4270-4683-9E27-B2D14504080B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{897E06CA-4270-4683-9E27-B2D14504080B}.Debug|x64.Build.0 = Debug|Any CPU
+		{897E06CA-4270-4683-9E27-B2D14504080B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{897E06CA-4270-4683-9E27-B2D14504080B}.Debug|x86.Build.0 = Debug|Any CPU
+		{897E06CA-4270-4683-9E27-B2D14504080B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{897E06CA-4270-4683-9E27-B2D14504080B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{897E06CA-4270-4683-9E27-B2D14504080B}.Release|x64.ActiveCfg = Release|Any CPU
+		{897E06CA-4270-4683-9E27-B2D14504080B}.Release|x64.Build.0 = Release|Any CPU
+		{897E06CA-4270-4683-9E27-B2D14504080B}.Release|x86.ActiveCfg = Release|Any CPU
+		{897E06CA-4270-4683-9E27-B2D14504080B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{B2F455E8-F4EB-344F-FCF0-572796676210} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
+		{897E06CA-4270-4683-9E27-B2D14504080B} = {B2F455E8-F4EB-344F-FCF0-572796676210}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {95FC0B2F-7623-4151-AF97-4B7E104EAAAF}
