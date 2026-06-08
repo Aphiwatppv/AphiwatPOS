@@ -27,6 +27,8 @@ artifacts\deployment-kit\
 
 Copy the whole `artifacts\deployment-kit` folder to the target computer.
 
+Do not run the deployer from `tools\deployment\AphiwatPOS.Deployer\bin\Debug` unless the generated `artifacts\deployment-kit` folder also exists in the same source checkout. The debug output folder does not contain the app package or database scripts by itself.
+
 ## Install on the target computer
 
 1. Install SQL Server or SQL Server Express.

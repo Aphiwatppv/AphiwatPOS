@@ -29,8 +29,9 @@ public sealed class DeploymentForm : Form
         StartPosition = FormStartPosition.CenterScreen;
 
         var baseDirectory = AppContext.BaseDirectory;
-        var defaultPackage = Path.Combine(baseDirectory, "package", "AphiwatPOS");
-        var defaultDatabaseScripts = Path.Combine(baseDirectory, "database", "AphiwatPOSDB");
+        var kitDirectory = DeploymentPathResolver.FindDeploymentKitRoot(baseDirectory);
+        var defaultPackage = Path.Combine(kitDirectory, "package", "AphiwatPOS");
+        var defaultDatabaseScripts = Path.Combine(kitDirectory, "database", "AphiwatPOSDB");
 
         var root = new TableLayoutPanel
         {
@@ -140,7 +141,8 @@ public sealed class DeploymentForm : Form
 
         Controls.Add(root);
 
-        Log("Deployment kit location: " + baseDirectory);
+        Log("Deployment app location: " + baseDirectory);
+        Log("Resolved deployment kit location: " + kitDirectory);
         Log("Expected package folder: " + defaultPackage);
         Log("Expected database scripts: " + defaultDatabaseScripts);
     }
@@ -179,7 +181,7 @@ public sealed class DeploymentForm : Form
             RunDatabaseScripts = _runDatabaseScripts.Checked,
             InstallService = _installService.Checked,
             OpenFirewall = _openFirewall.Checked,
-            DatabaseScriptsPath = Path.Combine(AppContext.BaseDirectory, "database", "AphiwatPOSDB")
+            DatabaseScriptsPath = DeploymentPathResolver.ResolveDatabaseScriptsPath(AppContext.BaseDirectory)
         };
     }
 
@@ -265,6 +267,42 @@ public sealed class DeploymentForm : Form
         checkBox.Margin = new Padding(0, 4, 0, 4);
         grid.Controls.Add(new Label(), 0, row);
         grid.Controls.Add(checkBox, 1, row);
+    }
+}
+
+public static class DeploymentPathResolver
+{
+    public static string FindDeploymentKitRoot(string startDirectory)
+    {
+        var directory = new DirectoryInfo(startDirectory);
+        while (directory is not null)
+        {
+            if (IsDeploymentKitRoot(directory.FullName))
+            {
+                return directory.FullName;
+            }
+
+            var artifactKit = Path.Combine(directory.FullName, "artifacts", "deployment-kit");
+            if (IsDeploymentKitRoot(artifactKit))
+            {
+                return artifactKit;
+            }
+
+            directory = directory.Parent;
+        }
+
+        return startDirectory;
+    }
+
+    public static string ResolveDatabaseScriptsPath(string startDirectory)
+    {
+        return Path.Combine(FindDeploymentKitRoot(startDirectory), "database", "AphiwatPOSDB");
+    }
+
+    private static bool IsDeploymentKitRoot(string path)
+    {
+        return File.Exists(Path.Combine(path, "package", "AphiwatPOS", "AphiwatPOS.exe"))
+            && File.Exists(Path.Combine(path, "database", "AphiwatPOSDB", "Script.PostDeployment.sql"));
     }
 }
 
@@ -490,9 +528,9 @@ END
         var serviceUrl = $"http://*:{options.Port}";
         var binaryPath = $"\"{exePath}\" --urls {serviceUrl}";
 
-        RunProcess("sc.exe", $"create \"{options.ServiceName}\" binPath= \"{binaryPath}\" start= auto DisplayName= \"AphiwatPOS\"", log);
-        RunProcess("sc.exe", $"description \"{options.ServiceName}\" \"AphiwatPOS web application service\"", log);
-        RunProcess("sc.exe", $"start \"{options.ServiceName}\"", log, throwOnError: false);
+        RunProcess("sc.exe", log, "create", options.ServiceName, "binPath=", binaryPath, "start=", "auto", "DisplayName=", "AphiwatPOS");
+        RunProcess("sc.exe", log, "description", options.ServiceName, "AphiwatPOS web application service");
+        RunProcess("sc.exe", log, "start", options.ServiceName);
         log("Windows Service configured at " + serviceUrl);
     }
 
@@ -516,33 +554,66 @@ ALTER ROLE db_owner ADD MEMBER {QuoteSqlName(windowsIdentity)};
 
     private static void StopAndDeleteService(string serviceName, Action<string> log)
     {
-        RunProcess("sc.exe", $"stop \"{serviceName}\"", log, throwOnError: false);
+        if (!ServiceExists(serviceName))
+        {
+            log("No existing Windows Service named " + serviceName + " was found.");
+            return;
+        }
+
+        RunProcess("sc.exe", log, throwOnError: false, "stop", serviceName);
         Thread.Sleep(1200);
-        RunProcess("sc.exe", $"delete \"{serviceName}\"", log, throwOnError: false);
+        RunProcess("sc.exe", log, "delete", serviceName);
         Thread.Sleep(1200);
     }
 
     private static void EnsureFirewallRule(DeploymentOptions options, Action<string> log)
     {
         var ruleName = $"{options.ServiceName} Port {options.Port}";
-        RunProcess("netsh.exe", $"advfirewall firewall delete rule name=\"{ruleName}\"", log, throwOnError: false);
-        RunProcess("netsh.exe", $"advfirewall firewall add rule name=\"{ruleName}\" dir=in action=allow protocol=TCP localport={options.Port}", log);
+        RunProcess("netsh.exe", log, throwOnError: false, "advfirewall", "firewall", "delete", "rule", "name=" + ruleName);
+        RunProcess("netsh.exe", log, "advfirewall", "firewall", "add", "rule", "name=" + ruleName, "dir=in", "action=allow", "protocol=TCP", "localport=" + options.Port);
         log("Firewall rule configured for TCP " + options.Port);
     }
 
-    private static void RunProcess(string fileName, string arguments, Action<string> log, bool throwOnError = true)
+    private static bool ServiceExists(string serviceName)
     {
-        log(fileName + " " + arguments);
         using var process = new Process();
         process.StartInfo = new ProcessStartInfo
         {
-            FileName = fileName,
-            Arguments = arguments,
+            FileName = "sc.exe",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             CreateNoWindow = true
         };
+        process.StartInfo.ArgumentList.Add("query");
+        process.StartInfo.ArgumentList.Add(serviceName);
+        process.Start();
+        process.WaitForExit();
+        return process.ExitCode == 0;
+    }
+
+    private static void RunProcess(string fileName, Action<string> log, params string[] arguments)
+    {
+        RunProcess(fileName, log, true, arguments);
+    }
+
+    private static void RunProcess(string fileName, Action<string> log, bool throwOnError, params string[] arguments)
+    {
+        log(fileName + " " + string.Join(" ", arguments.Select(FormatArgumentForLog)));
+        using var process = new Process();
+        process.StartInfo = new ProcessStartInfo
+        {
+            FileName = fileName,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+
+        foreach (var argument in arguments)
+        {
+            process.StartInfo.ArgumentList.Add(argument);
+        }
 
         process.Start();
         var output = process.StandardOutput.ReadToEnd();
@@ -563,6 +634,16 @@ ALTER ROLE db_owner ADD MEMBER {QuoteSqlName(windowsIdentity)};
         {
             throw new InvalidOperationException($"{fileName} exited with code {process.ExitCode}.");
         }
+    }
+
+    private static string FormatArgumentForLog(string argument)
+    {
+        if (argument.Length == 0 || argument.Any(char.IsWhiteSpace))
+        {
+            return "\"" + argument.Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+        }
+
+        return argument;
     }
 
     private static string EscapeSqlLiteral(string value)

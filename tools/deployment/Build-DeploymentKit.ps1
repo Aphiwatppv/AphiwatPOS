@@ -33,6 +33,10 @@ $readme = @'
 
 Run `AphiwatPOS.Deployer.exe` as Administrator on the target Windows computer.
 
+Keep this whole folder together. The deployer expects these sibling folders:
+- `package\AphiwatPOS`
+- `database\AphiwatPOSDB`
+
 Recommended target machine prerequisites:
 - SQL Server or SQL Server Express installed.
 - A Windows account with permission to create the database and grant access.
