@@ -33,6 +33,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "drawer-config-manager", "dr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AphiwatPOS.DrawerConfigManager", "tools\drawer-config-manager\AphiwatPOS.DrawerConfigManager\AphiwatPOS.DrawerConfigManager.csproj", "{065422D3-5E5F-439F-BE87-A25C6E7D81BC}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "bulk-product-updater", "bulk-product-updater", "{BDE4BE11-9253-FBC2-2149-74FDB88884BE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AphiwatPOS.BulkProductUpdater", "tools\bulk-product-updater\AphiwatPOS.BulkProductUpdater\AphiwatPOS.BulkProductUpdater.csproj", "{263E2438-F01B-4735-BAB8-2DE6597187F2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -173,6 +177,18 @@ Global
 		{065422D3-5E5F-439F-BE87-A25C6E7D81BC}.Release|x64.Build.0 = Release|Any CPU
 		{065422D3-5E5F-439F-BE87-A25C6E7D81BC}.Release|x86.ActiveCfg = Release|Any CPU
 		{065422D3-5E5F-439F-BE87-A25C6E7D81BC}.Release|x86.Build.0 = Release|Any CPU
+		{263E2438-F01B-4735-BAB8-2DE6597187F2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{263E2438-F01B-4735-BAB8-2DE6597187F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{263E2438-F01B-4735-BAB8-2DE6597187F2}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{263E2438-F01B-4735-BAB8-2DE6597187F2}.Debug|x64.Build.0 = Debug|Any CPU
+		{263E2438-F01B-4735-BAB8-2DE6597187F2}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{263E2438-F01B-4735-BAB8-2DE6597187F2}.Debug|x86.Build.0 = Debug|Any CPU
+		{263E2438-F01B-4735-BAB8-2DE6597187F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{263E2438-F01B-4735-BAB8-2DE6597187F2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{263E2438-F01B-4735-BAB8-2DE6597187F2}.Release|x64.ActiveCfg = Release|Any CPU
+		{263E2438-F01B-4735-BAB8-2DE6597187F2}.Release|x64.Build.0 = Release|Any CPU
+		{263E2438-F01B-4735-BAB8-2DE6597187F2}.Release|x86.ActiveCfg = Release|Any CPU
+		{263E2438-F01B-4735-BAB8-2DE6597187F2}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -184,6 +200,8 @@ Global
 		{E3955E99-0F1D-487A-AB70-4DBA3B8B1B5B} = {F1A10CB8-1950-4A3B-B565-58A6D0982E68}
 		{40D0F1B2-39F8-9755-477D-BF53181DD59D} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 		{065422D3-5E5F-439F-BE87-A25C6E7D81BC} = {40D0F1B2-39F8-9755-477D-BF53181DD59D}
+		{BDE4BE11-9253-FBC2-2149-74FDB88884BE} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
+		{263E2438-F01B-4735-BAB8-2DE6597187F2} = {BDE4BE11-9253-FBC2-2149-74FDB88884BE}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {95FC0B2F-7623-4151-AF97-4B7E104EAAAF}
