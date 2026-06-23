@@ -491,6 +491,7 @@ public sealed class RubberPriceService : IRubberPriceService
         ValidateRubberPrice(model.PricePerKg, model.PercentageOfService);
         return _accessService.QuerySingleAsync<int, object>("dbo.spRubberPriceCreate", new
         {
+            model.RubberAuctionLocationId,
             model.PricePerKg,
             model.PercentageOfService,
             model.IsActive
@@ -504,6 +505,7 @@ public sealed class RubberPriceService : IRubberPriceService
         return _accessService.ExecuteAsync("dbo.spRubberPriceUpdate", new
         {
             model.RubberPriceId,
+            model.RubberAuctionLocationId,
             model.PricePerKg,
             model.PercentageOfService,
             model.IsActive
@@ -514,6 +516,12 @@ public sealed class RubberPriceService : IRubberPriceService
     {
         CustomerValidation.RequirePositive(rubberPriceId, nameof(rubberPriceId));
         return _accessService.ExecuteAsync("dbo.spRubberPriceToggleActive", new { RubberPriceId = rubberPriceId, IsActive = isActive }, cancellationToken);
+    }
+
+    public Task HardDeleteAsync(int rubberPriceId, CancellationToken cancellationToken = default)
+    {
+        CustomerValidation.RequirePositive(rubberPriceId, nameof(rubberPriceId));
+        return _accessService.ExecuteAsync("dbo.spRubberPriceHardDelete", new { RubberPriceId = rubberPriceId }, cancellationToken);
     }
 
     private static void ValidateRubberPrice(decimal pricePerKg, decimal percentageOfService)

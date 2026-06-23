@@ -15,6 +15,24 @@ The main grid supports:
 - Product update audit rows in `dbo.ProductBulkUpdateAudit`
 - Barcode scanner workflow from the barcode search field
 
+## Offline Mode
+
+When SQL Server cannot be reached, the app opens in offline mode using the latest local cache:
+
+```text
+OfflineData\product-cache.json
+```
+
+Offline mode supports:
+- Viewing cached products
+- Searching/filtering cached products
+- Editing cached product fields locally
+- Selecting/resizing/compressing product images locally
+- Exporting stock-count Excel from cached products
+- Importing stock-count Excel into the local cache
+
+Offline mode does not silently write changes to SQL Server. Reconnect to the database and click `โหลดข้อมูลใหม่` before performing database sync actions such as image sync or official stock update. This prevents accidental stock movement duplication.
+
 ## Product Code Format
 
 New product codes follow the same format as the web app:

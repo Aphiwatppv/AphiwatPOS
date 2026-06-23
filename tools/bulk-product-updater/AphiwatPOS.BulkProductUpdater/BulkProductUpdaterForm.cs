@@ -4,6 +4,8 @@ using System.Drawing.Imaging;
 using System.Drawing.Printing;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using ClosedXML.Excel;
 using Microsoft.Data.SqlClient;
 
@@ -11,11 +13,18 @@ namespace AphiwatPOS.BulkProductUpdater;
 
 public sealed class BulkProductUpdaterForm : Form
 {
+    private static readonly Color HeaderStart = Color.FromArgb(5, 37, 34);
+    private static readonly Color HeaderEnd = Color.FromArgb(16, 117, 104);
+    private static readonly Color PageBackground = Color.FromArgb(241, 245, 249);
+    private static readonly Color TextMain = Color.FromArgb(23, 37, 52);
+    private static readonly Color TextMuted = Color.FromArgb(71, 85, 105);
+    private static readonly Color Accent = Color.FromArgb(13, 116, 101);
     private readonly TextBox _sqlServer = new();
     private readonly TextBox _databaseName = new();
     private readonly CheckBox _trustServerCertificate = new();
     private readonly NumericUpDown _employeeId = new();
     private readonly ComboBox _location = new();
+    private readonly Label _connectionLabel = new();
     private readonly TextBox _searchName = new();
     private readonly TextBox _searchCode = new();
     private readonly TextBox _searchBarcode = new();
@@ -24,7 +33,9 @@ public sealed class BulkProductUpdaterForm : Form
     private readonly DataGridView _grid = new();
     private readonly TextBox _status = new();
     private readonly Label _summary = new();
+    private readonly OfflineProductStore _offlineStore = new();
     private readonly BindingList<ProductGridRow> _products = [];
+    private bool _offlineMode;
     private IReadOnlyList<InventoryLocationRow> _locations = [];
     private IReadOnlyList<LookupRow> _categories = [];
     private IReadOnlyList<LookupRow> _brands = [];
@@ -36,14 +47,16 @@ public sealed class BulkProductUpdaterForm : Form
         Text = "จัดการสินค้าและสต็อกสินค้า";
         MinimumSize = new Size(1360, 780);
         StartPosition = FormStartPosition.CenterScreen;
+        Font = new Font("Segoe UI", 10);
+        BackColor = PageBackground;
 
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
             RowCount = 5,
-            Padding = new Padding(16),
-            BackColor = Color.FromArgb(245, 247, 250)
+            Padding = new Padding(18),
+            BackColor = PageBackground
         };
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -58,24 +71,21 @@ public sealed class BulkProductUpdaterForm : Form
         root.Controls.Add(BuildStatusBox(), 0, 4);
         Controls.Add(root);
 
-        Shown += async (_, _) => await InitializeAsync();
+        Shown += async (_, _) =>
+        {
+            if (!PromptForConnection())
+            {
+                Close();
+                return;
+            }
+
+            await InitializeAsync();
+        };
     }
 
     private Control BuildConnectionPanel()
     {
-        var panel = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 10 };
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 85));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 70));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 145));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 82));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 95));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170));
-
-        _sqlServer.Text = "APHIWAT";
+        _sqlServer.Text = @".\SQLEXPRESS";
         _databaseName.Text = "AphiwatPOSDB";
         _trustServerCertificate.Text = "Trust certificate";
         _trustServerCertificate.Checked = true;
@@ -87,36 +97,127 @@ public sealed class BulkProductUpdaterForm : Form
         _location.ValueMember = nameof(InventoryLocationRow.LocationId);
         _location.SelectedIndexChanged += async (_, _) => await LoadProductsAsync();
 
-        var reload = ThaiButton("โหลดข้อมูลใหม่", 150);
+        var container = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            Height = 150,
+            RowCount = 2,
+            ColumnCount = 1,
+            BackColor = PageBackground,
+            Margin = new Padding(0, 0, 0, 14)
+        };
+        container.RowStyles.Add(new RowStyle(SizeType.Absolute, 86));
+        container.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
+
+        var banner = new GradientPanel
+        {
+            Dock = DockStyle.Fill,
+            StartColor = HeaderStart,
+            EndColor = HeaderEnd,
+            Padding = new Padding(22, 16, 22, 12)
+        };
+
+        var infoPanel = new Panel { Dock = DockStyle.Fill, BackColor = HeaderStart };
+        var title = new Label
+        {
+            Dock = DockStyle.Top,
+            Height = 34,
+            Text = "Bulk Product Updater",
+            Font = new Font("Segoe UI", 18, FontStyle.Bold),
+            ForeColor = Color.White,
+            BackColor = HeaderStart
+        };
+        _connectionLabel.Dock = DockStyle.Top;
+        _connectionLabel.Height = 24;
+        _connectionLabel.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        _connectionLabel.ForeColor = Color.FromArgb(205, 242, 235);
+        _connectionLabel.BackColor = HeaderStart;
+        UpdateConnectionLabel();
+        infoPanel.Controls.Add(_connectionLabel);
+        infoPanel.Controls.Add(title);
+
+        var database = ThaiButton("Database", 120);
+        database.BackColor = Color.FromArgb(18, 135, 119);
+        database.ForeColor = Color.White;
+        database.Click += async (_, _) =>
+        {
+            if (PromptForConnection())
+            {
+                await InitializeAsync();
+            }
+        };
+
+        var reload = ThaiButton("Reload", 120);
+        reload.BackColor = Color.FromArgb(31, 117, 105);
+        reload.ForeColor = Color.White;
         reload.Click += async (_, _) => await InitializeAsync();
 
-        AddLabel(panel, "SQL Server", 0, 0);
-        panel.Controls.Add(_sqlServer, 1, 0);
-        AddLabel(panel, "ฐานข้อมูล", 2, 0);
-        panel.Controls.Add(_databaseName, 3, 0);
-        panel.Controls.Add(_trustServerCertificate, 4, 0);
-        AddLabel(panel, "พนักงาน", 5, 0);
-        panel.Controls.Add(_employeeId, 6, 0);
-        AddLabel(panel, "คลังสินค้า", 7, 0);
-        panel.Controls.Add(_location, 8, 0);
-        panel.Controls.Add(reload, 9, 0);
-        return panel;
+        var bannerActions = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Right,
+            Width = 260,
+            FlowDirection = FlowDirection.RightToLeft,
+            WrapContents = false,
+            Padding = new Padding(0, 6, 0, 0),
+            BackColor = HeaderEnd
+        };
+        bannerActions.Controls.Add(reload);
+        bannerActions.Controls.Add(database);
+        banner.Controls.Add(infoPanel);
+        banner.Controls.Add(bannerActions);
+
+        var controlBar = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 6,
+            Padding = new Padding(18, 12, 18, 10),
+            BackColor = Color.White
+        };
+        controlBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
+        controlBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
+        controlBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 105));
+        controlBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 260));
+        controlBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        controlBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170));
+
+        _employeeId.Dock = DockStyle.Fill;
+        _location.Dock = DockStyle.Fill;
+        AddLabel(controlBar, "Employee", 0, 0);
+        controlBar.Controls.Add(_employeeId, 1, 0);
+        AddLabel(controlBar, "Warehouse", 2, 0);
+        controlBar.Controls.Add(_location, 3, 0);
+        _summary.Dock = DockStyle.Fill;
+        _summary.TextAlign = ContentAlignment.MiddleRight;
+        _summary.Font = new Font("Segoe UI Semibold", 10, FontStyle.Bold);
+        _summary.ForeColor = Accent;
+        controlBar.Controls.Add(_summary, 5, 0);
+
+        container.Controls.Add(banner, 0, 0);
+        container.Controls.Add(controlBar, 0, 1);
+        return container;
     }
 
     private Control BuildSearchPanel()
     {
-        var panel = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 11, Padding = new Padding(0, 12, 0, 0) };
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 135));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 125));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 155));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 96));
+        var panel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            Height = 94,
+            ColumnCount = 10,
+            Padding = new Padding(16, 14, 16, 12),
+            Margin = new Padding(0, 0, 0, 14),
+            BackColor = Color.White
+        };
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 128));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32));
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 24));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 24));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 104));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 132));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 96));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 118));
 
         _statusFilter.DropDownStyle = ComboBoxStyle.DropDownList;
         _statusFilter.Items.AddRange(["ทั้งหมด", "เปิดใช้งาน", "ปิดใช้งาน"]);
@@ -124,6 +225,11 @@ public sealed class BulkProductUpdaterForm : Form
         _unsyncedImagesOnly.Text = "รูปยังไม่ซิงค์";
         _unsyncedImagesOnly.AutoSize = true;
         _unsyncedImagesOnly.Dock = DockStyle.Fill;
+        _unsyncedImagesOnly.ForeColor = TextMuted;
+        _searchName.Dock = DockStyle.Fill;
+        _searchCode.Dock = DockStyle.Fill;
+        _searchBarcode.Dock = DockStyle.Fill;
+        _statusFilter.Dock = DockStyle.Fill;
         _searchBarcode.KeyDown += async (_, e) =>
         {
             if (e.KeyCode == Keys.Enter)
@@ -134,8 +240,12 @@ public sealed class BulkProductUpdaterForm : Form
         };
 
         var search = ThaiButton("ค้นหา", 86);
+        search.BackColor = Accent;
+        search.ForeColor = Color.White;
         search.Click += async (_, _) => await LoadProductsAsync();
         var clear = ThaiButton("ล้างตัวกรอง", 110);
+        clear.BackColor = Color.FromArgb(51, 65, 85);
+        clear.ForeColor = Color.White;
         clear.Click += async (_, _) =>
         {
             _searchName.Clear();
@@ -161,7 +271,14 @@ public sealed class BulkProductUpdaterForm : Form
 
     private Control BuildActionPanel()
     {
-        var panel = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 12, 0, 12) };
+        var panel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            Padding = new Padding(0, 0, 0, 14),
+            BackColor = PageBackground
+        };
         var create = ThaiButton("เพิ่มสินค้าใหม่", 145);
         var print = ThaiButton("พิมพ์บาร์โค้ด", 130);
         var image = ThaiButton("เพิ่มหรือเปลี่ยนรูปสินค้า", 200);
@@ -169,6 +286,14 @@ public sealed class BulkProductUpdaterForm : Form
         var export = ThaiButton("ส่งออกไฟล์ Excel สำหรับนับสต็อก", 250);
         var import = ThaiButton("นำเข้า Excel และอัปเดตสต็อก", 230);
         var history = ThaiButton("ประวัติการนำเข้าไฟล์ Excel", 220);
+        create.BackColor = Accent;
+        create.ForeColor = Color.White;
+        foreach (var button in new[] { print, image, syncImage, export, import, history })
+        {
+            button.BackColor = Color.White;
+            button.ForeColor = TextMain;
+            button.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+        }
 
         create.Click += async (_, _) => await CreateProductAsync();
         print.Click += (_, _) => PrintSelectedBarcode();
@@ -178,11 +303,6 @@ public sealed class BulkProductUpdaterForm : Form
         import.Click += async (_, _) => await ImportStockCountAsync();
         history.Click += async (_, _) => await ShowImportHistoryAsync();
 
-        _summary.AutoSize = true;
-        _summary.TextAlign = ContentAlignment.MiddleLeft;
-        _summary.Padding = new Padding(12, 8, 0, 0);
-        _summary.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-
         panel.Controls.Add(create);
         panel.Controls.Add(print);
         panel.Controls.Add(image);
@@ -190,7 +310,6 @@ public sealed class BulkProductUpdaterForm : Form
         panel.Controls.Add(export);
         panel.Controls.Add(import);
         panel.Controls.Add(history);
-        panel.Controls.Add(_summary);
         return panel;
     }
 
@@ -204,6 +323,21 @@ public sealed class BulkProductUpdaterForm : Form
         _grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
         _grid.MultiSelect = false;
         _grid.BackgroundColor = Color.White;
+        _grid.BorderStyle = BorderStyle.None;
+        _grid.EnableHeadersVisualStyles = false;
+        _grid.GridColor = Color.FromArgb(226, 232, 240);
+        _grid.ColumnHeadersHeight = 38;
+        _grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(15, 23, 42);
+        _grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+        _grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI Semibold", 10, FontStyle.Bold);
+        _grid.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
+        _grid.DefaultCellStyle.BackColor = Color.White;
+        _grid.DefaultCellStyle.ForeColor = TextMain;
+        _grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(209, 250, 229);
+        _grid.DefaultCellStyle.SelectionForeColor = Color.FromArgb(15, 23, 42);
+        _grid.DefaultCellStyle.Font = new Font("Segoe UI", 10);
+        _grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252);
+        _grid.RowTemplate.Height = 34;
         _grid.DataSource = _products;
         _grid.CellBeginEdit += (_, e) => _cellOriginalValue = _grid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value;
         _grid.CellValueChanged += async (_, e) => await SaveEditedCellAsync(e.RowIndex, e.ColumnIndex);
@@ -259,7 +393,8 @@ public sealed class BulkProductUpdaterForm : Form
 
     private async Task InitializeAsync()
     {
-        await RunAsync(async () =>
+        Cursor = Cursors.WaitCursor;
+        try
         {
             using var repo = CreateRepository();
             await repo.EnsureSupportObjectsAsync();
@@ -274,12 +409,31 @@ public sealed class BulkProductUpdaterForm : Form
                 column.DataSource = _units.ToArray();
             }
             await LoadProductsCoreAsync(repo);
+            _offlineMode = false;
+            _offlineStore.Save(new OfflineProductCache(_locations, _categories, _brands, _units, _products.ToArray()));
+            Log("เชื่อมต่อฐานข้อมูลสำเร็จ และบันทึกข้อมูลไว้ใช้ offline แล้ว");
             _searchBarcode.Focus();
-        });
+        }
+        catch (Exception ex)
+        {
+            Log("OFFLINE: " + ex.Message);
+            LoadOfflineCache();
+            MessageBox.Show(this, "ไม่สามารถเชื่อมต่อฐานข้อมูลได้ ระบบจะเปิดใช้งานแบบ Offline จากข้อมูลที่บันทึกล่าสุด", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        finally
+        {
+            Cursor = Cursors.Default;
+        }
     }
 
     private async Task LoadProductsAsync()
     {
+        if (_offlineMode)
+        {
+            LoadOfflineProducts();
+            return;
+        }
+
         await RunAsync(async () =>
         {
             using var repo = CreateRepository();
@@ -300,7 +454,45 @@ public sealed class BulkProductUpdaterForm : Form
         _products.Clear();
         foreach (var row in rows) _products.Add(row);
         _summary.Text = $"สินค้า {_products.Count:N0} รายการ";
+        _offlineStore.Save(new OfflineProductCache(_locations, _categories, _brands, _units, _products.ToArray()));
         Log($"โหลดสินค้า {_products.Count:N0} รายการ");
+    }
+
+    private void LoadOfflineCache()
+    {
+        var cache = _offlineStore.Load();
+        _offlineMode = true;
+        _locations = cache.Locations;
+        _categories = cache.Categories;
+        _brands = cache.Brands;
+        _units = cache.Units;
+        _location.DataSource = _locations;
+        foreach (var column in _grid.Columns.OfType<DataGridViewComboBoxColumn>())
+        {
+            column.DataSource = _units.ToArray();
+        }
+        LoadOfflineProducts();
+    }
+
+    private void LoadOfflineProducts()
+    {
+        var cache = _offlineStore.Load();
+        var name = _searchName.Text.Trim();
+        var code = _searchCode.Text.Trim();
+        var barcode = _searchBarcode.Text.Trim();
+        var active = _statusFilter.SelectedIndex switch { 1 => true, 2 => false, _ => (bool?)null };
+        _products.Clear();
+        foreach (var product in cache.Products.Where(p =>
+            (string.IsNullOrWhiteSpace(name) || p.ProductName.Contains(name, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrWhiteSpace(code) || p.ProductCode.Contains(code, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrWhiteSpace(barcode) || p.Barcode.Contains(barcode, StringComparison.OrdinalIgnoreCase)) &&
+            (!active.HasValue || p.IsActive == active.Value) &&
+            (!_unsyncedImagesOnly.Checked || p.ImageSyncStatus is "Pending" or "Failed")))
+        {
+            _products.Add(product);
+        }
+        _summary.Text = $"Offline mode | สินค้า {_products.Count:N0} รายการ";
+        Log($"โหลดข้อมูล offline {_products.Count:N0} รายการ");
     }
 
     private async Task BarcodeSearchAsync()
@@ -341,6 +533,16 @@ public sealed class BulkProductUpdaterForm : Form
             return;
         }
 
+        if (_offlineMode)
+        {
+            row.OfflineDirty = true;
+            row.LastUpdatedDateValue = DateTime.Now;
+            _offlineStore.UpsertProduct(row);
+            _grid.Rows[rowIndex].Cells[columnIndex].Style.BackColor = Color.FromArgb(220, 252, 231);
+            MessageBox.Show(this, "บันทึกข้อมูลแบบ Offline แล้ว กรุณาซิงค์เมื่อเชื่อมต่อฐานข้อมูลได้", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
         await RunAsync(async () =>
         {
             using var repo = CreateRepository();
@@ -372,6 +574,12 @@ public sealed class BulkProductUpdaterForm : Form
 
     private async Task CreateProductAsync(string? scannedBarcode = null)
     {
+        if (_offlineMode)
+        {
+            MessageBox.Show(this, "โหมด Offline ยังไม่สามารถเพิ่มสินค้าใหม่ได้ กรุณาเชื่อมต่อฐานข้อมูลก่อนเพิ่มสินค้า", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
         await RunAsync(async () =>
         {
             using var repo = CreateRepository();
@@ -424,6 +632,19 @@ public sealed class BulkProductUpdaterForm : Form
         await RunAsync(async () =>
         {
             var saved = ProductImageStore.SaveProductImage(dialog.FileName, product.ProductCode);
+            if (_offlineMode)
+            {
+                product.LocalImagePath = saved.LocalPath;
+                product.ImageHash = saved.Hash;
+                product.ImageSyncStatus = "Pending";
+                product.OfflineDirty = true;
+                product.LastUpdatedDateValue = DateTime.Now;
+                _offlineStore.UpsertProduct(product);
+                _grid.Refresh();
+                MessageBox.Show(this, "บันทึกรูปสินค้าแบบ Offline แล้ว กรุณาซิงค์เมื่อเชื่อมต่อฐานข้อมูลได้", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
             using var repo = CreateRepository();
             await repo.UpsertProductImageAsync(product.ProductId, saved.LocalPath, saved.Hash, CurrentEmployeeId(), "Pending", null);
             var refreshed = await repo.GetProductByIdAsync(product.ProductId, SelectedLocationId());
@@ -438,6 +659,12 @@ public sealed class BulkProductUpdaterForm : Form
 
     private async Task SyncProductImagesAsync()
     {
+        if (_offlineMode)
+        {
+            MessageBox.Show(this, "ขณะนี้อยู่ในโหมด Offline กรุณาเชื่อมต่อฐานข้อมูลแล้วกดโหลดข้อมูลใหม่ก่อนซิงค์รูปภาพ", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
         await RunAsync(async () =>
         {
             using var repo = CreateRepository();
@@ -481,6 +708,19 @@ public sealed class BulkProductUpdaterForm : Form
 
     private async Task ExportStockCountTemplateAsync()
     {
+        if (_offlineMode)
+        {
+            using var offlineDialog = new SaveFileDialog
+            {
+                Filter = "Excel workbook (*.xlsx)|*.xlsx",
+                FileName = $"StockCountTemplate_{DateTime.Now:yyyyMMdd_HHmm}.xlsx"
+            };
+            if (offlineDialog.ShowDialog(this) != DialogResult.OK) return;
+            ExcelStockCountService.ExportTemplate(offlineDialog.FileName, _products.ToArray(), DateTime.Now, CurrentEmployeeId());
+            MessageBox.Show(this, "ส่งออกไฟล์ Excel จากข้อมูล Offline เรียบร้อยแล้ว", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
         await RunAsync(async () =>
         {
             using var repo = CreateRepository();
@@ -509,6 +749,28 @@ public sealed class BulkProductUpdaterForm : Form
     {
         using var dialog = new OpenFileDialog { Filter = "Excel workbook (*.xlsx)|*.xlsx" };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+        if (_offlineMode)
+        {
+            await RunAsync(async () =>
+            {
+                var preview = await ExcelStockCountService.ImportPreviewFromProductsAsync(dialog.FileName, _products.ToArray());
+                using var previewForm = new StockImportPreviewForm(preview);
+                if (previewForm.ShowDialog(this) != DialogResult.OK) return;
+                foreach (var row in preview.Rows.Where(x => x.Status == ImportRowStatus.Ready && x.NewStock.HasValue && x.Difference != 0))
+                {
+                    var product = _products.FirstOrDefault(x => x.ProductId == row.ProductId || x.ProductCode.Equals(row.ProductCode, StringComparison.OrdinalIgnoreCase));
+                    if (product is null) continue;
+                    product.CurrentStock = row.NewStock.GetValueOrDefault();
+                    product.OfflineDirty = true;
+                    product.LastUpdatedDateValue = DateTime.Now;
+                    _offlineStore.UpsertProduct(product);
+                }
+                LoadOfflineProducts();
+                MessageBox.Show(this, "อัปเดตสต็อกลงข้อมูล Offline แล้ว กรุณาซิงค์เมื่อเชื่อมต่อฐานข้อมูลได้", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            });
+            return;
+        }
 
         await RunAsync(async () =>
         {
@@ -543,6 +805,26 @@ public sealed class BulkProductUpdaterForm : Form
         if (string.IsNullOrWhiteSpace(database)) throw new InvalidOperationException("Database is required.");
         var trust = _trustServerCertificate.Checked ? "True" : "False";
         return new ProductStockRepository($"Data Source={server};Initial Catalog={database};Integrated Security=True;Encrypt=True;TrustServerCertificate={trust};Connect Timeout=60");
+    }
+
+    private bool PromptForConnection()
+    {
+        using var form = new BulkProductConnectionForm(_sqlServer.Text, _databaseName.Text, _trustServerCertificate.Checked);
+        if (form.ShowDialog(this) != DialogResult.OK)
+        {
+            return false;
+        }
+
+        _sqlServer.Text = form.SqlServer;
+        _databaseName.Text = form.DatabaseName;
+        _trustServerCertificate.Checked = form.TrustServerCertificate;
+        UpdateConnectionLabel();
+        return true;
+    }
+
+    private void UpdateConnectionLabel()
+    {
+        _connectionLabel.Text = $"Connected target: {_sqlServer.Text.Trim()} / {_databaseName.Text.Trim()}";
     }
 
     private int SelectedLocationId() => _location.SelectedItem is InventoryLocationRow row ? row.LocationId : _locations.FirstOrDefault(x => x.IsDefault)?.LocationId ?? _locations.FirstOrDefault()?.LocationId ?? 0;
@@ -592,11 +874,13 @@ public sealed class BulkProductUpdaterForm : Form
     {
         Text = text,
         Width = width,
-        Height = 38,
+        Height = 40,
         FlatStyle = FlatStyle.Flat,
         BackColor = Color.White,
         Font = new Font("Segoe UI", 10, FontStyle.Bold),
-        Margin = new Padding(0, 0, 8, 0)
+        Margin = new Padding(0, 0, 8, 0),
+        Cursor = Cursors.Hand,
+        Padding = new Padding(8, 0, 8, 0)
     };
 
     private static void AddLabel(TableLayoutPanel panel, string text, int column, int row)
@@ -607,6 +891,7 @@ public sealed class BulkProductUpdaterForm : Form
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleLeft,
             Font = new Font("Segoe UI", 10, FontStyle.Bold),
+            ForeColor = TextMain,
             Margin = new Padding(0, 4, 8, 4)
         }, column, row);
     }
@@ -1126,6 +1411,51 @@ WHERE p.ProductId=@ProductId;
     }
 }
 
+public sealed class OfflineProductStore
+{
+    private readonly string _path = Path.Combine(AppContext.BaseDirectory, "OfflineData", "product-cache.json");
+    private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
+
+    public OfflineProductCache Load()
+    {
+        try
+        {
+            if (!File.Exists(_path)) return OfflineProductCache.Empty;
+            return JsonSerializer.Deserialize<OfflineProductCache>(File.ReadAllText(_path), Options) ?? OfflineProductCache.Empty;
+        }
+        catch
+        {
+            return OfflineProductCache.Empty;
+        }
+    }
+
+    public void Save(OfflineProductCache cache)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        File.WriteAllText(_path, JsonSerializer.Serialize(cache, Options), Encoding.UTF8);
+    }
+
+    public void UpsertProduct(ProductGridRow product)
+    {
+        var cache = Load();
+        var products = cache.Products.ToList();
+        var index = products.FindIndex(x => x.ProductId == product.ProductId || x.ProductCode.Equals(product.ProductCode, StringComparison.OrdinalIgnoreCase));
+        if (index >= 0) products[index] = product;
+        else products.Add(product);
+        Save(cache with { Products = products });
+    }
+}
+
+public sealed record OfflineProductCache(
+    IReadOnlyList<InventoryLocationRow> Locations,
+    IReadOnlyList<LookupRow> Categories,
+    IReadOnlyList<LookupRow> Brands,
+    IReadOnlyList<LookupRow> Units,
+    IReadOnlyList<ProductGridRow> Products)
+{
+    public static OfflineProductCache Empty { get; } = new([], [], [], [], []);
+}
+
 public sealed class BarcodeService(ProductStockRepository repository)
 {
     public async Task<string> GenerateUniqueBarcodeAsync(CancellationToken cancellationToken = default)
@@ -1352,6 +1682,54 @@ public static class ExcelStockCountService
             preview.Rows.Add(StockImportPreviewRow.Ready(product, newStock));
         }
         return preview;
+    }
+
+    public static Task<StockImportPreview> ImportPreviewFromProductsAsync(string path, IReadOnlyList<ProductGridRow> products)
+    {
+        using var workbook = new XLWorkbook(path);
+        var sheet = workbook.Worksheets.FirstOrDefault(x => x.Name == "ตรวจนับสต็อก") ?? workbook.Worksheets.First();
+        var headerRow = 3;
+        var map = new Dictionary<string, int>();
+        for (var c = 1; c <= sheet.LastColumnUsed().ColumnNumber(); c++) map[sheet.Cell(headerRow, c).GetString().Trim()] = c;
+        if (!map.ContainsKey("รหัสสินค้า") || !map.ContainsKey("บาร์โค้ด") || !map.ContainsKey("สต็อกใหม่"))
+        {
+            throw new InvalidOperationException("ไฟล์ Excel ไม่ตรงกับรูปแบบที่ระบบกำหนด กรุณาใช้ไฟล์ Template ที่ส่งออกจากระบบ");
+        }
+
+        var preview = new StockImportPreview(Path.GetFileName(path));
+        for (var r = headerRow + 1; r <= sheet.LastRowUsed().RowNumber(); r++)
+        {
+            var productCode = sheet.Cell(r, map["รหัสสินค้า"]).GetString().Trim();
+            var barcode = sheet.Cell(r, map["บาร์โค้ด"]).GetString().Trim();
+            var newStockText = sheet.Cell(r, map["สต็อกใหม่"]).GetString().Trim();
+            if (string.IsNullOrWhiteSpace(productCode) && string.IsNullOrWhiteSpace(barcode)) continue;
+            if (string.IsNullOrWhiteSpace(newStockText))
+            {
+                preview.Rows.Add(StockImportPreviewRow.Skipped(productCode, barcode, "ข้ามรายการ: ไม่ได้กรอกสต็อกใหม่"));
+                continue;
+            }
+            if (!decimal.TryParse(newStockText, out var newStock) || newStock < 0)
+            {
+                preview.Rows.Add(StockImportPreviewRow.Error(productCode, barcode, "จำนวนสต็อกใหม่ต้องเป็นตัวเลขและต้องไม่ต่ำกว่า 0"));
+                continue;
+            }
+            var product = products.FirstOrDefault(p =>
+                (!string.IsNullOrWhiteSpace(productCode) && p.ProductCode.Equals(productCode, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(barcode) && p.Barcode.Equals(barcode, StringComparison.OrdinalIgnoreCase)));
+            if (product is null)
+            {
+                preview.Rows.Add(StockImportPreviewRow.Error(productCode, barcode, "ไม่พบสินค้าที่ตรงกับรหัสสินค้าหรือบาร์โค้ด"));
+                continue;
+            }
+            var diff = newStock - product.CurrentStock;
+            if (diff == 0)
+            {
+                preview.Rows.Add(StockImportPreviewRow.Skipped(product.ProductCode, product.Barcode, "ข้ามรายการ: สต็อกไม่เปลี่ยนแปลง", product));
+                continue;
+            }
+            preview.Rows.Add(StockImportPreviewRow.Ready(product, newStock));
+        }
+        return Task.FromResult(preview);
     }
 }
 
@@ -1681,11 +2059,13 @@ public sealed class ProductGridRow
     public string ImageSyncStatus { get; set; } = "";
     public DateTime? UploadedDate { get; set; }
     public int? UploadedByEmployeeId { get; set; }
+    public bool OfflineDirty { get; set; }
     public string Description { get; set; } = "";
     public string Status { get; set; } = "Active";
     public bool IsActive { get; set; }
     public DateTime LastUpdatedDateValue { get; set; }
     public string LastUpdatedDate => LastUpdatedDateValue.ToString("yyyy-MM-dd HH:mm");
+    [JsonIgnore]
     public Image? Thumbnail => ProductImageStore.LoadThumbnail(LocalImagePath);
 }
 

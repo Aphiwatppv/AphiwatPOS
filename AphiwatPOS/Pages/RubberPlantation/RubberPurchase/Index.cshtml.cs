@@ -102,6 +102,14 @@ public sealed class IndexModel : PageModel
             return Page();
         }
 
+        if (!PriceMatchesAuctionLocation(selectedPrice, Input.RubberAuctionLocationId))
+        {
+            ModelState.AddModelError("Input.RubberPriceId", "Please select a market price for the selected auction location.");
+            ErrorMessage = "Please select a market price for the selected auction location.";
+            await LoadAsync(cancellationToken);
+            return Page();
+        }
+
         var grossAmount = Input.WeightKg * selectedPrice.PricePerKg;
         var deductionAmount = grossAmount * (selectedPrice.PercentageOfService / 100m);
         var totalAmount = Math.Max(0, grossAmount - deductionAmount);
@@ -191,6 +199,10 @@ public sealed class IndexModel : PageModel
         if (selectedPrice is null || !selectedPrice.IsActive)
         {
             ModelState.AddModelError("BatchInput.RubberPriceId", "Please select an active rubber price.");
+        }
+        else if (!PriceMatchesAuctionLocation(selectedPrice, BatchInput.RubberAuctionLocationId))
+        {
+            ModelState.AddModelError("BatchInput.RubberPriceId", "Please select a market price for the selected auction location.");
         }
 
         if (!ModelState.IsValid)
@@ -304,6 +316,12 @@ public sealed class IndexModel : PageModel
         {
             BatchInput.Rows.Add(new RubberPurchaseBatchRowInput());
         }
+    }
+
+    private static bool PriceMatchesAuctionLocation(RubberPriceModel selectedPrice, int rubberAuctionLocationId)
+    {
+        return selectedPrice.RubberAuctionLocationId is null
+            || selectedPrice.RubberAuctionLocationId == rubberAuctionLocationId;
     }
 
     private void RemoveModelStatePrefix(string prefix)

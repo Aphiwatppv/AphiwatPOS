@@ -200,6 +200,7 @@ BEGIN
     CREATE TABLE dbo.RubberPrice
     (
         RubberPriceId INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_RubberPrice PRIMARY KEY,
+        RubberAuctionLocationId INT NULL,
         PricePerKg DECIMAL(18,2) NOT NULL,
         PercentageOfService DECIMAL(5,2) NOT NULL,
         IsActive BIT NOT NULL CONSTRAINT DF_RubberPrice_IsActive DEFAULT(1),
@@ -223,6 +224,18 @@ BEGIN
         UpdatedDate DATETIME2(0) NULL
     );
 END
+GO
+
+IF COL_LENGTH(N'dbo.RubberPrice', N'RubberAuctionLocationId') IS NULL
+    ALTER TABLE dbo.RubberPrice ADD RubberAuctionLocationId INT NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_RubberPrice_AuctionLocation' AND parent_object_id = OBJECT_ID(N'dbo.RubberPrice'))
+    ALTER TABLE dbo.RubberPrice ADD CONSTRAINT FK_RubberPrice_AuctionLocation FOREIGN KEY(RubberAuctionLocationId) REFERENCES dbo.RubberAuctionLocation(RubberAuctionLocationId);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_RubberPrice_AuctionLocation' AND object_id = OBJECT_ID(N'dbo.RubberPrice'))
+    CREATE INDEX IX_RubberPrice_AuctionLocation ON dbo.RubberPrice(RubberAuctionLocationId, IsActive, CreatedDate DESC);
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_RubberAuctionLocation_LocationName' AND object_id = OBJECT_ID(N'dbo.RubberAuctionLocation'))
@@ -679,9 +692,12 @@ CREATE OR ALTER PROCEDURE dbo.spRubberPriceGetAll
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT RubberPriceId, PricePerKg, PercentageOfService, IsActive, CreatedDate, UpdatedDate
-    FROM dbo.RubberPrice
-    ORDER BY CreatedDate DESC, RubberPriceId DESC;
+    SELECT p.RubberPriceId, p.RubberAuctionLocationId, al.LocationName AS AuctionLocationName, p.PricePerKg, p.PercentageOfService, p.IsActive,
+           (SELECT COUNT(1) FROM dbo.RubberPurchaseHeader h WHERE h.RubberPriceId = p.RubberPriceId) AS UsedByPurchases,
+           p.CreatedDate, p.UpdatedDate
+    FROM dbo.RubberPrice p
+    LEFT JOIN dbo.RubberAuctionLocation al ON al.RubberAuctionLocationId = p.RubberAuctionLocationId
+    ORDER BY p.CreatedDate DESC, p.RubberPriceId DESC;
 END
 GO
 
@@ -689,10 +705,13 @@ CREATE OR ALTER PROCEDURE dbo.spRubberPriceGetActive
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT RubberPriceId, PricePerKg, PercentageOfService, IsActive, CreatedDate, UpdatedDate
-    FROM dbo.RubberPrice
-    WHERE IsActive = 1
-    ORDER BY CreatedDate DESC, RubberPriceId DESC;
+    SELECT p.RubberPriceId, p.RubberAuctionLocationId, al.LocationName AS AuctionLocationName, p.PricePerKg, p.PercentageOfService, p.IsActive,
+           (SELECT COUNT(1) FROM dbo.RubberPurchaseHeader h WHERE h.RubberPriceId = p.RubberPriceId) AS UsedByPurchases,
+           p.CreatedDate, p.UpdatedDate
+    FROM dbo.RubberPrice p
+    LEFT JOIN dbo.RubberAuctionLocation al ON al.RubberAuctionLocationId = p.RubberAuctionLocationId
+    WHERE p.IsActive = 1
+    ORDER BY p.CreatedDate DESC, p.RubberPriceId DESC;
 END
 GO
 
@@ -700,24 +719,29 @@ CREATE OR ALTER PROCEDURE dbo.spRubberPriceGetById @RubberPriceId INT
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT RubberPriceId, PricePerKg, PercentageOfService, IsActive, CreatedDate, UpdatedDate
-    FROM dbo.RubberPrice
-    WHERE RubberPriceId = @RubberPriceId;
+    SELECT p.RubberPriceId, p.RubberAuctionLocationId, al.LocationName AS AuctionLocationName, p.PricePerKg, p.PercentageOfService, p.IsActive,
+           (SELECT COUNT(1) FROM dbo.RubberPurchaseHeader h WHERE h.RubberPriceId = p.RubberPriceId) AS UsedByPurchases,
+           p.CreatedDate, p.UpdatedDate
+    FROM dbo.RubberPrice p
+    LEFT JOIN dbo.RubberAuctionLocation al ON al.RubberAuctionLocationId = p.RubberAuctionLocationId
+    WHERE p.RubberPriceId = @RubberPriceId;
 END
 GO
 
 CREATE OR ALTER PROCEDURE dbo.spRubberPriceCreate
     @PricePerKg DECIMAL(18,2),
     @PercentageOfService DECIMAL(5,2),
-    @IsActive BIT = 1
+    @IsActive BIT = 1,
+    @RubberAuctionLocationId INT=NULL
 AS
 BEGIN
     SET NOCOUNT ON;
     IF @PricePerKg < 0 THROW 54030, 'Rubber price must not be negative.', 1;
     IF @PercentageOfService < 0 OR @PercentageOfService > 100 THROW 54031, 'Service percentage must be between 0 and 100.', 1;
+    IF @RubberAuctionLocationId IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.RubberAuctionLocation WHERE RubberAuctionLocationId = @RubberAuctionLocationId) THROW 54034, 'Rubber auction location was not found.', 1;
 
-    INSERT dbo.RubberPrice(PricePerKg, PercentageOfService, IsActive)
-    VALUES(@PricePerKg, @PercentageOfService, @IsActive);
+    INSERT dbo.RubberPrice(RubberAuctionLocationId, PricePerKg, PercentageOfService, IsActive)
+    VALUES(@RubberAuctionLocationId, @PricePerKg, @PercentageOfService, @IsActive);
 
     SELECT CONVERT(INT, SCOPE_IDENTITY()) AS RubberPriceId;
 END
@@ -727,16 +751,19 @@ CREATE OR ALTER PROCEDURE dbo.spRubberPriceUpdate
     @RubberPriceId INT,
     @PricePerKg DECIMAL(18,2),
     @PercentageOfService DECIMAL(5,2),
-    @IsActive BIT
+    @IsActive BIT,
+    @RubberAuctionLocationId INT=NULL
 AS
 BEGIN
     SET NOCOUNT ON;
     IF @RubberPriceId <= 0 THROW 54032, 'Rubber price id is required.', 1;
     IF @PricePerKg < 0 THROW 54030, 'Rubber price must not be negative.', 1;
     IF @PercentageOfService < 0 OR @PercentageOfService > 100 THROW 54031, 'Service percentage must be between 0 and 100.', 1;
+    IF @RubberAuctionLocationId IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.RubberAuctionLocation WHERE RubberAuctionLocationId = @RubberAuctionLocationId) THROW 54034, 'Rubber auction location was not found.', 1;
 
     UPDATE dbo.RubberPrice
-    SET PricePerKg = @PricePerKg,
+    SET RubberAuctionLocationId = @RubberAuctionLocationId,
+        PricePerKg = @PricePerKg,
         PercentageOfService = @PercentageOfService,
         IsActive = @IsActive,
         UpdatedDate = SYSDATETIME()
@@ -763,6 +790,21 @@ BEGIN
 END
 GO
 
+CREATE OR ALTER PROCEDURE dbo.spRubberPriceHardDelete
+    @RubberPriceId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF @RubberPriceId <= 0 THROW 54032, 'Rubber price id is required.', 1;
+    IF NOT EXISTS (SELECT 1 FROM dbo.RubberPrice WHERE RubberPriceId = @RubberPriceId) THROW 54033, 'Rubber price was not found.', 1;
+    IF EXISTS (SELECT 1 FROM dbo.RubberPurchaseHeader WHERE RubberPriceId = @RubberPriceId)
+        THROW 54035, 'This rubber price is already used by purchases and cannot be hard deleted. Inactivate it instead.', 1;
+
+    DELETE dbo.RubberPrice
+    WHERE RubberPriceId = @RubberPriceId;
+END
+GO
+
 CREATE OR ALTER PROCEDURE dbo.spRubberAuctionLocationGetAll
 AS
 BEGIN
@@ -770,6 +812,26 @@ BEGIN
     SELECT RubberAuctionLocationId, LocationName, Address, IsActive, CreatedDate, UpdatedDate
     FROM dbo.RubberAuctionLocation
     ORDER BY LocationName;
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.spRubberAuctionLocationCreate
+    @LocationName NVARCHAR(150),
+    @Address NVARCHAR(500)=NULL,
+    @IsActive BIT=1
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET @LocationName = NULLIF(LTRIM(RTRIM(@LocationName)), N'');
+    SET @Address = NULLIF(LTRIM(RTRIM(@Address)), N'');
+    IF @LocationName IS NULL THROW 54036, 'Auction location name is required.', 1;
+    IF EXISTS (SELECT 1 FROM dbo.RubberAuctionLocation WHERE LocationName = @LocationName)
+        THROW 54037, 'Auction location name already exists.', 1;
+
+    INSERT dbo.RubberAuctionLocation(LocationName, Address, IsActive)
+    VALUES(@LocationName, @Address, @IsActive);
+
+    SELECT CONVERT(INT, SCOPE_IDENTITY()) AS RubberAuctionLocationId;
 END
 GO
 

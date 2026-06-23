@@ -1,0 +1,15 @@
+{
+  "StartupUrl": "http://127.0.0.1:5088",
+  "LocalServerUrl": "http://127.0.0.1:5088",
+  "AutoDetectLocalUrls": true,
+  "AllowStartLocalServer": false,
+  "WebProjectPath": null,
+  "CandidateUrls": [
+    "http://127.0.0.1:5088",
+    "http://localhost:5088",
+    "http://127.0.0.1:5000",
+    "http://localhost:5000",
+    "https://127.0.0.1:5001",
+    "https://localhost:5001"
+  ]
+}

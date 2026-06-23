@@ -190,15 +190,19 @@ public sealed class RubberSupplierMemberProfileSaveModel
 public sealed class RubberPriceModel
 {
     public int RubberPriceId { get; init; }
+    public int? RubberAuctionLocationId { get; init; }
+    public string? AuctionLocationName { get; init; }
     public decimal PricePerKg { get; init; }
     public decimal PercentageOfService { get; init; }
     public bool IsActive { get; init; }
+    public int UsedByPurchases { get; init; }
     public DateTime CreatedDate { get; init; }
     public DateTime? UpdatedDate { get; init; }
 }
 
 public class RubberPriceSaveModel
 {
+    public int? RubberAuctionLocationId { get; init; }
     public decimal PricePerKg { get; init; }
     public decimal PercentageOfService { get; init; }
     public bool IsActive { get; init; } = true;

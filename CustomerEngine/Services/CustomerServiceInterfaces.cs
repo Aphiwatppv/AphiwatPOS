@@ -59,6 +59,7 @@ public interface IRubberPriceService
     Task<int> CreateAsync(RubberPriceSaveModel model, CancellationToken cancellationToken = default);
     Task UpdateAsync(RubberPriceUpdateModel model, CancellationToken cancellationToken = default);
     Task ToggleActiveAsync(int rubberPriceId, bool isActive, CancellationToken cancellationToken = default);
+    Task HardDeleteAsync(int rubberPriceId, CancellationToken cancellationToken = default);
 }
 
 public interface IRubberAuctionLocationService
